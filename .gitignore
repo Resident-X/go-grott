@@ -29,7 +29,6 @@ Thumbs.db
 coverage.out
 coverage.html
 **/coverage/
-**/mocks/
 **/coverage.*
 
 # Go workspace file
