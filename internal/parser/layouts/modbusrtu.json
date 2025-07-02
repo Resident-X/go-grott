@@ -1,0 +1,34 @@
+{
+  "fields": {
+    "pvstatus": {
+      "pos": "10",
+      "len": "2",
+      "endian": "big",
+      "divider": 1
+    },
+    "pvpowerin": {
+      "pos": "12",
+      "len": "4",
+      "endian": "big", 
+      "divider": 10
+    },
+    "pv1voltage": {
+      "pos": "16",
+      "len": "4",
+      "endian": "big",
+      "divider": 10
+    },
+    "pv1current": {
+      "pos": "20",
+      "len": "4", 
+      "endian": "big",
+      "divider": 10
+    },
+    "pvfreqency": {
+      "pos": "24",
+      "len": "4",
+      "endian": "big",
+      "divider": 100
+    }
+  }
+}

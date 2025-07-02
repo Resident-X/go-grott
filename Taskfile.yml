@@ -1,0 +1,198 @@
+version: '3'
+
+vars:
+  BINARY_NAME: go-grott
+  BUILD_DIR: ./build
+  CMD_DIR: ./cmd
+  COVERAGE_DIR: ./coverage
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+    silent: true
+
+  # Development tasks
+  dev:
+    desc: Run in development mode with hot reload
+    deps: [ build ]
+    cmds:
+      - "{{.BUILD_DIR}}/{{.BINARY_NAME}} -config config.yaml"
+    silent: false
+
+  build:
+    desc: Build the application
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - go build -ldflags="-s -w" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} -v {{.CMD_DIR}}
+    sources:
+      - "**/*.go"
+      - go.mod
+      - go.sum
+    generates:
+      - "{{.BUILD_DIR}}/{{.BINARY_NAME}}"
+    silent: false
+
+  build-release:
+    desc: Build optimized release binary
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - CGO_ENABLED=0 go build -ldflags="-s -w -X main.version={{.VERSION}}" -a -installsuffix cgo -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.CMD_DIR}}
+    vars:
+      VERSION:
+        sh: git describe --tags --always --dirty 2>/dev/null || echo "dev"
+    silent: false
+
+  run:
+    desc: Run the application
+    deps: [ build ]
+    cmds:
+      - "{{.BUILD_DIR}}/{{.BINARY_NAME}}"
+    silent: false
+
+  run-with-config:
+    desc: Run with custom config
+    deps: [ build ]
+    cmds:
+      - "{{.BUILD_DIR}}/{{.BINARY_NAME}} -config {{.CONFIG}}"
+    silent: false
+    vars:
+      CONFIG:
+        sh: echo "${CONFIG:-./config.yaml}"
+
+  # Testing tasks
+  test:
+    desc: Run all tests
+    deps: [ mocks-clean ]
+    cmds:
+      - go test -v -race ./...
+    silent: false
+
+  test-coverage:
+    desc: Run tests with coverage (excludes mocks)
+    cmds:
+      - mkdir -p {{.COVERAGE_DIR}}
+      - go test -v -race -coverprofile={{.COVERAGE_DIR}}/coverage.out $(go list ./... | grep -v /mocks)
+      - go tool cover -html={{.COVERAGE_DIR}}/coverage.out -o {{.COVERAGE_DIR}}/coverage.html
+      - go tool cover -func={{.COVERAGE_DIR}}/coverage.out
+      - echo "Coverage report generated at {{.COVERAGE_DIR}}/coverage.html"
+    silent: false
+
+  coverage:
+    desc: Run tests with coverage analysis (excludes mocks)
+    cmds:
+      - mkdir -p {{.COVERAGE_DIR}}
+      - go test -coverprofile={{.COVERAGE_DIR}}/coverage.out $(go list ./... | grep -v /mocks)
+      - go tool cover -func={{.COVERAGE_DIR}}/coverage.out
+    silent: false
+
+  coverage-html:
+    desc: Generate HTML coverage report (excludes mocks)
+    deps: [ coverage ]
+    cmds:
+      - go tool cover -html={{.COVERAGE_DIR}}/coverage.out -o {{.COVERAGE_DIR}}/coverage.html
+      - echo "Coverage report generated at {{.COVERAGE_DIR}}/coverage.html"
+    silent: false
+
+  test-parser:
+    desc: Run only parser tests
+    cmds:
+      - go test -v -race ./internal/parser/...
+    silent: false
+
+  benchmark:
+    desc: Run benchmarks
+    cmds:
+      - go test -bench=. -benchmem ./...
+    silent: false
+
+  # Code quality tasks
+  fmt:
+    desc: Format Go code
+    cmds:
+      - go fmt ./...
+    silent: false
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+    silent: false
+
+  lint:
+    desc: Run golangci-lint (requires golangci-lint to be installed)
+    cmds:
+      - golangci-lint run
+    silent: false
+
+  check:
+    desc: Run all code quality checks
+    deps: [ fmt, vet, test ]
+    cmds:
+      - echo "All checks passed!"
+    silent: false
+
+  # Mock generation
+  mocks:
+    desc: Generate mocks using mockery
+    cmds:
+      - mockery
+    silent: false
+
+  mocks-clean:
+    desc: Clean and regenerate all mocks
+    cmds:
+      - rm -rf ./mocks
+      - mockery
+    silent: false
+
+  # Dependency management
+  deps:
+    desc: Download dependencies
+    cmds:
+      - go mod download
+      - go mod verify
+    silent: false
+
+  deps-update:
+    desc: Update dependencies
+    cmds:
+      - go get -u ./...
+      - go mod tidy
+    silent: false
+
+  deps-vendor:
+    desc: Vendor dependencies
+    cmds:
+      - go mod vendor
+    silent: false
+
+  # Cleanup tasks
+  clean:
+    desc: Clean build artifacts and caches
+    cmds:
+      - rm -rf {{.BUILD_DIR}}
+      - rm -rf {{.COVERAGE_DIR}}
+      - go clean -cache -testcache -modcache
+    silent: false
+
+  clean-build:
+    desc: Clean only build artifacts
+    cmds:
+      - rm -rf {{.BUILD_DIR}}
+    silent: false
+
+  # Docker tasks (optional)
+  docker-build:
+    desc: Build Docker image
+    cmds:
+      - docker build -t {{.BINARY_NAME}}:latest .
+    silent: false
+
+  # Install tasks
+  install:
+    desc: Install the binary to GOPATH/bin
+    cmds:
+      - go install {{.CMD_DIR}}
+    silent: false

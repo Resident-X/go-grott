@@ -1,0 +1,46 @@
+# go-grott configuration file
+
+# General settings
+log_level: debug # Log level: debug, info, warn, error, dpanic, panic, fatal
+min_record_length: 100 # Minimum length of valid data records in bytes
+decrypt: true # Whether to decrypt encrypted data from Growatt inverters
+inverter_type: default # Inverter model type: 'default', 'spf' (Off-grid), 'sph' (Hybrid), or 'max' (Max series)
+timezone: local # Timezone for timestamps: 'local' or an IANA timezone name (e.g., 'Europe/Amsterdam')
+
+# Data Collection Server settings
+server:
+  host: 0.0.0.0 # Bind address for the TCP server (0.0.0.0 = all interfaces)
+  port: 5279 # Port to listen on for Growatt inverter connections
+
+# HTTP API settings
+api:
+  enabled: true # Enable/disable the HTTP API for monitoring and management
+  host: 0.0.0.0 # Bind address for the HTTP API server
+  port: 5280 # Port for the HTTP API server
+
+# MQTT settings
+mqtt:
+  enabled: false # Enable/disable MQTT publishing
+  host: localhost # MQTT broker hostname or IP address
+  port: 1883 # MQTT broker port
+  username: "" # MQTT broker username (empty for no authentication)
+  password: "" # MQTT broker password (empty for no authentication)
+  topic: energy/growatt # Base MQTT topic where inverter data will be published
+  smart_meter_topic: energy/meter # Topic for smart meter data if present
+  use_smart_meter_topic: false # Whether to publish smart meter data to a separate topic
+  include_inverter_id: false # Whether to include inverter serial in topic path (e.g., energy/growatt/ABC123456)
+  retain: false # Whether MQTT messages should be retained on the broker
+
+# PVOutput settings
+pvoutput:
+  enabled: false # Enable/disable publishing to PVOutput.org
+  api_key: your_api_key_here # Your PVOutput.org API key
+  system_id: your_system_id_here # Your PVOutput.org system ID
+  update_limit_minutes: 5 # Minimum time between updates to PVOutput.org (rate limiting)
+  use_inverter_temp: false # Whether to include inverter temperature in PVOutput reports
+  disable_energy_today: false # Whether to omit daily energy production in PVOutput reports
+  multiple_inverters: false # Whether to support multiple inverters with different PVOutput systems
+  inverter_mappings: [] # Mappings from inverter serials to PVOutput system IDs
+  # Example mapping:
+  # - inverter_serial: "ABC123456"  # Serial number of the inverter
+  #   system_id: "12345"           # Corresponding PVOutput system ID

@@ -1,0 +1,106 @@
+version: "2"
+run:
+  go: "1.24"
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - copyloopvar
+    - dupl
+    - errcheck
+    - errname
+    - errorlint
+    - forcetypeassert
+    - goconst
+    - gocritic
+    - gocyclo
+    - godot
+    - gosec
+    - govet
+    - ineffassign
+    - misspell
+    - nilerr
+    - nilnil
+    - noctx
+    - nolintlint
+    - predeclared
+    - revive
+    - rowserrcheck
+    - staticcheck
+    - thelper
+    - unconvert
+    - unparam
+    - unused
+    - whitespace
+    - wrapcheck
+  settings:
+    dupl:
+      threshold: 100
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+    gocritic:
+      disabled-checks:
+        - whyNoLint
+      enabled-tags:
+        - diagnostic
+        - experimental
+        - opinionated
+        - performance
+        - style
+    gocyclo:
+      min-complexity: 15
+    godot:
+      scope: declarations
+      exclude:
+        - '^fixme:'
+        - '^todo:'
+    govet:
+      disable:
+        - fieldalignment
+        - shadow
+      enable-all: true
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+      allow-unused: false
+    staticcheck:
+      checks:
+        - all
+    wrapcheck:
+      ignore-sigs:
+        - .Errorf(
+        - errors.New(
+        - errors.Unwrap(
+        - .Wrap(
+        - .Wrapf(
+  exclusions:
+    generated: lax
+    rules:
+      - linters:
+          - dupl
+          - errcheck
+          - forcetypeassert
+          - goconst
+          - gosec
+        path: _test\.go
+      - linters:
+          - wrapcheck
+        path: cmd/
+      - linters:
+          - all
+        path: .*\.pb\.go$
+      - linters:
+          - all
+        path: mock.*\.go
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

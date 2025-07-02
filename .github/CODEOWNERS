@@ -1,0 +1,5 @@
+# Global code ownership
+# This file defines code ownership for the go-grott project
+# All files and directories are owned by resident-x
+
+* @resident-x
