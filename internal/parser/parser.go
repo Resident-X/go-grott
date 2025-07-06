@@ -212,6 +212,7 @@ func (p *Parser) Parse(ctx context.Context, data []byte) (*domain.InverterData, 
 
 	// Convert to hex string and detect layout.
 	hexStr := hex.EncodeToString(processedData)
+	p.logf("Hex string: %s", hexStr)
 	layout, layoutKey, err := p.detectLayout(hexStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect layout: %w", err)
