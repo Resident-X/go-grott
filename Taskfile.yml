@@ -25,7 +25,7 @@ tasks:
     desc: Build the application
     cmds:
       - mkdir -p {{.BUILD_DIR}}
-      - go build -ldflags="-s -w" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} -v {{.CMD_DIR}}
+      - go build -ldflags="-s -w -X main.Version=$(git rev-parse --short HEAD)" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} -v {{.CMD_DIR}}
     sources:
       - "**/*.go"
       - go.mod

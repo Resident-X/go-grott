@@ -290,9 +290,16 @@ func (p *Parser) buildLayoutKey(hexStr string) string {
 
 		// Add 'X' suffix for extended data.
 		isSmartMeter := deviceType[2:4] == "20" || deviceType[2:4] == "1b"
-		if len(hexStr) > extendedDataThreshold*2 && !isSmartMeter {
-			layoutKey += "X"
-			p.logf("Using extended layout for large data")
+		
+		if !isSmartMeter {
+			if len(hexStr) > extendedDataThreshold {
+				layoutKey += "X"
+				p.logf("Using extended layout for large data")
+			}
+			if p.config.InverterType != "default" {
+				layoutKey += p.config.InverterType
+				p.logf("Using inverter type from config: %s", p.config.InverterType)
+			}
 		}
 
 		return layoutKey
