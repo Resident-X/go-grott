@@ -12,24 +12,30 @@ import (
 	"github.com/resident-x/go-grott/internal/api"
 	"github.com/resident-x/go-grott/internal/config"
 	"github.com/resident-x/go-grott/internal/domain"
+	"github.com/resident-x/go-grott/internal/protocol"
+	"github.com/resident-x/go-grott/internal/scheduler"
+	"github.com/resident-x/go-grott/internal/session"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
 // DataCollectionServer manages the inverter data collection, processing and publishing.
 type DataCollectionServer struct {
-	config      *config.Config
-	listener    net.Listener
-	apiServer   *api.Server
-	parser      domain.DataParser
-	publisher   domain.MessagePublisher
-	monitoring  domain.MonitoringService
-	registry    domain.Registry
-	clients     map[string]net.Conn
-	clientMutex sync.RWMutex
-	done        chan struct{}
-	logger      zerolog.Logger
-	startTime   time.Time
+	config           *config.Config
+	listener         net.Listener
+	apiServer        *api.Server
+	parser           domain.DataParser
+	publisher        domain.MessagePublisher
+	monitoring       domain.MonitoringService
+	registry         domain.Registry
+	sessionManager   *session.SessionManager
+	responseManager  *protocol.ResponseManager
+	commandScheduler *scheduler.CommandScheduler
+	clients          map[string]net.Conn
+	clientMutex      sync.RWMutex
+	done             chan struct{}
+	logger           zerolog.Logger
+	startTime        time.Time
 }
 
 // NewDataCollectionServer creates a new data collection server instance.
@@ -41,16 +47,37 @@ func NewDataCollectionServer(cfg *config.Config, parser domain.DataParser,
 	// Create logger with component context.
 	logger := log.With().Str("component", "server").Logger()
 
+	// Create session manager with 30 minute timeout
+	sessionManager := session.NewSessionManager(30 * time.Minute)
+
+	// Create response manager
+	responseManager := protocol.NewResponseManager()
+
+	// Create command builder
+	commandBuilder := protocol.NewCommandBuilder()
+
+	// Create command scheduler with default configuration
+	commandScheduler := scheduler.NewCommandScheduler(
+		sessionManager,
+		commandBuilder,
+		responseManager,
+		scheduler.DefaultSchedulerConfig(),
+		logger,
+	)
+
 	// Create server instance.
 	server := &DataCollectionServer{
-		config:     cfg,
-		parser:     parser,
-		publisher:  publisher,
-		monitoring: monitoring,
-		registry:   registry,
-		clients:    make(map[string]net.Conn),
-		done:       make(chan struct{}),
-		logger:     logger,
+		config:           cfg,
+		parser:           parser,
+		publisher:        publisher,
+		monitoring:       monitoring,
+		registry:         registry,
+		sessionManager:   sessionManager,
+		responseManager:  responseManager,
+		commandScheduler: commandScheduler,
+		clients:          make(map[string]net.Conn),
+		done:             make(chan struct{}),
+		logger:           logger,
 	}
 
 	// Initialize HTTP API server if enabled.
@@ -79,6 +106,11 @@ func (s *DataCollectionServer) Start(ctx context.Context) error {
 		Str("version", "1.0.0").
 		Msg("Server started")
 
+	// Start command scheduler
+	if err := s.commandScheduler.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start command scheduler: %w", err)
+	}
+
 	// Start HTTP API server if enabled.
 	if s.apiServer != nil {
 		if err := s.apiServer.Start(ctx); err != nil {
@@ -98,6 +130,11 @@ func (s *DataCollectionServer) Stop(ctx context.Context) error {
 
 	// Signal shutdown
 	close(s.done)
+
+	// Stop command scheduler
+	if err := s.commandScheduler.Stop(); err != nil {
+		s.logger.Warn().Err(err).Msg("Error stopping command scheduler")
+	}
 
 	// Close listener
 	if s.listener != nil {
@@ -123,6 +160,11 @@ func (s *DataCollectionServer) Stop(ctx context.Context) error {
 		if err := s.apiServer.Stop(ctx); err != nil {
 			s.logger.Error().Err(err).Msg("Failed to stop API server")
 		}
+	}
+
+	// Close session manager
+	if s.sessionManager != nil {
+		s.sessionManager.Close()
 	}
 
 	// Close message publisher
@@ -184,7 +226,26 @@ func (s *DataCollectionServer) handleConnection(ctx context.Context, conn net.Co
 	// Get client IP and port
 	clientAddr := conn.RemoteAddr().String()
 
-	// Register client connection
+	// Create session for this connection
+	session := s.sessionManager.CreateSession(conn)
+
+	// Schedule initial time sync command for new session
+	if err := s.commandScheduler.ScheduleTimeSync(session.ID, scheduler.PriorityHigh); err != nil {
+		s.logger.Warn().
+			Err(err).
+			Str("session_id", session.ID).
+			Msg("Failed to schedule initial time sync")
+	}
+
+	// Schedule initial health check
+	if err := s.commandScheduler.ScheduleHealthCheck(session.ID, scheduler.PriorityLow); err != nil {
+		s.logger.Warn().
+			Err(err).
+			Str("session_id", session.ID).
+			Msg("Failed to schedule initial health check")
+	}
+
+	// Register client connection (for backward compatibility)
 	s.clientMutex.Lock()
 	s.clients[clientAddr] = conn
 	s.clientMutex.Unlock()
@@ -198,9 +259,15 @@ func (s *DataCollectionServer) handleConnection(ctx context.Context, conn net.Co
 		s.clientMutex.Lock()
 		delete(s.clients, clientAddr)
 		s.clientMutex.Unlock()
+		
+		// Remove session
+		s.sessionManager.RemoveSession(session.ID)
 	}()
 
-	s.logger.Info().Str("address", clientAddr).Msg("Client connected")
+	s.logger.Info().
+		Str("address", clientAddr).
+		Str("session_id", session.ID).
+		Msg("Client connected")
 
 	// Buffer for reading data
 	buf := make([]byte, 4096)
@@ -230,22 +297,95 @@ func (s *DataCollectionServer) handleConnection(ctx context.Context, conn net.Co
 				// Log disconnection and exit
 				s.logger.Info().
 					Str("address", clientAddr).
+					Str("session_id", session.ID).
 					Err(err).
 					Msg("Client disconnected")
 				return
 			}
 
 			if n > 0 {
-				// Process received data
-				if err := s.processData(ctx, clientAddr, buf[:n]); err != nil {
+				// Update session activity and stats
+				session.UpdateActivity()
+				session.AddBytesReceived(int64(n))
+
+				// Process received data and potentially send response
+				if err := s.processDataBidirectional(ctx, session, buf[:n]); err != nil {
+					session.IncrementErrorCount()
 					s.logger.Error().
 						Str("address", clientAddr).
+						Str("session_id", session.ID).
 						Err(err).
 						Msg("Failed to process data")
 				}
 			}
 		}
 	}
+}
+
+// processDataBidirectional handles incoming data packets with bidirectional communication support.
+func (s *DataCollectionServer) processDataBidirectional(ctx context.Context, session *session.Session, data []byte) error {
+	clientAddr := session.RemoteAddr
+
+	// Check if we should generate a response
+	if s.responseManager.ShouldRespond(data, clientAddr) {
+		// Generate response
+		response, err := s.responseManager.HandleIncomingData(data)
+		if err != nil {
+			s.logger.Debug().
+				Str("address", clientAddr).
+				Str("session_id", session.ID).
+				Err(err).
+				Msg("Failed to generate response")
+		} else if response != nil {
+			// Send response back to the device
+			if err := s.sendResponse(session, response); err != nil {
+				s.logger.Error().
+					Str("address", clientAddr).
+					Str("session_id", session.ID).
+					Err(err).
+					Msg("Failed to send response")
+			} else {
+				session.UpdateLastCommand()
+				s.logger.Debug().
+					Str("address", clientAddr).
+					Str("session_id", session.ID).
+					Uint8("response_type", response.Type).
+					Msg("Response sent successfully")
+			}
+		}
+	}
+
+	// Continue with normal data processing
+	return s.processData(ctx, clientAddr, data)
+}
+
+// sendResponse sends a response back to the connected device.
+func (s *DataCollectionServer) sendResponse(session *session.Session, response *protocol.Response) error {
+	if session.Connection == nil {
+		return fmt.Errorf("session has no active connection")
+	}
+
+	// Set write deadline
+	if err := session.Connection.SetWriteDeadline(time.Now().Add(10 * time.Second)); err != nil {
+		return fmt.Errorf("failed to set write deadline: %w", err)
+	}
+
+	// Write response data
+	n, err := session.Connection.Write(response.Data)
+	if err != nil {
+		return fmt.Errorf("failed to write response: %w", err)
+	}
+
+	// Update session stats
+	session.AddBytesSent(int64(n))
+
+	s.logger.Debug().
+		Str("session_id", session.ID).
+		Int("bytes", n).
+		Str("response_hex", protocol.FormatResponse(response)).
+		Msg("Response sent")
+
+	return nil
 }
 
 // processData handles incoming data packets.
@@ -260,6 +400,11 @@ func (s *DataCollectionServer) processData(ctx context.Context, clientAddr strin
 	host, _, err := net.SplitHostPort(clientAddr)
 	if err != nil {
 		return fmt.Errorf("failed to parse client address: %w", err)
+	}
+
+	// Update session with device information if available
+	if session, exists := s.sessionManager.GetSessionByAddr(clientAddr); exists {
+		s.updateSessionWithDeviceInfo(session, inverterData, data)
 	}
 
 	// Register devices in registry
@@ -299,4 +444,92 @@ func (s *DataCollectionServer) processData(ctx context.Context, clientAddr strin
 		Msg("Processed data packet")
 
 	return nil
+}
+
+// updateSessionWithDeviceInfo updates session information based on parsed data.
+func (s *DataCollectionServer) updateSessionWithDeviceInfo(sess *session.Session, data *domain.InverterData, rawData []byte) {
+	// Determine device type based on data content
+	deviceType := session.DeviceTypeUnknown
+	serialNumber := ""
+	
+	if data.DataloggerSerial != "" {
+		deviceType = session.DeviceTypeDatalogger
+		serialNumber = data.DataloggerSerial
+		
+		// If we also have PV serial, this might be an inverter
+		if data.PVSerial != "" {
+			deviceType = session.DeviceTypeInverter
+			serialNumber = data.PVSerial
+		}
+	}
+	
+	// Detect protocol from raw data
+	protocol := "unknown"
+	if len(rawData) >= 4 {
+		protocol = fmt.Sprintf("%02x", rawData[3])
+	}
+	
+	// Update session with device information
+	sess.SetDeviceInfo(deviceType, serialNumber, protocol, "")
+	
+	// Update session state to active if we successfully parsed data
+	if sess.GetState() == session.SessionStateConnected {
+		sess.SetState(session.SessionStateActive)
+	}
+}
+
+// GetMetrics returns server metrics including command scheduler status.
+func (s *DataCollectionServer) GetMetrics() map[string]interface{} {
+	metrics := make(map[string]interface{})
+	
+	// Server metrics
+	metrics["uptime"] = time.Since(s.startTime).Seconds()
+	metrics["start_time"] = s.startTime
+	
+	// Client connection metrics
+	s.clientMutex.RLock()
+	metrics["active_connections"] = len(s.clients)
+	s.clientMutex.RUnlock()
+	
+	// Session metrics
+	metrics["session_count"] = s.sessionManager.GetSessionCount()
+	allSessions := s.sessionManager.GetAllSessions()
+	
+	// Count sessions by state
+	stateCount := make(map[string]int)
+	deviceTypeCount := make(map[string]int)
+	
+	for _, sessionStat := range allSessions {
+		stateCount[sessionStat.State.String()]++
+		deviceTypeCount[sessionStat.DeviceType.String()]++
+	}
+	
+	metrics["session_states"] = stateCount
+	metrics["device_types"] = deviceTypeCount
+	
+	// Command scheduler metrics
+	schedulerMetrics := s.commandScheduler.GetMetrics()
+	for k, v := range schedulerMetrics {
+		metrics["scheduler_"+k] = v
+	}
+	
+	return metrics
+}
+
+// GetSchedulerMetrics returns detailed command scheduler metrics.
+func (s *DataCollectionServer) GetSchedulerMetrics() map[string]interface{} {
+	return s.commandScheduler.GetMetrics()
+}
+
+// ScheduleDeviceCommand allows manual scheduling of commands for testing or admin purposes.
+func (s *DataCollectionServer) ScheduleDeviceCommand(sessionID string, cmdType scheduler.CommandType, priority scheduler.CommandPriority, parameters map[string]interface{}) error {
+	cmd := &scheduler.ScheduledCommand{
+		Type:        cmdType,
+		Priority:    priority,
+		SessionID:   sessionID,
+		ScheduledAt: time.Now(),
+		Parameters:  parameters,
+	}
+	
+	return s.commandScheduler.ScheduleCommand(cmd)
 }

@@ -15,6 +15,7 @@ import (
 
 	"github.com/resident-x/go-grott/internal/config"
 	"github.com/resident-x/go-grott/internal/domain"
+	"github.com/resident-x/go-grott/internal/validation"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/sigurn/crc16"
@@ -63,6 +64,7 @@ type Parser struct {
 	rawLayouts  map[string]map[string]interface{} // Keep original layouts for backward compatibility
 	logger      zerolog.Logger                    // Logger for parser operations
 	forceLayout string                            // Force using a specific layout (used for testing)
+	validator   *validation.AdvancedValidator     // Data validation system
 }
 
 // NewParser creates a new Parser instance.
@@ -77,12 +79,25 @@ func NewParser(cfg *config.Config) (*Parser, error) {
 	})
 
 	// Initialize parser with configuration and logger.
+	logger := log.With().Str("component", "parser").Logger()
+	
+	// Initialize advanced validator with appropriate level based on log level
+	validationLevel := validation.ValidationLevelStandard
+	switch cfg.LogLevel {
+	case "debug", "trace":
+		validationLevel = validation.ValidationLevelStrict
+	case "warn", "error":
+		validationLevel = validation.ValidationLevelBasic
+	}
+	validator := validation.NewAdvancedValidator(validationLevel, logger)
+
 	parser := &Parser{
 		config:     cfg,
 		crcTable:   table,
 		layouts:    make(map[string]*Layout),
 		rawLayouts: make(map[string]map[string]interface{}),
-		logger:     log.With().Str("component", "parser").Logger(),
+		logger:     logger,
+		validator:  validator,
 	}
 
 	// Load layout files.
@@ -220,6 +235,31 @@ func (p *Parser) Parse(ctx context.Context, data []byte) (*domain.InverterData, 
 
 	p.logf("Using layout %s with %d fields", layoutKey, len(layout.Fields))
 
+	// Perform advanced validation on the raw packet
+	protocolKey := strings.ToLower(layoutKey)
+	metadata := map[string]interface{}{
+		"layout":     layoutKey,
+		"protocol":   protocolKey,
+		"timestamp":  time.Now().Unix(),
+		"data_size":  len(data),
+	}
+	
+	validationResult := p.validator.ValidatePacket(data, protocolKey, metadata)
+	if !validationResult.Valid {
+		p.logf("Packet validation failed: %s", validationResult.Summary())
+		// Log errors but continue parsing in standard mode
+		for _, err := range validationResult.Errors {
+			p.logf("Validation error: %s", err.Error())
+		}
+	}
+	
+	// Log warnings if any
+	if validationResult.HasWarnings() {
+		for _, warning := range validationResult.Warnings {
+			p.logf("Validation warning: %s", warning.Error())
+		}
+	}
+
 	// Extract data using the layout.
 	inverterData := &domain.InverterData{
 		Timestamp:    time.Now(),
@@ -229,8 +269,23 @@ func (p *Parser) Parse(ctx context.Context, data []byte) (*domain.InverterData, 
 
 	p.extractFields(hexStr, layout, inverterData)
 
-	p.logf("Parsing complete. DatalogSerial=%s, PVSerial=%s",
-		inverterData.DataloggerSerial, inverterData.PVSerial)
+	// Perform field-level validation
+	fieldValidationResult := p.validator.ValidateFieldData(inverterData.ExtendedData, metadata)
+	if !fieldValidationResult.Valid {
+		p.logf("Field validation failed: %s", fieldValidationResult.Summary())
+		// Log but don't fail the parse
+		for _, err := range fieldValidationResult.Errors {
+			p.logf("Field validation error: %s", err.Error())
+		}
+	}
+
+	// Add validation metadata to extended data
+	inverterData.ExtendedData["validation_confidence"] = validationResult.Confidence
+	inverterData.ExtendedData["validation_errors"] = len(validationResult.Errors)
+	inverterData.ExtendedData["validation_warnings"] = len(validationResult.Warnings)
+
+	p.logf("Parsing complete. DatalogSerial=%s, PVSerial=%s, ValidationConfidence=%.2f",
+		inverterData.DataloggerSerial, inverterData.PVSerial, validationResult.Confidence)
 
 	return inverterData, nil
 }
@@ -241,9 +296,12 @@ func (p *Parser) processRawData(data []byte) ([]byte, error) {
 	p.logf("Is standard Modbus RTU format: %v", isStandardModbus)
 
 	if isStandardModbus {
+		// Use legacy CRC validation for basic checks
 		if err := p.Validate(data); err != nil {
-			return nil, fmt.Errorf("validation failed: %w", err)
+			return nil, fmt.Errorf("basic validation failed: %w", err)
 		}
+		
+		// Advanced validation is performed in Parse method after layout detection
 		return data, nil
 	}
 
@@ -592,6 +650,22 @@ func (p *Parser) SetCustomLogger(logger *zerolog.Logger) {
 func (p *Parser) SetForceLayout(layoutName string) {
 	p.forceLayout = layoutName
 	p.logf("Forcing layout to: %s", layoutName)
+}
+
+// GetValidationStatistics returns validation statistics from the advanced validator.
+func (p *Parser) GetValidationStatistics() map[string]interface{} {
+	if p.validator == nil {
+		return map[string]interface{}{}
+	}
+	return p.validator.GetStatistics()
+}
+
+// SetValidationLevel updates the validation level dynamically.
+func (p *Parser) SetValidationLevel(level validation.ValidationLevel) {
+	if p.validator != nil {
+		p.validator.SetValidationLevel(level)
+		p.logf("Validation level updated to: %s", level.String())
+	}
 }
 
 // logf logs a message at debug level.
