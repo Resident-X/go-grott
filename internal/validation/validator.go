@@ -79,7 +79,7 @@ func (vr *ValidationResult) Summary() string {
 	if vr.Valid && !vr.HasWarnings() {
 		return fmt.Sprintf("Valid (confidence: %.2f)", vr.Confidence)
 	}
-	
+
 	var parts []string
 	if !vr.Valid {
 		parts = append(parts, fmt.Sprintf("%d errors", len(vr.Errors)))
@@ -87,7 +87,7 @@ func (vr *ValidationResult) Summary() string {
 	if vr.HasWarnings() {
 		parts = append(parts, fmt.Sprintf("%d warnings", len(vr.Warnings)))
 	}
-	
+
 	return fmt.Sprintf("%s (confidence: %.2f)", strings.Join(parts, ", "), vr.Confidence)
 }
 
@@ -115,12 +115,12 @@ type AdvancedValidator struct {
 	protocolRules map[string][]*ProtocolRule
 	dataRules     []*DataIntegrityRule
 	logger        zerolog.Logger
-	
+
 	// Statistics
 	validationsPerformed int64
-	errorsFound         int64
-	warningsFound       int64
-	corruptionsDetected int64
+	errorsFound          int64
+	warningsFound        int64
+	corruptionsDetected  int64
 }
 
 // NewAdvancedValidator creates a new advanced validator.
@@ -131,18 +131,18 @@ func NewAdvancedValidator(level ValidationLevel, logger zerolog.Logger) *Advance
 		dataRules:     make([]*DataIntegrityRule, 0),
 		logger:        logger.With().Str("component", "validator").Logger(),
 	}
-	
+
 	// Register default rules
 	validator.registerDefaultProtocolRules()
 	validator.registerDefaultDataRules()
-	
+
 	return validator
 }
 
 // ValidatePacket performs comprehensive validation of a data packet.
 func (av *AdvancedValidator) ValidatePacket(data []byte, protocol string, metadata map[string]interface{}) *ValidationResult {
 	av.validationsPerformed++
-	
+
 	result := &ValidationResult{
 		Valid:      true,
 		Errors:     make([]*ValidationError, 0),
@@ -150,7 +150,7 @@ func (av *AdvancedValidator) ValidatePacket(data []byte, protocol string, metada
 		Fixes:      make([]string, 0),
 		Confidence: 1.0,
 	}
-	
+
 	// Apply protocol-specific rules
 	if rules, exists := av.protocolRules[protocol]; exists {
 		for _, rule := range rules {
@@ -161,7 +161,7 @@ func (av *AdvancedValidator) ValidatePacket(data []byte, protocol string, metada
 			}
 		}
 	}
-	
+
 	// Apply generic protocol rules if specific ones don't exist
 	if _, exists := av.protocolRules[protocol]; !exists {
 		if genericRules, exists := av.protocolRules["generic"]; exists {
@@ -174,7 +174,7 @@ func (av *AdvancedValidator) ValidatePacket(data []byte, protocol string, metada
 			}
 		}
 	}
-	
+
 	av.logger.Debug().
 		Str("protocol", protocol).
 		Int("data_length", len(data)).
@@ -182,7 +182,7 @@ func (av *AdvancedValidator) ValidatePacket(data []byte, protocol string, metada
 		Int("warnings", len(result.Warnings)).
 		Float64("confidence", result.Confidence).
 		Msg("Packet validation completed")
-	
+
 	return result
 }
 
@@ -195,7 +195,7 @@ func (av *AdvancedValidator) ValidateFieldData(fields map[string]interface{}, me
 		Fixes:      make([]string, 0),
 		Confidence: 1.0,
 	}
-	
+
 	// Apply data integrity rules
 	for _, rule := range av.dataRules {
 		if rule.Level <= av.level {
@@ -206,7 +206,7 @@ func (av *AdvancedValidator) ValidateFieldData(fields map[string]interface{}, me
 			}
 		}
 	}
-	
+
 	return result
 }
 
@@ -220,7 +220,7 @@ func (av *AdvancedValidator) addValidationError(result *ValidationResult, err *V
 		result.Errors = append(result.Errors, err)
 		av.errorsFound++
 		result.Valid = false
-		
+
 		// Reduce confidence based on error severity
 		switch err.Severity {
 		case "critical":
@@ -276,7 +276,7 @@ func (av *AdvancedValidator) registerDefaultProtocolRules() {
 				if len(data) < 12 {
 					return nil // Handled by packet_size_check
 				}
-				
+
 				// Check SOH markers
 				if data[0] != 0x68 || data[3] != 0x68 {
 					return &ValidationError{
@@ -288,7 +288,7 @@ func (av *AdvancedValidator) registerDefaultProtocolRules() {
 						Context:  metadata,
 					}
 				}
-				
+
 				// Check ETX marker
 				if data[len(data)-2] != 0x16 {
 					return &ValidationError{
@@ -300,14 +300,14 @@ func (av *AdvancedValidator) registerDefaultProtocolRules() {
 						Context:  metadata,
 					}
 				}
-				
+
 				return nil
 			},
 		},
 	}
-	
+
 	av.protocolRules["generic"] = genericRules
-	
+
 	// Protocol V6 specific rules
 	v6Rules := []*ProtocolRule{
 		{
@@ -319,11 +319,11 @@ func (av *AdvancedValidator) registerDefaultProtocolRules() {
 				if len(data) < 6 {
 					return nil
 				}
-				
+
 				// Extract length field (bytes 1-2, little endian)
 				declaredLength := int(data[1]) | (int(data[2]) << 8)
 				actualLength := len(data) - 4 // Excluding header and footer
-				
+
 				if declaredLength != actualLength {
 					return &ValidationError{
 						Type:     "protocol",
@@ -334,7 +334,7 @@ func (av *AdvancedValidator) registerDefaultProtocolRules() {
 						Context:  metadata,
 					}
 				}
-				
+
 				return nil
 			},
 		},
@@ -347,7 +347,7 @@ func (av *AdvancedValidator) registerDefaultProtocolRules() {
 				if len(data) < 20 {
 					return nil
 				}
-				
+
 				// Check for repeated byte patterns (potential corruption)
 				dataSection := data[8 : len(data)-4] // Skip header and footer
 				if av.hasRepeatedPattern(dataSection, 16) {
@@ -360,7 +360,7 @@ func (av *AdvancedValidator) registerDefaultProtocolRules() {
 						Context:  metadata,
 					}
 				}
-				
+
 				// Check for all-zero or all-FF patterns
 				if av.hasUniformPattern(dataSection) {
 					return &ValidationError{
@@ -372,12 +372,12 @@ func (av *AdvancedValidator) registerDefaultProtocolRules() {
 						Context:  metadata,
 					}
 				}
-				
+
 				return nil
 			},
 		},
 	}
-	
+
 	av.protocolRules["06"] = append(genericRules, v6Rules...)
 }
 
@@ -401,7 +401,7 @@ func (av *AdvancedValidator) registerDefaultDataRules() {
 						Context:  context,
 					}
 				}
-				
+
 				if len(serial) < 8 || len(serial) > 20 {
 					return &ValidationError{
 						Type:     "data_format",
@@ -412,7 +412,7 @@ func (av *AdvancedValidator) registerDefaultDataRules() {
 						Context:  context,
 					}
 				}
-				
+
 				// Check for invalid characters
 				for _, r := range serial {
 					if !((r >= '0' && r <= '9') || (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z')) {
@@ -426,7 +426,7 @@ func (av *AdvancedValidator) registerDefaultDataRules() {
 						}
 					}
 				}
-				
+
 				return nil
 			},
 		},
@@ -440,7 +440,7 @@ func (av *AdvancedValidator) registerDefaultDataRules() {
 				if !ok {
 					return nil // Not a string timestamp
 				}
-				
+
 				// Parse timestamp
 				parsedTime, err := time.Parse("2006-01-02 15:04:05", timeStr)
 				if err != nil {
@@ -453,9 +453,9 @@ func (av *AdvancedValidator) registerDefaultDataRules() {
 						Context:  context,
 					}
 				}
-				
+
 				now := time.Now()
-				
+
 				// Check if timestamp is too far in the future
 				if parsedTime.After(now.Add(24 * time.Hour)) {
 					return &ValidationError{
@@ -467,7 +467,7 @@ func (av *AdvancedValidator) registerDefaultDataRules() {
 						Context:  context,
 					}
 				}
-				
+
 				// Check if timestamp is too far in the past
 				if parsedTime.Before(now.Add(-365 * 24 * time.Hour)) {
 					return &ValidationError{
@@ -479,7 +479,7 @@ func (av *AdvancedValidator) registerDefaultDataRules() {
 						Context:  context,
 					}
 				}
-				
+
 				return nil
 			},
 		},
@@ -490,7 +490,7 @@ func (av *AdvancedValidator) registerDefaultDataRules() {
 			Level:       ValidationLevelStandard,
 			Check: func(value interface{}, context map[string]interface{}) *ValidationError {
 				var power float64
-				
+
 				switch v := value.(type) {
 				case float64:
 					power = v
@@ -503,7 +503,7 @@ func (av *AdvancedValidator) registerDefaultDataRules() {
 				default:
 					return nil // Not a numeric power value
 				}
-				
+
 				// Check for negative power (unusual for inverters)
 				if power < 0 {
 					return &ValidationError{
@@ -515,7 +515,7 @@ func (av *AdvancedValidator) registerDefaultDataRules() {
 						Context:  context,
 					}
 				}
-				
+
 				// Check for unreasonably high power (>100kW for typical residential)
 				if power > 100000 {
 					return &ValidationError{
@@ -527,7 +527,7 @@ func (av *AdvancedValidator) registerDefaultDataRules() {
 						Context:  context,
 					}
 				}
-				
+
 				return nil
 			},
 		},
@@ -539,12 +539,12 @@ func (av *AdvancedValidator) hasRepeatedPattern(data []byte, minLength int) bool
 	if len(data) < minLength {
 		return false
 	}
-	
+
 	// Check for repeated sequences
 	for patternLen := 4; patternLen <= minLength && patternLen <= len(data)/2; patternLen++ {
 		pattern := data[:patternLen]
 		matches := 0
-		
+
 		for i := patternLen; i+patternLen <= len(data); i += patternLen {
 			if string(data[i:i+patternLen]) == string(pattern) {
 				matches++
@@ -552,12 +552,12 @@ func (av *AdvancedValidator) hasRepeatedPattern(data []byte, minLength int) bool
 				break
 			}
 		}
-		
+
 		if matches >= 3 { // Pattern repeats at least 4 times total
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -566,7 +566,7 @@ func (av *AdvancedValidator) hasUniformPattern(data []byte) bool {
 	if len(data) < 16 {
 		return false
 	}
-	
+
 	// Check for sequences of same byte
 	consecutiveCount := 1
 	for i := 1; i < len(data); i++ {
@@ -579,7 +579,7 @@ func (av *AdvancedValidator) hasUniformPattern(data []byte) bool {
 			consecutiveCount = 1
 		}
 	}
-	
+
 	return false
 }
 
@@ -587,12 +587,12 @@ func (av *AdvancedValidator) hasUniformPattern(data []byte) bool {
 func (av *AdvancedValidator) GetStatistics() map[string]interface{} {
 	return map[string]interface{}{
 		"validations_performed": av.validationsPerformed,
-		"errors_found":         av.errorsFound,
-		"warnings_found":       av.warningsFound,
-		"corruptions_detected": av.corruptionsDetected,
-		"validation_level":     av.level.String(),
-		"protocol_rules":       len(av.protocolRules),
-		"data_rules":          len(av.dataRules),
+		"errors_found":          av.errorsFound,
+		"warnings_found":        av.warningsFound,
+		"corruptions_detected":  av.corruptionsDetected,
+		"validation_level":      av.level.String(),
+		"protocol_rules":        len(av.protocolRules),
+		"data_rules":            len(av.dataRules),
 	}
 }
 
@@ -611,7 +611,7 @@ func (av *AdvancedValidator) AddProtocolRule(protocol string, rule *ProtocolRule
 		av.protocolRules[protocol] = make([]*ProtocolRule, 0)
 	}
 	av.protocolRules[protocol] = append(av.protocolRules[protocol], rule)
-	
+
 	av.logger.Debug().
 		Str("protocol", protocol).
 		Str("rule", rule.Name).
@@ -621,7 +621,7 @@ func (av *AdvancedValidator) AddProtocolRule(protocol string, rule *ProtocolRule
 // AddDataRule adds a custom data validation rule.
 func (av *AdvancedValidator) AddDataRule(rule *DataIntegrityRule) {
 	av.dataRules = append(av.dataRules, rule)
-	
+
 	av.logger.Debug().
 		Str("field", rule.Field).
 		Str("rule", rule.Name).

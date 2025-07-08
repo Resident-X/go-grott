@@ -100,11 +100,11 @@ func (cb *CommandBuilder) buildTimeSyncData(cmd *TimeSyncCommand) ([]byte, error
 	if cmd.Protocol != ProtocolV2 {
 		// Encrypt the command first
 		encrypted := cb.encryptData(fullCommand)
-		
+
 		// Calculate CRC
 		crc := crc16.Checksum(encrypted, cb.crcTable)
 		crcBytes := []byte{byte(crc & 0xFF), byte(crc >> 8)}
-		
+
 		return append(encrypted, crcBytes...), nil
 	}
 
@@ -135,7 +135,7 @@ func (cb *CommandBuilder) buildTimeSyncBody(cmd *TimeSyncCommand) ([]byte, error
 	// Add timestamp
 	timeStr := cmd.Timestamp.Format("2006-01-02 15:04:05")
 	timeBytes := []byte(timeStr)
-	
+
 	// Add time length (2 bytes, big endian)
 	timeLen := len(timeBytes)
 	timeLenBytes := []byte{
@@ -151,12 +151,12 @@ func (cb *CommandBuilder) buildTimeSyncBody(cmd *TimeSyncCommand) ([]byte, error
 // buildHeader creates the command header.
 func (cb *CommandBuilder) buildHeader(protocol string, bodyLen int, cmdType uint8) []byte {
 	header := make([]byte, 10)
-	
+
 	// Fixed header parts
 	header[0] = 0x00 // Header byte 0
 	header[1] = 0x01 // Header byte 1
 	header[2] = 0x00 // Header byte 2
-	
+
 	// Protocol
 	if protocol == ProtocolV5 {
 		header[3] = 0x05
@@ -165,15 +165,15 @@ func (cb *CommandBuilder) buildHeader(protocol string, bodyLen int, cmdType uint
 	} else {
 		header[3] = 0x02 // Default to protocol 02
 	}
-	
+
 	// Body length (2 bytes, big endian)
 	header[4] = byte(bodyLen >> 8)
 	header[5] = byte(bodyLen & 0xFF)
-	
+
 	// Command type
 	header[6] = 0x01 // Fixed
 	header[7] = cmdType
-	
+
 	return header
 }
 
@@ -181,16 +181,16 @@ func (cb *CommandBuilder) buildHeader(protocol string, bodyLen int, cmdType uint
 func (cb *CommandBuilder) encryptData(data []byte) []byte {
 	mask := []byte("Growatt")
 	result := make([]byte, len(data))
-	
+
 	// Copy header unchanged (first 8 bytes)
 	copy(result[:8], data[:8])
-	
+
 	// XOR the rest with the mask
 	for i := 8; i < len(data); i++ {
 		maskIdx := (i - 8) % len(mask)
 		result[i] = data[i] ^ mask[maskIdx]
 	}
-	
+
 	return result
 }
 
@@ -241,7 +241,7 @@ func (cb *CommandBuilder) ValidateCommand(data []byte) error {
 		dataPart := data[:len(data)-2]
 		receivedCRC := uint16(data[len(data)-2]) | uint16(data[len(data)-1])<<8
 		calculatedCRC := crc16.Checksum(dataPart, cb.crcTable)
-		
+
 		if receivedCRC != calculatedCRC {
 			return fmt.Errorf("CRC validation failed: expected 0x%04X, got 0x%04X", receivedCRC, calculatedCRC)
 		}

@@ -9,12 +9,12 @@ import (
 
 // Response types for inverter communication.
 const (
-	ResponseTypeAck        = 0x01
-	ResponseTypeNak        = 0x02
-	ResponseTypeData       = 0x04
-	ResponseTypeTimeSync   = 0x18
-	ResponseTypePing       = 0x16
-	ResponseTypeIdentify   = 0x05
+	ResponseTypeAck      = 0x01
+	ResponseTypeNak      = 0x02
+	ResponseTypeData     = 0x04
+	ResponseTypeTimeSync = 0x18
+	ResponseTypePing     = 0x16
+	ResponseTypeIdentify = 0x05
 )
 
 // ResponseBuilder provides functionality to create responses to inverter commands.
@@ -109,7 +109,7 @@ func (rb *ResponseBuilder) buildAckResponse(protocol string, originalCommand []b
 	header[0] = 0x00 // Header byte 0
 	header[1] = 0x01 // Header byte 1
 	header[2] = 0x00 // Header byte 2
-	
+
 	// Protocol
 	if protocol == ProtocolV5 {
 		header[3] = 0x05
@@ -118,11 +118,11 @@ func (rb *ResponseBuilder) buildAckResponse(protocol string, originalCommand []b
 	} else {
 		header[3] = 0x02
 	}
-	
+
 	// Body length (0 for simple ACK)
 	header[4] = 0x00
 	header[5] = 0x00
-	
+
 	// Response type
 	header[6] = 0x01
 	header[7] = ResponseTypeAck
@@ -186,13 +186,13 @@ func (rh *ResponseHandler) extractLoggerID(data []byte, cmdInfo *CommandInfo) (s
 
 	// For most commands, logger ID starts at byte 8
 	startPos := 8
-	
+
 	// Try to find a reasonable logger ID length (typically 10 characters)
 	maxLen := min(cmdInfo.BodyLen, 20) // Reasonable maximum
 	if startPos+maxLen > len(data) {
 		maxLen = len(data) - startPos
 	}
-	
+
 	if maxLen <= 0 {
 		return "", fmt.Errorf("no space for logger ID")
 	}
@@ -200,7 +200,7 @@ func (rh *ResponseHandler) extractLoggerID(data []byte, cmdInfo *CommandInfo) (s
 	// Extract and clean the logger ID
 	loggerBytes := data[startPos : startPos+maxLen]
 	loggerID := cleanLoggerID(string(loggerBytes))
-	
+
 	if len(loggerID) == 0 {
 		return "", fmt.Errorf("empty logger ID")
 	}
@@ -223,12 +223,12 @@ func cleanLoggerID(id string) string {
 
 // ResponseMetrics holds metrics about response generation.
 type ResponseMetrics struct {
-	TotalResponses      int64
-	TimeSyncResponses   int64
-	PingResponses       int64
-	AckResponses        int64
-	ErrorResponses      int64
-	LastResponseTime    time.Time
+	TotalResponses    int64
+	TimeSyncResponses int64
+	PingResponses     int64
+	AckResponses      int64
+	ErrorResponses    int64
+	LastResponseTime  time.Time
 }
 
 // ResponseManager manages response generation with metrics and logging.
@@ -248,16 +248,16 @@ func NewResponseManager() *ResponseManager {
 // HandleIncomingData processes incoming data and generates appropriate responses.
 func (rm *ResponseManager) HandleIncomingData(data []byte) (*Response, error) {
 	response, err := rm.handler.ProcessIncomingData(data)
-	
+
 	// Update metrics
 	rm.metrics.LastResponseTime = time.Now()
 	rm.metrics.TotalResponses++
-	
+
 	if err != nil {
 		rm.metrics.ErrorResponses++
 		return nil, err
 	}
-	
+
 	if response != nil {
 		switch response.Type {
 		case ResponseTypeTimeSync:
@@ -268,7 +268,7 @@ func (rm *ResponseManager) HandleIncomingData(data []byte) (*Response, error) {
 			rm.metrics.AckResponses++
 		}
 	}
-	
+
 	return response, nil
 }
 

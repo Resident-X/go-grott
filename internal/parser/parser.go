@@ -33,7 +33,7 @@ const (
 	genericLayoutKey = "T06NNNNXMOD" // Generic layout as fallback
 
 	// Protocol constants.
-	extendedDataThreshold = 375
+	extendedDataThreshold = 750 // 375 bytes = 750 hex characters
 
 	// Common field names.
 	datalogSerial = "datalogserial" // Common field for datalogger serial number
@@ -80,7 +80,7 @@ func NewParser(cfg *config.Config) (*Parser, error) {
 
 	// Initialize parser with configuration and logger.
 	logger := log.With().Str("component", "parser").Logger()
-	
+
 	// Initialize advanced validator with appropriate level based on log level
 	validationLevel := validation.ValidationLevelStandard
 	switch cfg.LogLevel {
@@ -238,12 +238,12 @@ func (p *Parser) Parse(ctx context.Context, data []byte) (*domain.InverterData, 
 	// Perform advanced validation on the raw packet
 	protocolKey := strings.ToLower(layoutKey)
 	metadata := map[string]interface{}{
-		"layout":     layoutKey,
-		"protocol":   protocolKey,
-		"timestamp":  time.Now().Unix(),
-		"data_size":  len(data),
+		"layout":    layoutKey,
+		"protocol":  protocolKey,
+		"timestamp": time.Now().Unix(),
+		"data_size": len(data),
 	}
-	
+
 	validationResult := p.validator.ValidatePacket(data, protocolKey, metadata)
 	if !validationResult.Valid {
 		p.logf("Packet validation failed: %s", validationResult.Summary())
@@ -252,7 +252,7 @@ func (p *Parser) Parse(ctx context.Context, data []byte) (*domain.InverterData, 
 			p.logf("Validation error: %s", err.Error())
 		}
 	}
-	
+
 	// Log warnings if any
 	if validationResult.HasWarnings() {
 		for _, warning := range validationResult.Warnings {
@@ -300,7 +300,7 @@ func (p *Parser) processRawData(data []byte) ([]byte, error) {
 		if err := p.Validate(data); err != nil {
 			return nil, fmt.Errorf("basic validation failed: %w", err)
 		}
-		
+
 		// Advanced validation is performed in Parse method after layout detection
 		return data, nil
 	}
@@ -348,8 +348,9 @@ func (p *Parser) buildLayoutKey(hexStr string) string {
 
 		// Add 'X' suffix for extended data.
 		isSmartMeter := deviceType[2:4] == "20" || deviceType[2:4] == "1b"
-		
+
 		if !isSmartMeter {
+			// Compare hex length directly against threshold (375 bytes = 750 hex chars)
 			if len(hexStr) > extendedDataThreshold {
 				layoutKey += "X"
 				p.logf("Using extended layout for large data")
@@ -389,7 +390,15 @@ func (p *Parser) buildFallbackLayoutKey(hexStr string) string {
 func (p *Parser) findLayout(layoutKey string) *Layout {
 	p.logf("Looking for layout with key: %s", layoutKey)
 
+	// Try exact match first
 	if layout, found := p.layouts[layoutKey]; found {
+		return layout
+	}
+
+	// Try case insensitive match - check lowercase version
+	lowerKey := strings.ToLower(layoutKey)
+	if layout, found := p.layouts[lowerKey]; found {
+		p.logf("Found layout with lowercase key: %s", lowerKey)
 		return layout
 	}
 
@@ -398,6 +407,13 @@ func (p *Parser) findLayout(layoutKey string) *Layout {
 		genericKey := layoutKey[:1] + layoutKey[1:3] + "NNNN" + layoutKey[7:]
 		p.logf("Trying generic layout: %s", genericKey)
 		if layout, found := p.layouts[genericKey]; found {
+			return layout
+		}
+
+		// Try lowercase generic version too
+		lowerGenericKey := strings.ToLower(genericKey)
+		if layout, found := p.layouts[lowerGenericKey]; found {
+			p.logf("Found generic layout with lowercase key: %s", lowerGenericKey)
 			return layout
 		}
 	}

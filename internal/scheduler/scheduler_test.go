@@ -3,6 +3,7 @@ package scheduler
 import (
 	"context"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,10 +16,11 @@ import (
 
 // Mock connection for testing
 type mockConn struct {
-	remoteAddr   net.Addr
-	writeData    []byte
-	writeError   error
-	writeCalled  bool
+	mu          sync.Mutex
+	remoteAddr  net.Addr
+	writeData   []byte
+	writeError  error
+	writeCalled bool
 }
 
 func (m *mockConn) Read(b []byte) (n int, err error) {
@@ -26,6 +28,8 @@ func (m *mockConn) Read(b []byte) (n int, err error) {
 }
 
 func (m *mockConn) Write(b []byte) (n int, err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.writeCalled = true
 	m.writeData = b
 	if m.writeError != nil {
@@ -36,6 +40,18 @@ func (m *mockConn) Write(b []byte) (n int, err error) {
 
 func (m *mockConn) Close() error {
 	return nil
+}
+
+func (m *mockConn) isWriteCalled() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.writeCalled
+}
+
+func (m *mockConn) getWriteData() []byte {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.writeData
 }
 
 func (m *mockConn) LocalAddr() net.Addr {
@@ -98,13 +114,13 @@ func TestCommandTypeString(t *testing.T) {
 
 func TestScheduledCommand(t *testing.T) {
 	now := time.Now()
-	
+
 	tests := []struct {
-		name     string
-		cmd      *ScheduledCommand
-		isExpired bool
+		name          string
+		cmd           *ScheduledCommand
+		isExpired     bool
 		shouldExecute bool
-		canRetry bool
+		canRetry      bool
 	}{
 		{
 			name: "not expired, ready to execute",
@@ -175,7 +191,7 @@ func TestCommandQueue(t *testing.T) {
 
 	// Add commands with different priorities
 	now := time.Now()
-	
+
 	lowCmd := &ScheduledCommand{
 		ID:          "low1",
 		Type:        CommandTypePing,
@@ -183,7 +199,7 @@ func TestCommandQueue(t *testing.T) {
 		ScheduledAt: now.Add(-time.Minute),
 		ExpiresAt:   now.Add(time.Hour),
 	}
-	
+
 	highCmd := &ScheduledCommand{
 		ID:          "high1",
 		Type:        CommandTypeTimeSync,
@@ -191,7 +207,7 @@ func TestCommandQueue(t *testing.T) {
 		ScheduledAt: now.Add(-time.Minute),
 		ExpiresAt:   now.Add(time.Hour),
 	}
-	
+
 	urgentCmd := &ScheduledCommand{
 		ID:          "urgent1",
 		Type:        CommandTypeHealthCheck,
@@ -225,7 +241,7 @@ func TestCommandQueueCleanupExpired(t *testing.T) {
 	queue := NewCommandQueue(logger)
 
 	now := time.Now()
-	
+
 	// Add expired command
 	expiredCmd := &ScheduledCommand{
 		ID:          "expired1",
@@ -234,7 +250,7 @@ func TestCommandQueueCleanupExpired(t *testing.T) {
 		ScheduledAt: now.Add(-2 * time.Hour),
 		ExpiresAt:   now.Add(-time.Hour),
 	}
-	
+
 	// Add active command
 	activeCmd := &ScheduledCommand{
 		ID:          "active1",
@@ -261,7 +277,7 @@ func TestCommandQueueCleanupExpired(t *testing.T) {
 
 func TestDefaultSchedulerConfig(t *testing.T) {
 	config := DefaultSchedulerConfig()
-	
+
 	assert.Equal(t, time.Second, config.TickInterval)
 	assert.Equal(t, 10, config.MaxConcurrent)
 	assert.Equal(t, 30*time.Second, config.DefaultTimeout)
@@ -272,12 +288,12 @@ func TestDefaultSchedulerConfig(t *testing.T) {
 
 func TestCommandScheduler(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
-	
+
 	// Create dependencies
 	sessionManager := session.NewSessionManager(time.Minute)
 	commandBuilder := protocol.NewCommandBuilder()
 	responseManager := protocol.NewResponseManager()
-	
+
 	// Create scheduler with fast tick for testing
 	config := &SchedulerConfig{
 		TickInterval:        10 * time.Millisecond,
@@ -287,33 +303,33 @@ func TestCommandScheduler(t *testing.T) {
 		TimeSyncInterval:    100 * time.Millisecond,
 		HealthCheckInterval: 50 * time.Millisecond,
 	}
-	
+
 	scheduler := NewCommandScheduler(sessionManager, commandBuilder, responseManager, config, logger)
-	
+
 	// Test initial state
 	assert.False(t, scheduler.isRunning)
 	metrics := scheduler.GetMetrics()
 	assert.False(t, metrics["is_running"].(bool))
 	assert.Equal(t, int64(0), metrics["commands_executed"].(int64))
-	
+
 	// Start scheduler
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	
+
 	err := scheduler.Start(ctx)
 	assert.NoError(t, err)
 	assert.True(t, scheduler.isRunning)
-	
+
 	// Try to start again (should fail)
 	err = scheduler.Start(ctx)
 	assert.Error(t, err)
-	
+
 	// Create a session
 	addr := &net.TCPAddr{IP: net.ParseIP("192.168.1.100"), Port: 5279}
 	conn := &mockConn{remoteAddr: addr}
 	sess := sessionManager.CreateSession(conn)
 	sess.SetDeviceInfo(session.DeviceTypeInverter, "TEST123456", "06", "1.0")
-	
+
 	// Schedule a command
 	cmd := &ScheduledCommand{
 		Type:        CommandTypeTimeSync,
@@ -322,22 +338,22 @@ func TestCommandScheduler(t *testing.T) {
 		ScheduledAt: time.Now(),
 		Parameters:  make(map[string]interface{}),
 	}
-	
+
 	err = scheduler.ScheduleCommand(cmd)
 	assert.NoError(t, err)
-	
+
 	// Wait for command to be processed
 	time.Sleep(50 * time.Millisecond)
-	
+
 	// Check metrics
 	metrics = scheduler.GetMetrics()
 	assert.True(t, metrics["is_running"].(bool))
-	
+
 	// Stop scheduler
 	err = scheduler.Stop()
 	assert.NoError(t, err)
 	assert.False(t, scheduler.isRunning)
-	
+
 	// Try to stop again (should fail)
 	err = scheduler.Stop()
 	assert.Error(t, err)
@@ -345,25 +361,25 @@ func TestCommandScheduler(t *testing.T) {
 
 func TestScheduleTimeSync(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
-	
+
 	sessionManager := session.NewSessionManager(time.Minute)
 	commandBuilder := protocol.NewCommandBuilder()
 	responseManager := protocol.NewResponseManager()
-	
+
 	scheduler := NewCommandScheduler(sessionManager, commandBuilder, responseManager, nil, logger)
-	
+
 	// Create a session
 	addr := &net.TCPAddr{IP: net.ParseIP("192.168.1.100"), Port: 5279}
 	conn := &mockConn{remoteAddr: addr}
 	sess := sessionManager.CreateSession(conn)
-	
+
 	// Schedule time sync
 	err := scheduler.ScheduleTimeSync(sess.ID, PriorityHigh)
 	assert.NoError(t, err)
-	
+
 	// Check queue
 	assert.Equal(t, 1, scheduler.queue.GetQueueLength())
-	
+
 	// Dequeue and verify
 	cmd := scheduler.queue.Dequeue()
 	require.NotNil(t, cmd)
@@ -374,25 +390,25 @@ func TestScheduleTimeSync(t *testing.T) {
 
 func TestScheduleHealthCheck(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
-	
+
 	sessionManager := session.NewSessionManager(time.Minute)
 	commandBuilder := protocol.NewCommandBuilder()
 	responseManager := protocol.NewResponseManager()
-	
+
 	scheduler := NewCommandScheduler(sessionManager, commandBuilder, responseManager, nil, logger)
-	
+
 	// Create a session
 	addr := &net.TCPAddr{IP: net.ParseIP("192.168.1.100"), Port: 5279}
 	conn := &mockConn{remoteAddr: addr}
 	sess := sessionManager.CreateSession(conn)
-	
+
 	// Schedule health check
 	err := scheduler.ScheduleHealthCheck(sess.ID, PriorityLow)
 	assert.NoError(t, err)
-	
+
 	// Check queue
 	assert.Equal(t, 1, scheduler.queue.GetQueueLength())
-	
+
 	// Dequeue and verify
 	cmd := scheduler.queue.Dequeue()
 	require.NotNil(t, cmd)
@@ -403,35 +419,35 @@ func TestScheduleHealthCheck(t *testing.T) {
 
 func TestExecuteTimeSyncCommand(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
-	
+
 	sessionManager := session.NewSessionManager(time.Minute)
 	commandBuilder := protocol.NewCommandBuilder()
 	responseManager := protocol.NewResponseManager()
-	
+
 	scheduler := NewCommandScheduler(sessionManager, commandBuilder, responseManager, nil, logger)
-	
+
 	// Create a session with mock connection
 	addr := &net.TCPAddr{IP: net.ParseIP("192.168.1.100"), Port: 5279}
 	mockConn := &mockConn{remoteAddr: addr}
 	sess := sessionManager.CreateSession(mockConn)
 	sess.SetDeviceInfo(session.DeviceTypeInverter, "TEST123456", "06", "1.0")
-	
+
 	// Create command
 	cmd := &ScheduledCommand{
-		ID:        "test1",
-		Type:      CommandTypeTimeSync,
-		SessionID: sess.ID,
+		ID:         "test1",
+		Type:       CommandTypeTimeSync,
+		SessionID:  sess.ID,
 		Parameters: make(map[string]interface{}),
 	}
-	
+
 	// Execute command
 	err := scheduler.executeTimeSyncCommand(context.Background(), cmd, sess)
 	assert.NoError(t, err)
-	
+
 	// Verify mock connection was called
-	assert.True(t, mockConn.writeCalled)
-	assert.Greater(t, len(mockConn.writeData), 0)
-	
+	assert.True(t, mockConn.isWriteCalled())
+	assert.Greater(t, len(mockConn.getWriteData()), 0)
+
 	// Verify command result
 	require.NotNil(t, cmd.Result)
 	result := cmd.Result.(map[string]interface{})
@@ -441,35 +457,35 @@ func TestExecuteTimeSyncCommand(t *testing.T) {
 
 func TestExecuteHealthCheckCommand(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
-	
+
 	sessionManager := session.NewSessionManager(time.Minute)
 	commandBuilder := protocol.NewCommandBuilder()
 	responseManager := protocol.NewResponseManager()
-	
+
 	scheduler := NewCommandScheduler(sessionManager, commandBuilder, responseManager, nil, logger)
-	
+
 	// Create a session with mock connection
 	addr := &net.TCPAddr{IP: net.ParseIP("192.168.1.100"), Port: 5279}
 	mockConn := &mockConn{remoteAddr: addr}
 	sess := sessionManager.CreateSession(mockConn)
 	sess.SetDeviceInfo(session.DeviceTypeInverter, "TEST123456", "06", "1.0")
-	
+
 	// Create command
 	cmd := &ScheduledCommand{
-		ID:        "test1",
-		Type:      CommandTypeHealthCheck,
-		SessionID: sess.ID,
+		ID:         "test1",
+		Type:       CommandTypeHealthCheck,
+		SessionID:  sess.ID,
 		Parameters: make(map[string]interface{}),
 	}
-	
+
 	// Execute command
 	err := scheduler.executeHealthCheckCommand(context.Background(), cmd, sess)
 	assert.NoError(t, err)
-	
+
 	// Verify mock connection was called
-	assert.True(t, mockConn.writeCalled)
-	assert.Greater(t, len(mockConn.writeData), 0)
-	
+	assert.True(t, mockConn.isWriteCalled())
+	assert.Greater(t, len(mockConn.getWriteData()), 0)
+
 	// Verify command result
 	require.NotNil(t, cmd.Result)
 	result := cmd.Result.(map[string]interface{})
@@ -479,13 +495,13 @@ func TestExecuteHealthCheckCommand(t *testing.T) {
 
 func TestCommandRetry(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
-	
+
 	sessionManager := session.NewSessionManager(time.Minute)
 	commandBuilder := protocol.NewCommandBuilder()
 	responseManager := protocol.NewResponseManager()
-	
+
 	scheduler := NewCommandScheduler(sessionManager, commandBuilder, responseManager, nil, logger)
-	
+
 	// Create command that can be retried
 	cmd := &ScheduledCommand{
 		ID:         "test1",
@@ -495,10 +511,10 @@ func TestCommandRetry(t *testing.T) {
 		MaxRetries: 3,
 		Parameters: make(map[string]interface{}),
 	}
-	
+
 	// Retry command
 	scheduler.retryCommand(cmd)
-	
+
 	// Verify retry state
 	assert.Equal(t, 1, cmd.Retries)
 	assert.Nil(t, cmd.ExecutedAt)
@@ -509,7 +525,7 @@ func TestCommandRetry(t *testing.T) {
 func TestGenerateCommandID(t *testing.T) {
 	id1 := generateCommandID()
 	id2 := generateCommandID()
-	
+
 	assert.NotEmpty(t, id1)
 	assert.NotEmpty(t, id2)
 	assert.NotEqual(t, id1, id2)
@@ -521,7 +537,7 @@ func TestGenerateCommandID(t *testing.T) {
 func BenchmarkCommandQueueEnqueue(b *testing.B) {
 	logger := zerolog.New(zerolog.NewTestWriter(b))
 	queue := NewCommandQueue(logger)
-	
+
 	cmd := &ScheduledCommand{
 		ID:          "benchmark",
 		Type:        CommandTypeTimeSync,
@@ -529,7 +545,7 @@ func BenchmarkCommandQueueEnqueue(b *testing.B) {
 		ScheduledAt: time.Now(),
 		ExpiresAt:   time.Now().Add(time.Hour),
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		queue.Enqueue(cmd)
@@ -539,7 +555,7 @@ func BenchmarkCommandQueueEnqueue(b *testing.B) {
 func BenchmarkCommandQueueDequeue(b *testing.B) {
 	logger := zerolog.New(zerolog.NewTestWriter(b))
 	queue := NewCommandQueue(logger)
-	
+
 	// Pre-populate queue
 	for i := 0; i < b.N; i++ {
 		cmd := &ScheduledCommand{
@@ -551,7 +567,7 @@ func BenchmarkCommandQueueDequeue(b *testing.B) {
 		}
 		queue.Enqueue(cmd)
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		queue.Dequeue()

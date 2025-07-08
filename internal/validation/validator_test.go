@@ -276,7 +276,7 @@ func TestAdvancedValidator_PatternDetection(t *testing.T) {
 		// Create data with repeated pattern
 		pattern := []byte{0xAA, 0xBB, 0xCC, 0xDD}
 		data := []byte{0x68, 0x20, 0x00, 0x68} // Header
-		
+
 		// Repeat pattern multiple times
 		for i := 0; i < 8; i++ {
 			data = append(data, pattern...)
@@ -292,7 +292,7 @@ func TestAdvancedValidator_PatternDetection(t *testing.T) {
 	t.Run("Uniform Pattern Detection", func(t *testing.T) {
 		// Create data with uniform bytes
 		data := []byte{0x68, 0x20, 0x00, 0x68} // Header
-		
+
 		// Add 32 bytes of same value
 		for i := 0; i < 32; i++ {
 			data = append(data, 0xFF)
@@ -304,7 +304,7 @@ func TestAdvancedValidator_PatternDetection(t *testing.T) {
 		assert.NotEmpty(t, result.Warnings)
 		// Should contain either "uniform" or "repeated" pattern warning
 		warningMsg := result.Warnings[0].Message
-		assert.True(t, strings.Contains(warningMsg, "uniform byte pattern") || 
+		assert.True(t, strings.Contains(warningMsg, "uniform byte pattern") ||
 			strings.Contains(warningMsg, "repeated byte pattern"))
 	})
 }
@@ -337,7 +337,7 @@ func TestAdvancedValidator_CustomRules(t *testing.T) {
 		// Test the custom rule
 		data := make([]byte, 150)
 		result := validator.ValidatePacket(data, "test", make(map[string]interface{}))
-		
+
 		require.NotEmpty(t, result.Warnings)
 		assert.Contains(t, result.Warnings[0].Message, "custom rule triggered")
 	})
@@ -367,7 +367,7 @@ func TestAdvancedValidator_CustomRules(t *testing.T) {
 		fields := map[string]interface{}{
 			"custom_field": "invalid",
 		}
-		
+
 		result := validator.ValidateFieldData(fields, make(map[string]interface{}))
 		assert.False(t, result.Valid)
 		require.NotEmpty(t, result.Errors)
@@ -389,7 +389,7 @@ func TestAdvancedValidator_Statistics(t *testing.T) {
 	validator.ValidateFieldData(fields, make(map[string]interface{}))
 
 	stats := validator.GetStatistics()
-	
+
 	assert.Equal(t, int64(1), stats["validations_performed"])
 	assert.Equal(t, int64(1), stats["errors_found"])
 	assert.Equal(t, int64(1), stats["warnings_found"])
@@ -454,7 +454,7 @@ func TestHasUniformPattern(t *testing.T) {
 func BenchmarkValidatePacket(b *testing.B) {
 	logger := zerolog.New(zerolog.NewTestWriter(b))
 	validator := NewAdvancedValidator(ValidationLevelStandard, logger)
-	
+
 	data := []byte{
 		0x68, 0x20, 0x00, 0x68,
 		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
@@ -463,9 +463,9 @@ func BenchmarkValidatePacket(b *testing.B) {
 		0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20,
 		0x00, 0x00, 0x16, 0x00,
 	}
-	
+
 	metadata := make(map[string]interface{})
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		validator.ValidatePacket(data, "06", metadata)
@@ -475,14 +475,14 @@ func BenchmarkValidatePacket(b *testing.B) {
 func BenchmarkValidateFieldData(b *testing.B) {
 	logger := zerolog.New(zerolog.NewTestWriter(b))
 	validator := NewAdvancedValidator(ValidationLevelStandard, logger)
-	
+
 	fields := map[string]interface{}{
 		"datalogserial": "TESTSERIAL123",
 		"time":          time.Now().Format("2006-01-02 15:04:05"),
 		"pac":           5000.0,
 	}
 	metadata := make(map[string]interface{})
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		validator.ValidateFieldData(fields, metadata)

@@ -57,21 +57,21 @@ func TestNewSessionManager(t *testing.T) {
 
 func TestSessionManagerCreateSession(t *testing.T) {
 	manager := NewSessionManager(time.Minute)
-	
+
 	addr := &net.TCPAddr{IP: net.ParseIP("192.168.1.100"), Port: 5279}
 	conn := &mockConn{remoteAddr: addr}
-	
+
 	session := manager.CreateSession(conn)
-	
+
 	// Verify session was created
 	assert.NotNil(t, session)
 	assert.NotEmpty(t, session.ID)
-	
+
 	// Verify session exists
 	retrievedSession, exists := manager.GetSession(session.ID)
 	require.True(t, exists)
 	require.NotNil(t, retrievedSession)
-	
+
 	// Verify session properties
 	assert.Equal(t, session.ID, retrievedSession.ID)
 	assert.Equal(t, addr.String(), retrievedSession.RemoteAddr)
@@ -83,19 +83,19 @@ func TestSessionManagerCreateSession(t *testing.T) {
 
 func TestSessionManagerRemoveSession(t *testing.T) {
 	manager := NewSessionManager(time.Minute)
-	
+
 	addr := &net.TCPAddr{IP: net.ParseIP("192.168.1.100"), Port: 5279}
 	conn := &mockConn{remoteAddr: addr}
-	
+
 	session := manager.CreateSession(conn)
-	
+
 	// Verify session exists
 	_, exists := manager.GetSession(session.ID)
 	assert.True(t, exists)
-	
+
 	// Remove session
 	manager.RemoveSession(session.ID)
-	
+
 	// Verify session was removed
 	_, exists = manager.GetSession(session.ID)
 	assert.False(t, exists)
@@ -103,12 +103,12 @@ func TestSessionManagerRemoveSession(t *testing.T) {
 
 func TestSessionManagerGetSessionByAddr(t *testing.T) {
 	manager := NewSessionManager(time.Minute)
-	
+
 	addr := &net.TCPAddr{IP: net.ParseIP("192.168.1.100"), Port: 5279}
 	conn := &mockConn{remoteAddr: addr}
-	
+
 	session := manager.CreateSession(conn)
-	
+
 	// Retrieve session by address
 	retrievedSession, exists := manager.GetSessionByAddr(addr.String())
 	assert.True(t, exists)
@@ -117,23 +117,23 @@ func TestSessionManagerGetSessionByAddr(t *testing.T) {
 
 func TestSessionManagerGetAllSessions(t *testing.T) {
 	manager := NewSessionManager(time.Minute)
-	
+
 	// Create multiple sessions
 	addr1 := &net.TCPAddr{IP: net.ParseIP("192.168.1.100"), Port: 5279}
 	addr2 := &net.TCPAddr{IP: net.ParseIP("192.168.1.101"), Port: 5279}
-	
+
 	conn1 := &mockConn{remoteAddr: addr1}
 	conn2 := &mockConn{remoteAddr: addr2}
-	
+
 	session1 := manager.CreateSession(conn1)
 	session2 := manager.CreateSession(conn2)
-	
+
 	// Get all sessions
 	sessionStats := manager.GetAllSessions()
-	
+
 	// Verify we have 2 sessions
 	assert.Len(t, sessionStats, 2)
-	
+
 	// Verify session IDs are correct
 	sessionIDs := make([]string, len(sessionStats))
 	for i, stats := range sessionStats {
@@ -145,38 +145,38 @@ func TestSessionManagerGetAllSessions(t *testing.T) {
 
 func TestSessionManagerGetSessionCount(t *testing.T) {
 	manager := NewSessionManager(time.Minute)
-	
+
 	// Initially no sessions
 	assert.Equal(t, 0, manager.GetSessionCount())
-	
+
 	// Create a session
 	addr := &net.TCPAddr{IP: net.ParseIP("192.168.1.100"), Port: 5279}
 	conn := &mockConn{remoteAddr: addr}
-	
+
 	manager.CreateSession(conn)
-	
+
 	// Verify count
 	assert.Equal(t, 1, manager.GetSessionCount())
 }
 
 func TestSessionManagerCleanupExpiredSessions(t *testing.T) {
 	manager := NewSessionManager(50 * time.Millisecond)
-	
+
 	addr := &net.TCPAddr{IP: net.ParseIP("192.168.1.100"), Port: 5279}
 	conn := &mockConn{remoteAddr: addr}
-	
+
 	session := manager.CreateSession(conn)
-	
+
 	// Verify session exists
 	_, exists := manager.GetSession(session.ID)
 	assert.True(t, exists)
-	
+
 	// Wait for timeout
 	time.Sleep(60 * time.Millisecond)
-	
+
 	// Cleanup expired sessions
 	cleaned := manager.CleanupExpiredSessions()
-	
+
 	// Verify session was cleaned up
 	assert.Equal(t, 1, cleaned)
 	_, exists = manager.GetSession(session.ID)
@@ -186,32 +186,32 @@ func TestSessionManagerCleanupExpiredSessions(t *testing.T) {
 func TestSession(t *testing.T) {
 	addr := &net.TCPAddr{IP: net.ParseIP("192.168.1.100"), Port: 5279}
 	conn := &mockConn{remoteAddr: addr}
-	
+
 	session := NewSession(conn)
-	
+
 	// Test basic properties
 	assert.NotEmpty(t, session.ID)
 	assert.Equal(t, DeviceTypeUnknown, session.DeviceType)
 	assert.Equal(t, addr.String(), session.RemoteAddr)
 	assert.Equal(t, SessionStateConnected, session.State)
-	
+
 	// Test state changes
 	session.SetState(SessionStateAuthenticated)
 	assert.Equal(t, SessionStateAuthenticated, session.GetState())
-	
+
 	// Test activity updates
 	oldActivity := session.LastActivity
 	time.Sleep(10 * time.Millisecond)
 	session.UpdateActivity()
 	assert.True(t, session.LastActivity.After(oldActivity))
-	
+
 	// Test device info
 	session.SetDeviceInfo(DeviceTypeInverter, "TEST123456", "06", "1.0")
 	assert.Equal(t, DeviceTypeInverter, session.DeviceType)
 	assert.Equal(t, "TEST123456", session.SerialNumber)
 	assert.Equal(t, "06", session.Protocol)
 	assert.Equal(t, "1.0", session.Version)
-	
+
 	// Test byte counters
 	session.AddBytesReceived(100)
 	session.AddBytesSent(50)
@@ -261,7 +261,7 @@ func TestDeviceTypeString(t *testing.T) {
 func BenchmarkCreateSession(b *testing.B) {
 	manager := NewSessionManager(time.Minute)
 	addr := &net.TCPAddr{IP: net.ParseIP("192.168.1.100"), Port: 5279}
-	
+
 	for i := 0; i < b.N; i++ {
 		conn := &mockConn{remoteAddr: addr}
 		session := manager.CreateSession(conn)
@@ -273,9 +273,9 @@ func BenchmarkGetSession(b *testing.B) {
 	manager := NewSessionManager(time.Minute)
 	addr := &net.TCPAddr{IP: net.ParseIP("192.168.1.100"), Port: 5279}
 	conn := &mockConn{remoteAddr: addr}
-	
+
 	session := manager.CreateSession(conn)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _ = manager.GetSession(session.ID)
@@ -285,9 +285,9 @@ func BenchmarkGetSession(b *testing.B) {
 func BenchmarkSessionUpdateActivity(b *testing.B) {
 	addr := &net.TCPAddr{IP: net.ParseIP("192.168.1.100"), Port: 5279}
 	conn := &mockConn{remoteAddr: addr}
-	
+
 	session := NewSession(conn)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		session.UpdateActivity()

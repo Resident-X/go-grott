@@ -159,7 +159,7 @@ func (s *Session) IncrementErrorCount() {
 func (s *Session) GetStats() SessionStats {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	
+
 	return SessionStats{
 		ID:              s.ID,
 		DeviceType:      s.DeviceType,
@@ -190,7 +190,7 @@ func (s *Session) IsExpired(timeout time.Duration) bool {
 func (s *Session) Close() error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	
+
 	s.State = SessionStateDisconnected
 	if s.Connection != nil {
 		return s.Connection.Close()
@@ -236,29 +236,29 @@ func NewSessionManager(sessionTimeout time.Duration) *SessionManager {
 		sessionTimeout: sessionTimeout,
 		stopCleanup:    make(chan struct{}),
 	}
-	
+
 	// Start cleanup routine
 	sm.startCleanupRoutine()
-	
+
 	return sm
 }
 
 // CreateSession creates a new session for a connection.
 func (sm *SessionManager) CreateSession(conn net.Conn) *Session {
 	session := NewSession(conn)
-	
+
 	sm.mutex.Lock()
 	defer sm.mutex.Unlock()
-	
+
 	// Clean up any existing session for this address
 	if existingSession, exists := sm.sessionsByAddr[session.RemoteAddr]; exists {
 		delete(sm.sessions, existingSession.ID)
 		existingSession.Close()
 	}
-	
+
 	sm.sessions[session.ID] = session
 	sm.sessionsByAddr[session.RemoteAddr] = session
-	
+
 	return session
 }
 
@@ -266,7 +266,7 @@ func (sm *SessionManager) CreateSession(conn net.Conn) *Session {
 func (sm *SessionManager) GetSession(id string) (*Session, bool) {
 	sm.mutex.RLock()
 	defer sm.mutex.RUnlock()
-	
+
 	session, exists := sm.sessions[id]
 	return session, exists
 }
@@ -275,7 +275,7 @@ func (sm *SessionManager) GetSession(id string) (*Session, bool) {
 func (sm *SessionManager) GetSessionByAddr(addr string) (*Session, bool) {
 	sm.mutex.RLock()
 	defer sm.mutex.RUnlock()
-	
+
 	session, exists := sm.sessionsByAddr[addr]
 	return session, exists
 }
@@ -284,16 +284,16 @@ func (sm *SessionManager) GetSessionByAddr(addr string) (*Session, bool) {
 func (sm *SessionManager) GetAllSessions() []SessionStats {
 	sm.mutex.RLock()
 	defer sm.mutex.RUnlock()
-	
+
 	stats := make([]SessionStats, 0, len(sm.sessions))
 	now := time.Now()
-	
+
 	for _, session := range sm.sessions {
 		sessionStats := session.GetStats()
 		sessionStats.Duration = now.Sub(sessionStats.ConnectedAt)
 		stats = append(stats, sessionStats)
 	}
-	
+
 	return stats
 }
 
@@ -301,7 +301,7 @@ func (sm *SessionManager) GetAllSessions() []SessionStats {
 func (sm *SessionManager) RemoveSession(id string) {
 	sm.mutex.Lock()
 	defer sm.mutex.Unlock()
-	
+
 	if session, exists := sm.sessions[id]; exists {
 		delete(sm.sessionsByAddr, session.RemoteAddr)
 		delete(sm.sessions, id)
@@ -313,15 +313,15 @@ func (sm *SessionManager) RemoveSession(id string) {
 func (sm *SessionManager) CleanupExpiredSessions() int {
 	sm.mutex.Lock()
 	defer sm.mutex.Unlock()
-	
+
 	var expiredSessions []string
-	
+
 	for id, session := range sm.sessions {
 		if session.IsExpired(sm.sessionTimeout) {
 			expiredSessions = append(expiredSessions, id)
 		}
 	}
-	
+
 	for _, id := range expiredSessions {
 		if session, exists := sm.sessions[id]; exists {
 			delete(sm.sessionsByAddr, session.RemoteAddr)
@@ -329,7 +329,7 @@ func (sm *SessionManager) CleanupExpiredSessions() int {
 			session.Close()
 		}
 	}
-	
+
 	return len(expiredSessions)
 }
 
@@ -347,15 +347,15 @@ func (sm *SessionManager) Close() {
 	if sm.cleanupTicker != nil {
 		sm.cleanupTicker.Stop()
 	}
-	
+
 	// Close all sessions
 	sm.mutex.Lock()
 	defer sm.mutex.Unlock()
-	
+
 	for _, session := range sm.sessions {
 		session.Close()
 	}
-	
+
 	sm.sessions = make(map[string]*Session)
 	sm.sessionsByAddr = make(map[string]*Session)
 }
@@ -363,7 +363,7 @@ func (sm *SessionManager) Close() {
 // startCleanupRoutine starts a goroutine to periodically clean up expired sessions.
 func (sm *SessionManager) startCleanupRoutine() {
 	sm.cleanupTicker = time.NewTicker(time.Minute) // Run cleanup every minute
-	
+
 	go func() {
 		for {
 			select {

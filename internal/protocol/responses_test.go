@@ -107,7 +107,7 @@ func TestCreateTimeSyncResponse(t *testing.T) {
 
 func TestCreateDataResponse(t *testing.T) {
 	builder := NewResponseBuilder()
-	
+
 	// Just test that the builder exists - the actual method may not be implemented yet
 	assert.NotNil(t, builder)
 }

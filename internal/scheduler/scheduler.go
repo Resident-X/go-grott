@@ -13,6 +13,9 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// Global counter for unique command IDs
+var commandIDCounter uint64
+
 // CommandPriority defines the priority level for commands.
 type CommandPriority int
 
@@ -226,11 +229,11 @@ type CommandScheduler struct {
 	mutex           sync.RWMutex
 
 	// Configuration
-	tickInterval    time.Duration
-	maxConcurrent   int
-	defaultTimeout  time.Duration
-	defaultRetries  int
-	timeSyncInterval time.Duration
+	tickInterval        time.Duration
+	maxConcurrent       int
+	defaultTimeout      time.Duration
+	defaultRetries      int
+	timeSyncInterval    time.Duration
 	healthCheckInterval time.Duration
 
 	// Metrics
@@ -412,14 +415,14 @@ func (cs *CommandScheduler) GetMetrics() map[string]interface{} {
 	defer cs.mutex.RUnlock()
 
 	return map[string]interface{}{
-		"is_running":          cs.isRunning,
-		"queue_length":        cs.queue.GetQueueLength(),
-		"queue_by_priority":   cs.queue.GetQueueLengthByPriority(),
-		"commands_executed":   cs.commandsExecuted,
-		"commands_failed":     cs.commandsFailed,
-		"commands_retried":    cs.commandsRetried,
-		"active_sessions":     cs.sessionManager.GetSessionCount(),
-		"active_workers":      int64(cs.activeWorkers), // Add active workers count
+		"is_running":        cs.isRunning,
+		"queue_length":      cs.queue.GetQueueLength(),
+		"queue_by_priority": cs.queue.GetQueueLengthByPriority(),
+		"commands_executed": atomic.LoadInt64(&cs.commandsExecuted),
+		"commands_failed":   atomic.LoadInt64(&cs.commandsFailed),
+		"commands_retried":  atomic.LoadInt64(&cs.commandsRetried),
+		"active_sessions":   cs.sessionManager.GetSessionCount(),
+		"active_workers":    atomic.LoadInt64(&cs.activeWorkers), // Add active workers count
 	}
 }
 
@@ -531,7 +534,7 @@ func (cs *CommandScheduler) executeCommand(ctx context.Context, cmd *ScheduledCo
 	// Mark as completed
 	completed := time.Now()
 	cmd.CompletedAt = &completed
-	cs.commandsExecuted++
+	atomic.AddInt64(&cs.commandsExecuted, 1)
 
 	cs.logger.Debug().
 		Str("command_id", cmd.ID).
@@ -612,9 +615,9 @@ func (cs *CommandScheduler) retryCommand(cmd *ScheduledCommand) {
 	cmd.Retries++
 	cmd.ExecutedAt = nil
 	cmd.ScheduledAt = time.Now().Add(time.Duration(cmd.Retries) * time.Second) // Exponential backoff
-	
+
 	cs.queue.Enqueue(cmd)
-	cs.commandsRetried++
+	atomic.AddInt64(&cs.commandsRetried, 1)
 
 	cs.logger.Warn().
 		Str("command_id", cmd.ID).
@@ -627,7 +630,7 @@ func (cs *CommandScheduler) retryCommand(cmd *ScheduledCommand) {
 
 // recordCommandFailure records a failed command.
 func (cs *CommandScheduler) recordCommandFailure(cmd *ScheduledCommand) {
-	cs.commandsFailed++
+	atomic.AddInt64(&cs.commandsFailed, 1)
 
 	cs.logger.Error().
 		Str("command_id", cmd.ID).
@@ -640,5 +643,7 @@ func (cs *CommandScheduler) recordCommandFailure(cmd *ScheduledCommand) {
 
 // generateCommandID generates a unique command ID.
 func generateCommandID() string {
-	return fmt.Sprintf("cmd_%d_%d", time.Now().UnixNano(), time.Now().Nanosecond()%1000)
+	// Use atomic counter to ensure uniqueness even with concurrent calls
+	counter := atomic.AddUint64(&commandIDCounter, 1)
+	return fmt.Sprintf("cmd_%d_%d", time.Now().UnixNano(), counter)
 }

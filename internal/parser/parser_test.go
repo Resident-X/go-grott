@@ -90,7 +90,8 @@ func TestPythonSampleData(t *testing.T) {
 	t.Logf("PVFrequency: %.2f, PVGridVoltage: %.2f, PVGridCurrent: %.2f, PVGridPower: %.2f",
 		result.PVFrequency, result.PVGridVoltage, result.PVGridCurrent, result.PVGridPower)
 
-	// Check specific values based on the Python output
+	// Check specific values based on the Python implementation results
+	// These are the exact values the Python version produces for this test data
 	assert.Equal(t, "JPC281833B", result.DataloggerSerial, "DataloggerSerial should match Python")
 	assert.Equal(t, "QMB2823261", result.PVSerial, "PVSerial should match Python")
 	assert.Equal(t, 1, result.PVStatus, "PVStatus should match Python")

@@ -259,7 +259,7 @@ func (s *DataCollectionServer) handleConnection(ctx context.Context, conn net.Co
 		s.clientMutex.Lock()
 		delete(s.clients, clientAddr)
 		s.clientMutex.Unlock()
-		
+
 		// Remove session
 		s.sessionManager.RemoveSession(session.ID)
 	}()
@@ -451,27 +451,27 @@ func (s *DataCollectionServer) updateSessionWithDeviceInfo(sess *session.Session
 	// Determine device type based on data content
 	deviceType := session.DeviceTypeUnknown
 	serialNumber := ""
-	
+
 	if data.DataloggerSerial != "" {
 		deviceType = session.DeviceTypeDatalogger
 		serialNumber = data.DataloggerSerial
-		
+
 		// If we also have PV serial, this might be an inverter
 		if data.PVSerial != "" {
 			deviceType = session.DeviceTypeInverter
 			serialNumber = data.PVSerial
 		}
 	}
-	
+
 	// Detect protocol from raw data
 	protocol := "unknown"
 	if len(rawData) >= 4 {
 		protocol = fmt.Sprintf("%02x", rawData[3])
 	}
-	
+
 	// Update session with device information
 	sess.SetDeviceInfo(deviceType, serialNumber, protocol, "")
-	
+
 	// Update session state to active if we successfully parsed data
 	if sess.GetState() == session.SessionStateConnected {
 		sess.SetState(session.SessionStateActive)
@@ -481,38 +481,38 @@ func (s *DataCollectionServer) updateSessionWithDeviceInfo(sess *session.Session
 // GetMetrics returns server metrics including command scheduler status.
 func (s *DataCollectionServer) GetMetrics() map[string]interface{} {
 	metrics := make(map[string]interface{})
-	
+
 	// Server metrics
 	metrics["uptime"] = time.Since(s.startTime).Seconds()
 	metrics["start_time"] = s.startTime
-	
+
 	// Client connection metrics
 	s.clientMutex.RLock()
 	metrics["active_connections"] = len(s.clients)
 	s.clientMutex.RUnlock()
-	
+
 	// Session metrics
 	metrics["session_count"] = s.sessionManager.GetSessionCount()
 	allSessions := s.sessionManager.GetAllSessions()
-	
+
 	// Count sessions by state
 	stateCount := make(map[string]int)
 	deviceTypeCount := make(map[string]int)
-	
+
 	for _, sessionStat := range allSessions {
 		stateCount[sessionStat.State.String()]++
 		deviceTypeCount[sessionStat.DeviceType.String()]++
 	}
-	
+
 	metrics["session_states"] = stateCount
 	metrics["device_types"] = deviceTypeCount
-	
+
 	// Command scheduler metrics
 	schedulerMetrics := s.commandScheduler.GetMetrics()
 	for k, v := range schedulerMetrics {
 		metrics["scheduler_"+k] = v
 	}
-	
+
 	return metrics
 }
 
@@ -530,6 +530,6 @@ func (s *DataCollectionServer) ScheduleDeviceCommand(sessionID string, cmdType s
 		ScheduledAt: time.Now(),
 		Parameters:  parameters,
 	}
-	
+
 	return s.commandScheduler.ScheduleCommand(cmd)
 }
