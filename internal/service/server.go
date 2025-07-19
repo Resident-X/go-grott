@@ -13,7 +13,6 @@ import (
 	"github.com/resident-x/go-grott/internal/config"
 	"github.com/resident-x/go-grott/internal/domain"
 	"github.com/resident-x/go-grott/internal/protocol"
-	"github.com/resident-x/go-grott/internal/scheduler"
 	"github.com/resident-x/go-grott/internal/session"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -21,21 +20,20 @@ import (
 
 // DataCollectionServer manages the inverter data collection, processing and publishing.
 type DataCollectionServer struct {
-	config           *config.Config
-	listener         net.Listener
-	apiServer        *api.Server
-	parser           domain.DataParser
-	publisher        domain.MessagePublisher
-	monitoring       domain.MonitoringService
-	registry         domain.Registry
-	sessionManager   *session.SessionManager
-	responseManager  *protocol.ResponseManager
-	commandScheduler *scheduler.CommandScheduler
-	clients          map[string]net.Conn
-	clientMutex      sync.RWMutex
-	done             chan struct{}
-	logger           zerolog.Logger
-	startTime        time.Time
+	config          *config.Config
+	listener        net.Listener
+	apiServer       *api.Server
+	parser          domain.DataParser
+	publisher       domain.MessagePublisher
+	monitoring      domain.MonitoringService
+	registry        domain.Registry
+	sessionManager  *session.SessionManager
+	responseManager *protocol.ResponseManager
+	clients         map[string]net.Conn
+	clientMutex     sync.RWMutex
+	done            chan struct{}
+	logger          zerolog.Logger
+	startTime       time.Time
 }
 
 // NewDataCollectionServer creates a new data collection server instance.
@@ -53,31 +51,18 @@ func NewDataCollectionServer(cfg *config.Config, parser domain.DataParser,
 	// Create response manager
 	responseManager := protocol.NewResponseManager()
 
-	// Create command builder
-	commandBuilder := protocol.NewCommandBuilder()
-
-	// Create command scheduler with default configuration
-	commandScheduler := scheduler.NewCommandScheduler(
-		sessionManager,
-		commandBuilder,
-		responseManager,
-		scheduler.DefaultSchedulerConfig(),
-		logger,
-	)
-
 	// Create server instance.
 	server := &DataCollectionServer{
-		config:           cfg,
-		parser:           parser,
-		publisher:        publisher,
-		monitoring:       monitoring,
-		registry:         registry,
-		sessionManager:   sessionManager,
-		responseManager:  responseManager,
-		commandScheduler: commandScheduler,
-		clients:          make(map[string]net.Conn),
-		done:             make(chan struct{}),
-		logger:           logger,
+		config:          cfg,
+		parser:          parser,
+		publisher:       publisher,
+		monitoring:      monitoring,
+		registry:        registry,
+		sessionManager:  sessionManager,
+		responseManager: responseManager,
+		clients:         make(map[string]net.Conn),
+		done:            make(chan struct{}),
+		logger:          logger,
 	}
 
 	// Initialize HTTP API server if enabled.
@@ -107,11 +92,6 @@ func (s *DataCollectionServer) Start(ctx context.Context) error {
 		Str("address", addr).
 		Msg("Server started")
 
-	// Start command scheduler
-	if err := s.commandScheduler.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start command scheduler: %w", err)
-	}
-
 	// Start HTTP API server if enabled.
 	if s.apiServer != nil {
 		if err := s.apiServer.Start(ctx); err != nil {
@@ -131,11 +111,6 @@ func (s *DataCollectionServer) Stop(ctx context.Context) error {
 
 	// Signal shutdown
 	close(s.done)
-
-	// Stop command scheduler
-	if err := s.commandScheduler.Stop(); err != nil {
-		s.logger.Warn().Err(err).Msg("Error stopping command scheduler")
-	}
 
 	// Close listener
 	if s.listener != nil {
@@ -252,22 +227,6 @@ func (s *DataCollectionServer) extractHost(clientAddr string) (string, error) {
 func (s *DataCollectionServer) setupConnectionSession(conn net.Conn, clientAddr string) *session.Session {
 	// Create session for this connection
 	session := s.sessionManager.CreateSession(conn)
-
-	// Schedule initial time sync command for new session
-	if err := s.commandScheduler.ScheduleTimeSync(session.ID, scheduler.PriorityHigh); err != nil {
-		s.logger.Warn().
-			Err(err).
-			Str("session_id", session.ID).
-			Msg("Failed to schedule initial time sync")
-	}
-
-	// Schedule initial health check
-	if err := s.commandScheduler.ScheduleHealthCheck(session.ID, scheduler.PriorityLow); err != nil {
-		s.logger.Warn().
-			Err(err).
-			Str("session_id", session.ID).
-			Msg("Failed to schedule initial health check")
-	}
 
 	// Register client connection (for backward compatibility)
 	s.clientMutex.Lock()
@@ -427,26 +386,8 @@ func (s *DataCollectionServer) processDataBidirectional(ctx context.Context, ses
 					Uint8("response_type", response.Type).
 					Msg("Response sent successfully")
 
-				// Special handling for record type "03" - schedule time sync after ACK
-				if len(data) >= 8 {
-					recType := fmt.Sprintf("%02x", data[7]) // convert to two digit hex
-					if recType == "03" {
-						// Schedule time sync command with a 1-second delay (as per Python logic)
-						go func() {
-							time.Sleep(1 * time.Second)
-							if err := s.commandScheduler.ScheduleTimeSync(session.ID, scheduler.PriorityNormal); err != nil {
-								s.logger.Warn().
-									Err(err).
-									Str("session_id", session.ID).
-									Msg("Failed to schedule time sync after record type 03")
-							} else {
-								s.logger.Debug().
-									Str("session_id", session.ID).
-									Msg("Time sync scheduled after record type 03")
-							}
-						}()
-					}
-				}
+				// Note: Python reference implementation does not have automatic scheduling
+				// after record type "03" - keeping behavior simple and reactive only
 			}
 		}
 	}
@@ -603,31 +544,7 @@ func (s *DataCollectionServer) GetMetrics() map[string]interface{} {
 	metrics["session_states"] = stateCount
 	metrics["device_types"] = deviceTypeCount
 
-	// Command scheduler metrics
-	schedulerMetrics := s.commandScheduler.GetMetrics()
-	for k, v := range schedulerMetrics {
-		metrics["scheduler_"+k] = v
-	}
-
 	return metrics
-}
-
-// GetSchedulerMetrics returns detailed command scheduler metrics.
-func (s *DataCollectionServer) GetSchedulerMetrics() map[string]interface{} {
-	return s.commandScheduler.GetMetrics()
-}
-
-// ScheduleDeviceCommand allows manual scheduling of commands for testing or admin purposes.
-func (s *DataCollectionServer) ScheduleDeviceCommand(sessionID string, cmdType scheduler.CommandType, priority scheduler.CommandPriority, parameters map[string]interface{}) error {
-	cmd := &scheduler.ScheduledCommand{
-		Type:        cmdType,
-		Priority:    priority,
-		SessionID:   sessionID,
-		ScheduledAt: time.Now(),
-		Parameters:  parameters,
-	}
-
-	return s.commandScheduler.ScheduleCommand(cmd)
 }
 
 // connectAPIToSessions connects the HTTP API server to the session management system

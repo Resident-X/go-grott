@@ -118,7 +118,6 @@ go-grott/
 │   ├── parser/        # Growatt protocol parsing
 │   ├── protocol/      # Protocol command handling
 │   ├── pubsub/        # MQTT publishing
-│   ├── scheduler/     # Command scheduling system
 │   ├── service/       # Business logic services
 │   ├── session/       # Connection session management
 │   └── validation/    # Data validation
@@ -164,9 +163,8 @@ All endpoints support multiple data formats via `?format=` parameter:
 
 1. **DataCollectionServer**: Handles TCP connections from Growatt dataloggers
 2. **APIServer**: Provides HTTP API for monitoring and device interaction
-3. **CommandScheduler**: Manages automatic device communication and health checks
-4. **SessionManager**: Tracks device connections and state
-5. **MessagePublisher**: Distributes data to MQTT and external services
+3. **SessionManager**: Tracks device connections and state
+4. **MessagePublisher**: Distributes data to MQTT and external services
 
 ### Data Flow
 ```
