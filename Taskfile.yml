@@ -90,6 +90,30 @@ tasks:
       - go test -v -race ./test/...
     silent: false
 
+  test-e2e-hex:
+    desc: Run E2E hex data tests (excludes performance tests)
+    cmds:
+      - go test -v -race ./test/e2e_hex_data_test.go -run "TestE2E_RealHexData|TestE2E_CustomHexData"
+    silent: false
+
+  test-e2e-hex-performance:
+    desc: Run E2E hex data performance tests only
+    cmds:
+      - go test -v -race ./test/e2e_hex_data_test.go -run TestE2E_PerformanceWithMultipleConnections
+    silent: false
+
+  test-e2e-hex-all:
+    desc: Run all E2E hex data tests including performance
+    cmds:
+      - go test -v -race ./test/e2e_hex_data_test.go
+    silent: false
+
+  test-e2e-hex-custom:
+    desc: Run custom E2E hex data tests (add your real hex data first)
+    cmds:
+      - go test -v -race ./test/e2e_hex_data_test.go -run TestE2E_CustomHexData
+    silent: false
+
   test-all:
     desc: Run all tests including unit, integration, and e2e
     deps: [ mocks-clean, build ]
