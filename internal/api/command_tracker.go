@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/resident-x/go-grott/internal/domain"
+	"github.com/resident-x/go-grott/internal/protocol"
 	"github.com/rs/zerolog"
 )
 
@@ -115,16 +116,16 @@ func (rp *ResponseProcessor) ProcessResponse(data []byte) {
 	
 	// Process different response types similar to Python grottserver
 	switch recType {
-	case "05": // Register read response from inverter
-		rp.processRegisterReadResponse("05", data)
-	case "06": // Register write response from inverter  
-		rp.processRegisterWriteResponse("06", data)
-	case "18": // Datalogger write response
-		rp.processDataloggerWriteResponse("18", data)
-	case "19": // Datalogger read response
-		rp.processDataloggerReadResponse("19", data)
-	case "10": // Multi-register response
-		rp.processMultiRegisterResponse("10", data)
+	case protocol.ProtocolInverterRead: // Register read response from inverter
+		rp.processRegisterReadResponse(protocol.ProtocolInverterRead, data)
+	case protocol.ProtocolInverterWrite: // Register write response from inverter  
+		rp.processRegisterWriteResponse(protocol.ProtocolInverterWrite, data)
+	case protocol.ProtocolDataloggerWrite: // Datalogger write response
+		rp.processDataloggerWriteResponse(protocol.ProtocolDataloggerWrite, data)
+	case protocol.ProtocolDataloggerRead: // Datalogger read response
+		rp.processDataloggerReadResponse(protocol.ProtocolDataloggerRead, data)
+	case protocol.ProtocolMultiRegister: // Multi-register response
+		rp.processMultiRegisterResponse(protocol.ProtocolMultiRegister, data)
 	default:
 		rp.logger.Debug().
 			Str("record_type", recType).
@@ -145,7 +146,7 @@ func (rp *ResponseProcessor) processRegisterReadResponse(cmdType string, data []
 	// Extract register and value from the response
 	// This is a simplified version - real implementation would need proper parsing
 	offset := 0
-	if len(plainData) >= 76 && plainData[3] == 0x06 {
+	if len(plainData) >= 76 && plainData[3] == protocol.ProtocolInverterWriteByte {
 		offset = 40 // Protocol 06 has offset
 	}
 	
@@ -188,7 +189,7 @@ func (rp *ResponseProcessor) processRegisterWriteResponse(cmdType string, data [
 	plainData := rp.decryptIfNeeded(data)
 	
 	offset := 0
-	if len(plainData) >= 76 && plainData[3] == 0x06 {
+	if len(plainData) >= 76 && plainData[3] == protocol.ProtocolInverterWriteByte {
 		offset = 40
 	}
 	
@@ -217,7 +218,7 @@ func (rp *ResponseProcessor) processRegisterWriteResponse(cmdType string, data [
 		}
 		
 		rp.tracker.SetResponse(cmdType, registerKey, writeResponse)
-		rp.tracker.SetResponse("05", registerKey, readResponse)
+		rp.tracker.SetResponse(protocol.ProtocolInverterRead, registerKey, readResponse)
 		
 		rp.logger.Debug().
 			Str("cmd_type", cmdType).
@@ -233,7 +234,7 @@ func (rp *ResponseProcessor) processDataloggerWriteResponse(cmdType string, data
 	plainData := rp.decryptIfNeeded(data)
 	
 	offset := 0
-	if len(plainData) >= 76 && plainData[3] == 0x06 {
+	if len(plainData) >= 76 && plainData[3] == protocol.ProtocolInverterWriteByte {
 		offset = 40
 	}
 	
@@ -268,7 +269,7 @@ func (rp *ResponseProcessor) processDataloggerReadResponse(cmdType string, data 
 	plainData := rp.decryptIfNeeded(data)
 	
 	offset := 0
-	if len(plainData) >= 76 && plainData[3] == 0x06 {
+	if len(plainData) >= 76 && plainData[3] == protocol.ProtocolInverterWriteByte {
 		offset = 40
 	}
 	
@@ -341,7 +342,7 @@ func (rp *ResponseProcessor) decryptIfNeeded(data []byte) []byte {
 	}
 	
 	// Check if this is protocol 02 (unencrypted)
-	if data[3] == 0x02 {
+	if data[3] == protocol.ProtocolTCPByte {
 		return data
 	}
 	

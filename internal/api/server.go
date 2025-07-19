@@ -37,6 +37,9 @@ const (
 	CommandRegAll        = "regall"
 	CommandMultiRegister = "multiregister"
 	CommandDateTime      = "datetime"
+	
+	// Additional constants not defined in protocol package yet
+	// TODO: Move these to protocol package eventually
 )
 
 // Custom error types for better error handling
@@ -531,7 +534,7 @@ func (s *Server) handleDataloggerGet(w http.ResponseWriter, r *http.Request) {
 
 	// Handle regall command
 	if command == CommandRegAll {
-		allResponses := s.responseTracker.GetAllResponses("19")
+		allResponses := s.responseTracker.GetAllResponses(protocol.ProtocolDataloggerRead)
 		s.writeJSON(w, allResponses, http.StatusOK)
 		return
 	}
@@ -551,7 +554,7 @@ func (s *Server) handleDataloggerGet(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Generate and queue register read command
-		if err := s.queueRegisterReadCommand(r.Context(), datalogger, "19", register); err != nil {
+		if err := s.queueRegisterReadCommand(r.Context(), datalogger, protocol.ProtocolDataloggerRead, register); err != nil {
 			s.writeError(w, "failed to queue command", http.StatusInternalServerError)
 			s.logger.Error().Err(err).Msg("Failed to queue register read command")
 			return
@@ -559,7 +562,7 @@ func (s *Server) handleDataloggerGet(w http.ResponseWriter, r *http.Request) {
 
 		// Wait for response
 		registerKey := fmt.Sprintf("%04x", register)
-		response, err := s.waitForResponse("19", registerKey, DefaultTimeout)
+		response, err := s.waitForResponse(protocol.ProtocolDataloggerRead, registerKey, DefaultTimeout)
 		if err != nil {
 			s.writeError(w, "no or invalid response received", http.StatusBadRequest)
 			s.logger.Warn().Err(err).Msg("No response received for register read")
@@ -640,7 +643,7 @@ func (s *Server) handleDataloggerPut(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate and queue register write command
-	if err := s.queueRegisterWriteCommand(r.Context(), datalogger, "18", register, value); err != nil {
+	if err := s.queueRegisterWriteCommand(r.Context(), datalogger, protocol.ProtocolDataloggerWrite, register, value); err != nil {
 		s.writeError(w, "failed to queue command", http.StatusInternalServerError)
 		s.logger.Error().Err(err).Msg("Failed to queue register write command")
 		return
@@ -648,7 +651,7 @@ func (s *Server) handleDataloggerPut(w http.ResponseWriter, r *http.Request) {
 
 	// Wait for response
 	registerKey := fmt.Sprintf("%04x", register)
-	_, err := s.waitForResponse("18", registerKey, DefaultTimeout)
+	_, err := s.waitForResponse(protocol.ProtocolDataloggerWrite, registerKey, DefaultTimeout)
 	if err != nil {
 		s.writeError(w, "no or invalid response received", http.StatusBadRequest)
 		s.logger.Warn().Err(err).Msg("No response received for register write")
@@ -801,7 +804,7 @@ func (s *Server) executeInverterCommand(w http.ResponseWriter, params *InverterG
 
 // handleInverterRegallCommand handles the "regall" command for inverters.
 func (s *Server) handleInverterRegallCommand(w http.ResponseWriter, params *InverterGetParams) error {
-	allResponses := s.responseTracker.GetAllResponses("05")
+	allResponses := s.responseTracker.GetAllResponses(protocol.ProtocolInverterRead)
 	
 	// Convert response values to requested format
 	convertedResponses := s.formatAllResponses(allResponses, params.Format)
@@ -813,7 +816,7 @@ func (s *Server) handleInverterRegallCommand(w http.ResponseWriter, params *Inve
 // handleInverterRegisterCommand handles the "register" command for inverters.
 func (s *Server) handleInverterRegisterCommand(w http.ResponseWriter, params *InverterGetParams) error {
 	// Generate and queue inverter register read command
-	if err := s.queueInverterRegisterReadCommand(params.Datalogger, params.InverterInfo, "05", uint16(params.Register)); err != nil {
+	if err := s.queueInverterRegisterReadCommand(params.Datalogger, params.InverterInfo, protocol.ProtocolInverterRead, uint16(params.Register)); err != nil {
 		s.writeError(w, "failed to queue command", http.StatusInternalServerError)
 		s.logger.Error().Err(err).Msg("Failed to queue inverter register read command")
 		return err
@@ -821,7 +824,7 @@ func (s *Server) handleInverterRegisterCommand(w http.ResponseWriter, params *In
 
 	// Wait for response
 	registerKey := fmt.Sprintf("%04x", params.Register)
-	response, err := s.waitForResponse("05", registerKey, 10*time.Second) // Longer timeout for inverters
+	response, err := s.waitForResponse(protocol.ProtocolInverterRead, registerKey, 10*time.Second) // Longer timeout for inverters
 	if err != nil {
 		s.writeError(w, "no or invalid response received", http.StatusBadRequest)
 		s.logger.Warn().Err(err).Msg("No response received for inverter register read")
@@ -876,55 +879,66 @@ func (s *Server) formatSingleResponse(response *CommandResponse, format FormatTy
 func (s *Server) handleInverterPut(w http.ResponseWriter, r *http.Request) {
 	s.logger.Info().Msg("Inverter PUT request received")
 
+	// Parse and validate parameters
+	params, err := s.parseInverterPutParams(r)
+	if err != nil {
+		s.writeError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Find inverter and datalogger
+	datalogger, inverterInfo, err := s.findInverterAndDatalogger(params.inverterID)
+	if err != nil {
+		s.writeError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Execute command based on type
+	switch params.command {
+	case "register":
+		if err := s.handleInverterRegisterWrite(datalogger, inverterInfo, params); err != nil {
+			s.handleInverterPutError(w, err)
+			return
+		}
+		s.writeJSON(w, map[string]string{"status": "OK"}, http.StatusOK)
+	case "multiregister":
+		s.writeError(w, "multiregister command not yet implemented", http.StatusNotImplemented)
+	default:
+		s.writeError(w, "command not defined or not available yet", http.StatusBadRequest)
+	}
+}
+
+// inverterPutParams holds parameters for inverter PUT operations
+type inverterPutParams struct {
+	command    string
+	inverterID string
+	format     FormatType
+	register   uint16
+	value      string
+}
+
+// parseInverterPutParams parses and validates parameters for inverter PUT requests
+func (s *Server) parseInverterPutParams(r *http.Request) (*inverterPutParams, error) {
 	query := r.URL.Query()
 	
 	if len(query) == 0 {
-		s.writeError(w, "empty put received", http.StatusBadRequest)
-		return
+		return nil, fmt.Errorf("empty put received")
 	}
 
 	// Validate command parameter
 	command := query.Get("command")
 	if command == "" {
-		s.writeError(w, "no command entered", http.StatusBadRequest)
-		return
+		return nil, fmt.Errorf("no command entered")
 	}
 
 	if command != "register" && command != "multiregister" {
-		s.writeError(w, "no valid command entered", http.StatusBadRequest)
-		return
+		return nil, fmt.Errorf("no valid command entered")
 	}
 
-	// Validate inverter ID and find corresponding datalogger
+	// Validate inverter ID
 	inverterID := query.Get("inverter")
 	if inverterID == "" {
-		s.writeError(w, "no or invalid invertid specified", http.StatusBadRequest)
-		return
-	}
-
-	// Find datalogger that contains this inverter
-	var datalogger *domain.DataloggerInfo
-	var inverterInfo *domain.InverterInfo
-	found := false
-
-	dataloggers := s.registry.GetAllDataloggers()
-	for _, dl := range dataloggers {
-		for _, inv := range dl.Inverters {
-			if inv.Serial == inverterID {
-				datalogger = dl
-				inverterInfo = inv
-				found = true
-				break
-			}
-		}
-		if found {
-			break
-		}
-	}
-
-	if !found {
-		s.writeError(w, "no or invalid invertid specified", http.StatusBadRequest)
-		return
+		return nil, fmt.Errorf("no or invalid invertid specified")
 	}
 
 	// Get format parameter (default to dec)
@@ -934,81 +948,101 @@ func (s *Server) handleInverterPut(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.formatConverter.ValidateFormat(formatStr); err != nil {
-		s.writeError(w, "invalid format specified", http.StatusBadRequest)
-		return
+		return nil, fmt.Errorf("invalid format specified")
 	}
 
-	format := FormatType(formatStr)
+	params := &inverterPutParams{
+		command:    command,
+		inverterID: inverterID,
+		format:     FormatType(formatStr),
+	}
 
+	// For register command, parse register and value
 	if command == "register" {
-		// Validate register
 		registerStr := query.Get("register")
 		if registerStr == "" {
-			s.writeError(w, "no register specified", http.StatusBadRequest)
-			return
+			return nil, fmt.Errorf("no register specified")
 		}
 
 		regVal, err := strconv.Atoi(registerStr)
 		if err != nil || regVal < 0 || regVal >= 4096 {
-			s.writeError(w, "invalid reg value specified", http.StatusBadRequest)
-			return
+			return nil, fmt.Errorf("invalid reg value specified")
 		}
-		register := uint16(regVal)
+		params.register = uint16(regVal)
 
 		// Validate value
 		value := query.Get("value")
 		if value == "" {
-			s.writeError(w, "no value specified", http.StatusBadRequest)
-			return
+			return nil, fmt.Errorf("no value specified")
 		}
-
-		// Validate and convert value to appropriate format
-		if err := s.formatConverter.ValidateValue(value, format); err != nil {
-			s.writeError(w, "invalid value specified", http.StatusBadRequest)
-			return
-		}
-
-		// Convert value to hex for command
-		hexValue, err := s.formatConverter.CreateValueForCommand(value, format)
-		if err != nil {
-			s.writeError(w, "invalid value format", http.StatusBadRequest)
-			return
-		}
-
-		// Convert hex back to integer value for the command
-		intValue, err := s.formatConverter.ConvertFromHex(hexValue, FormatDec)
-		if err != nil {
-			s.writeError(w, "value conversion error", http.StatusInternalServerError)
-			return
-		}
-
-		// Generate and queue inverter register write command
-		//nolint:errcheck // Error is properly checked and handled
-		if err := s.queueInverterRegisterWriteCommand(datalogger, inverterInfo, "06", register, intValue.(int)); err != nil {
-			s.writeError(w, "failed to queue command", http.StatusInternalServerError)
-			s.logger.Error().Err(err).Msg("Failed to queue inverter register write command")
-			return
-		}
-
-		// Wait for response
-		registerKey := fmt.Sprintf("%04x", register)
-		_, err = s.waitForResponse("06", registerKey, 10*time.Second) // Longer timeout for inverters
-		if err != nil {
-			s.writeError(w, "no or invalid response received", http.StatusBadRequest)
-			s.logger.Warn().Err(err).Msg("No response received for inverter register write")
-			return
-		}
-
-		s.writeJSON(w, map[string]string{"status": "OK"}, http.StatusOK)
-		return
-
-	} else if command == "multiregister" {
-		// Handle multiregister command (Phase 3 feature)
-		s.writeError(w, "multiregister command not yet implemented", http.StatusNotImplemented)
-		return
+		params.value = value
 	}
 
-	s.writeError(w, "command not defined or not available yet", http.StatusBadRequest)
+	return params, nil
+}
+
+// findInverterAndDatalogger finds datalogger and inverter by inverter ID
+func (s *Server) findInverterAndDatalogger(inverterID string) (*domain.DataloggerInfo, *domain.InverterInfo, error) {
+	dataloggers := s.registry.GetAllDataloggers()
+	for _, dl := range dataloggers {
+		for _, inv := range dl.Inverters {
+			if inv.Serial == inverterID {
+				return dl, inv, nil
+			}
+		}
+	}
+	return nil, nil, fmt.Errorf("no or invalid invertid specified")
+}
+
+// handleInverterRegisterWrite processes inverter register write requests
+func (s *Server) handleInverterRegisterWrite(datalogger *domain.DataloggerInfo, inverterInfo *domain.InverterInfo, params *inverterPutParams) error {
+	// Validate and convert value to appropriate format
+	if err := s.formatConverter.ValidateValue(params.value, params.format); err != nil {
+		return fmt.Errorf("invalid value specified")
+	}
+
+	// Convert value to hex for command
+	hexValue, err := s.formatConverter.CreateValueForCommand(params.value, params.format)
+	if err != nil {
+		return fmt.Errorf("invalid value format")
+	}
+
+	// Convert hex back to integer value for the command
+	intValue, err := s.formatConverter.ConvertFromHex(hexValue, FormatDec)
+	if err != nil {
+		return fmt.Errorf("value conversion error")
+	}
+
+	// Generate and queue inverter register write command
+	//nolint:errcheck // Error is properly checked and handled
+	if err := s.queueInverterRegisterWriteCommand(datalogger, inverterInfo, protocol.ProtocolInverterWrite, params.register, intValue.(int)); err != nil {
+		s.logger.Error().Err(err).Msg("Failed to queue inverter register write command")
+		return fmt.Errorf("failed to queue command")
+	}
+
+	// Wait for response
+	registerKey := fmt.Sprintf("%04x", params.register)
+	_, err = s.waitForResponse(protocol.ProtocolInverterWrite, registerKey, 10*time.Second) // Longer timeout for inverters
+	if err != nil {
+		s.logger.Warn().Err(err).Msg("No response received for inverter register write")
+		return fmt.Errorf("no or invalid response received")
+	}
+
+	return nil
+}
+
+// handleInverterPutError handles errors from inverter PUT operations
+func (s *Server) handleInverterPutError(w http.ResponseWriter, err error) {
+	// Map error messages to appropriate HTTP status codes
+	errMsg := err.Error()
+	switch {
+	case strings.Contains(errMsg, "failed to queue command"):
+		s.writeError(w, errMsg, http.StatusInternalServerError)
+	case strings.Contains(errMsg, "value conversion error"):
+		s.writeError(w, errMsg, http.StatusInternalServerError)
+	default:
+		s.writeError(w, errMsg, http.StatusBadRequest)
+	}
 }
 
 // writeJSON writes a JSON response.
@@ -1063,8 +1097,8 @@ func (s *Server) queueRegisterReadCommand(ctx context.Context, datalogger *domai
 	// Build command body
 	body := []byte(datalogger.ID)
 	
-	// Add padding for protocol 06
-	if datalogger.Protocol == "06" {
+	// Add padding for protocol ProtocolInverterWrite
+	if datalogger.Protocol == protocol.ProtocolInverterWrite {
 		padding := make([]byte, 20)
 		body = append(body, padding...)
 	}
@@ -1077,7 +1111,7 @@ func (s *Server) queueRegisterReadCommand(ctx context.Context, datalogger *domai
 	// Create header
 	sequenceNo := uint16(1) // TODO: Implement proper sequence number tracking
 	bodyLen := len(body) + 2
-	deviceID := "01" // Datalogger device ID
+	deviceID := protocol.DeviceDatalogger // Datalogger device ID
 	
 	header := fmt.Sprintf("%04x00%s%04x%s%s", sequenceNo, datalogger.Protocol, bodyLen, deviceID, commandType)
 	
@@ -1089,7 +1123,7 @@ func (s *Server) queueRegisterReadCommand(ctx context.Context, datalogger *domai
 	}
 	
 	// Encrypt and add CRC if needed
-	if datalogger.Protocol != "02" {
+	if datalogger.Protocol != protocol.ProtocolTCP {
 		encrypted := s.encryptCommand(commandBytes)
 		crc := s.calculateCRC(encrypted)
 		commandBytes = append(encrypted, crc...)
@@ -1123,8 +1157,8 @@ func (s *Server) queueRegisterWriteCommand(ctx context.Context, datalogger *doma
 	// Build command body
 	body := []byte(datalogger.ID)
 	
-	// Add padding for protocol 06
-	if datalogger.Protocol == "06" {
+	// Add padding for protocol ProtocolInverterWrite
+	if datalogger.Protocol == protocol.ProtocolInverterWrite {
 		padding := make([]byte, 20)
 		body = append(body, padding...)
 	}
@@ -1142,7 +1176,7 @@ func (s *Server) queueRegisterWriteCommand(ctx context.Context, datalogger *doma
 	// Create header
 	sequenceNo := uint16(1) // TODO: Implement proper sequence number tracking
 	bodyLen := len(body) + 2
-	deviceID := "01" // Datalogger device ID
+	deviceID := protocol.DeviceDatalogger // Datalogger device ID
 	
 	header := fmt.Sprintf("%04x00%s%04x%s%s", sequenceNo, datalogger.Protocol, bodyLen, deviceID, commandType)
 	
@@ -1154,7 +1188,7 @@ func (s *Server) queueRegisterWriteCommand(ctx context.Context, datalogger *doma
 	}
 	
 	// Encrypt and add CRC if needed
-	if datalogger.Protocol != "02" {
+	if datalogger.Protocol != protocol.ProtocolTCP {
 		encrypted := s.encryptCommand(commandBytes)
 		crc := s.calculateCRC(encrypted)
 		commandBytes = append(encrypted, crc...)
@@ -1257,8 +1291,8 @@ func (s *Server) queueInverterRegisterReadCommand(datalogger *domain.DataloggerI
 	// Build command body
 	body := []byte(datalogger.ID)
 	
-	// Add padding for protocol 06
-	if datalogger.Protocol == "06" {
+	// Add padding for ProtocolInverterWrite
+	if datalogger.Protocol == protocol.ProtocolInverterWrite {
 		padding := make([]byte, 20)
 		body = append(body, padding...)
 	}
@@ -1288,7 +1322,7 @@ func (s *Server) queueInverterRegisterReadCommand(datalogger *domain.DataloggerI
 	}
 	
 	// Encrypt and add CRC if needed
-	if datalogger.Protocol != "02" {
+	if datalogger.Protocol != protocol.ProtocolTCP {
 		encrypted := s.encryptCommand(commandBytes)
 		crc := s.calculateCRC(encrypted)
 		commandBytes = append(encrypted, crc...)
@@ -1318,8 +1352,8 @@ func (s *Server) queueInverterRegisterWriteCommand(datalogger *domain.Datalogger
 	// Build command body
 	body := []byte(datalogger.ID)
 	
-	// Add padding for protocol 06
-	if datalogger.Protocol == "06" {
+	// Add padding for protocol ProtocolInverterWrite
+	if datalogger.Protocol == protocol.ProtocolInverterWrite {
 		padding := make([]byte, 20)
 		body = append(body, padding...)
 	}
@@ -1352,7 +1386,7 @@ func (s *Server) queueInverterRegisterWriteCommand(datalogger *domain.Datalogger
 	}
 	
 	// Encrypt and add CRC if needed
-	if datalogger.Protocol != "02" {
+	if datalogger.Protocol != protocol.ProtocolTCP {
 		encrypted := s.encryptCommand(commandBytes)
 		crc := s.calculateCRC(encrypted)
 		commandBytes = append(encrypted, crc...)
@@ -1383,8 +1417,8 @@ func (s *Server) queueInverterRegallCommand(datalogger *domain.DataloggerInfo, i
 	// Build command body
 	body := []byte(datalogger.ID)
 	
-	// Add padding for protocol 06
-	if datalogger.Protocol == "06" {
+	// Add padding for protocol ProtocolInverterWrite
+	if datalogger.Protocol == protocol.ProtocolInverterWrite {
 		padding := make([]byte, 20)
 		body = append(body, padding...)
 	}
@@ -1422,7 +1456,7 @@ func (s *Server) queueInverterRegallCommand(datalogger *domain.DataloggerInfo, i
 	}
 	
 	// Encrypt and add CRC if needed
-	if datalogger.Protocol != "02" {
+	if datalogger.Protocol != protocol.ProtocolTCP {
 		encrypted := s.encryptCommand(commandBytes)
 		crc := s.calculateCRC(encrypted)
 		commandBytes = append(encrypted, crc...)
@@ -1454,34 +1488,92 @@ func (s *Server) handleMultiregisterGet(w http.ResponseWriter, r *http.Request) 
 		Str("url", r.URL.String()).
 		Msg("Received multiregister GET request")
 
-	// Parse query parameters
+	// Parse and validate parameters  
+	params, err := s.parseMultiregisterGetParams(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Parse register list
+	registers, err := s.parseRegisterList(params.registersParam)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Find devices
+	datalogger, inverter, err := s.findDevicesForMultiregister(params.dataloggerSerial, params.inverterSerial)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			http.Error(w, err.Error(), http.StatusNotFound)
+		} else {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+		return
+	}
+
+	// Execute read command and get response
+	if err := s.executeMultiregisterRead(datalogger, inverter, params.command, registers); err != nil {
+		s.logger.Error().Err(err).Msg("Failed to queue multi-register read command")
+		http.Error(w, "Failed to queue command: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Send response
+	s.sendMultiregisterReadResponse(w, params.dataloggerSerial, params.inverterSerial, params.command, params.format, len(registers))
+}
+
+// multiregisterGetParams holds parameters for multi-register GET operations
+type multiregisterGetParams struct {
+	dataloggerSerial string
+	inverterSerial   string
+	command          string
+	registersParam   string
+	format           string
+}
+
+// parseMultiregisterGetParams parses and validates parameters for multi-register GET requests
+func (s *Server) parseMultiregisterGetParams(r *http.Request) (*multiregisterGetParams, error) {
 	query := r.URL.Query()
-	dataloggerSerial := query.Get("serial")
-	inverterSerial := query.Get("invserial")
-	command := query.Get("command")
-	registersParam := query.Get("registers")
-	format := query.Get("format")
+	params := &multiregisterGetParams{
+		dataloggerSerial: query.Get("serial"),
+		inverterSerial:   query.Get("invserial"),
+		command:          query.Get("command"),
+		registersParam:   query.Get("registers"),
+		format:           query.Get("format"),
+	}
 
 	// Validate required parameters
-	if dataloggerSerial == "" || inverterSerial == "" || command == "" || registersParam == "" {
-		http.Error(w, "Missing required parameters: serial, invserial, command, registers", http.StatusBadRequest)
-		return
+	if params.dataloggerSerial == "" || params.inverterSerial == "" || params.command == "" || params.registersParam == "" {
+		return nil, fmt.Errorf("Missing required parameters: serial, invserial, command, registers")
 	}
 
-	// Validate command type - multi-register commands use "10"
-	if command != "10" {
-		http.Error(w, "Invalid command type for multiregister operation: "+command, http.StatusBadRequest)
-		return
+	// Validate command type - multi-register commands use ProtocolMultiRegister
+	if params.command != protocol.ProtocolInverterWrite {
+		return nil, fmt.Errorf("Invalid command type for multiregister operation: %s", params.command)
 	}
 
-	// Parse registers parameter - should be comma-separated list
+	// Default format is dec if not specified
+	if params.format == "" {
+		params.format = "dec"
+	}
+
+	// Validate format
+	if !s.formatConverter.IsValidFormat(params.format) {
+		return nil, fmt.Errorf("Invalid format: %s. Supported: dec, hex, text", params.format)
+	}
+
+	return params, nil
+}
+
+// parseRegisterList parses a comma-separated list of registers
+func (s *Server) parseRegisterList(registersParam string) ([]uint16, error) {
 	registerStrings := strings.Split(registersParam, ",")
 	if len(registerStrings) == 0 {
-		http.Error(w, "No registers specified", http.StatusBadRequest)
-		return
+		return nil, fmt.Errorf("No registers specified")
 	}
 
-	// Convert and validate registers
 	var registers []uint16
 	for _, regStr := range registerStrings {
 		regStr = strings.TrimSpace(regStr)
@@ -1489,236 +1581,26 @@ func (s *Server) handleMultiregisterGet(w http.ResponseWriter, r *http.Request) 
 			continue
 		}
 
-		// Handle hex format (with or without 0x prefix)
-		var reg uint64
-		var err error
-		if strings.HasPrefix(regStr, "0x") || strings.HasPrefix(regStr, "0X") {
-			reg, err = strconv.ParseUint(regStr[2:], 16, 16)
-		} else if len(regStr) <= 4 && strings.ContainsAny(regStr, "abcdefABCDEF") {
-			reg, err = strconv.ParseUint(regStr, 16, 16)
-		} else {
-			reg, err = strconv.ParseUint(regStr, 10, 16)
-		}
-
+		reg, err := s.parseRegisterString(regStr)
 		if err != nil {
-			http.Error(w, "Invalid register format: "+regStr, http.StatusBadRequest)
-			return
+			return nil, fmt.Errorf("Invalid register format: %s", regStr)
 		}
 
 		registers = append(registers, uint16(reg))
 	}
 
 	if len(registers) == 0 {
-		http.Error(w, "No valid registers provided", http.StatusBadRequest)
-		return
+		return nil, fmt.Errorf("No valid registers provided")
 	}
 
-	// Default format is dec if not specified
-	if format == "" {
-		format = "dec"
-	}
-
-	// Validate format
-	if !s.formatConverter.IsValidFormat(format) {
-		http.Error(w, "Invalid format: "+format+". Supported: dec, hex, text", http.StatusBadRequest)
-		return
-	}
-
-	// Find datalogger
-	datalogger := s.registry.GetDataloggerBySerial(dataloggerSerial)
-	if datalogger == nil {
-		http.Error(w, "Datalogger not found: "+dataloggerSerial, http.StatusNotFound)
-		return
-	}
-
-	// Find inverter
-	inverter := s.registry.GetInverterBySerial(datalogger.ID, inverterSerial)
-	if inverter == nil {
-		http.Error(w, "Inverter not found: "+inverterSerial, http.StatusNotFound)
-		return
-	}
-
-	// Queue multi-register read command
-	if err := s.queueMultiRegisterReadCommand(datalogger, inverter, command, registers); err != nil {
-		s.logger.Error().Err(err).Msg("Failed to queue multi-register read command")
-		http.Error(w, "Failed to queue command: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Wait for response
-	timeout := s.requestTimeout // Configurable timeout
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
-
-	responseKey := "multiregister"
-
-	for {
-		select {
-		case <-time.After(timeout):
-			http.Error(w, "Command timeout", http.StatusRequestTimeout)
-			return
-
-		case <-ticker.C:
-			if responseData, exists := s.responseTracker.GetResponse(command, responseKey); exists && responseData != nil {
-				// For multi-register responses, create a simplified response
-				// Since we don't have the raw bytes, we'll create a basic response structure
-				response := map[string]interface{}{
-					"status":   "success",
-					"format":   format,
-					"message":  "Multi-register read completed",
-					"registers": responseData.Value, // Assume the response processor stored the register data
-				}
-
-				// Return JSON response
-				w.Header().Set("Content-Type", "application/json")
-				if err := json.NewEncoder(w).Encode(response); err != nil {
-					s.logger.Error().Err(err).Msg("Failed to encode response")
-					http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-					return
-				}
-
-				s.logger.Debug().
-					Str("datalogger", dataloggerSerial).
-					Str("inverter", inverterSerial).
-					Int("register_count", len(registers)).
-					Str("format", format).
-					Msg("Multi-register GET response sent")
-				return
-			}
-		}
-	}
+	return registers, nil
 }
 
-// handleMultiregisterPut handles multi-register write requests.
-func (s *Server) handleMultiregisterPut(w http.ResponseWriter, r *http.Request) {
-	s.logger.Debug().
-		Str("method", r.Method).
-		Str("url", r.URL.String()).
-		Msg("Received multiregister PUT request")
-
-	// Parse query parameters
-	query := r.URL.Query()
-	dataloggerSerial := query.Get("serial")
-	inverterSerial := query.Get("invserial")
-	command := query.Get("command")
-	registersParam := query.Get("registers")
-	valuesParam := query.Get("values")
-	format := query.Get("format")
-
-	// Validate required parameters
-	if dataloggerSerial == "" || inverterSerial == "" || command == "" || registersParam == "" || valuesParam == "" {
-		http.Error(w, "Missing required parameters: serial, invserial, command, registers, values", http.StatusBadRequest)
-		return
-	}
-
-	// Validate command type - multi-register commands use "10"
-	if command != "10" {
-		http.Error(w, "Invalid command type for multiregister operation: "+command, http.StatusBadRequest)
-		return
-	}
-
-	// Parse registers and values
-	registerStrings := strings.Split(registersParam, ",")
-	valueStrings := strings.Split(valuesParam, ",")
-
-	if len(registerStrings) != len(valueStrings) {
-		http.Error(w, "Mismatch between number of registers and values", http.StatusBadRequest)
-		return
-	}
-
-	if len(registerStrings) == 0 {
-		http.Error(w, "No registers specified", http.StatusBadRequest)
-		return
-	}
-
-	// Default format is dec if not specified
-	if format == "" {
-		format = "dec"
-	}
-
-	// Validate format
-	if !s.formatConverter.IsValidFormat(format) {
-		http.Error(w, "Invalid format: "+format+". Supported: dec, hex, text", http.StatusBadRequest)
-		return
-	}
-
-	// Parse and validate registers and values
-	var regValues []RegisterValue
-	for i, regStr := range registerStrings {
-		regStr = strings.TrimSpace(regStr)
-		valueStr := strings.TrimSpace(valueStrings[i])
-
-		if regStr == "" || valueStr == "" {
-			continue
-		}
-
-		// Parse register
-		var reg uint64
-		var err error
-		if strings.HasPrefix(regStr, "0x") || strings.HasPrefix(regStr, "0X") {
-			reg, err = strconv.ParseUint(regStr[2:], 16, 16)
-		} else if len(regStr) <= 4 && strings.ContainsAny(regStr, "abcdefABCDEF") {
-			reg, err = strconv.ParseUint(regStr, 16, 16)
-		} else {
-			reg, err = strconv.ParseUint(regStr, 10, 16)
-		}
-
-		if err != nil {
-			http.Error(w, "Invalid register format: "+regStr, http.StatusBadRequest)
-			return
-		}
-
-		// Parse value using format converter
-		value, err := s.formatConverter.ConvertFromHex(valueStr, FormatType(format))
-		if err != nil {
-			http.Error(w, "Invalid value format: "+valueStr, http.StatusBadRequest)
-			return
-		}
-
-		// ConvertFromHex returns interface{}, need to convert to int
-		var intValue int
-		switch v := value.(type) {
-		case int:
-			intValue = v
-		case int64:
-			intValue = int(v)
-		case float64:
-			intValue = int(v)
-		default:
-			http.Error(w, "Invalid value type returned from converter", http.StatusBadRequest)
-			return
-		}
-
-		regValues = append(regValues, RegisterValue{
-			Register: uint16(reg),
-			Value:    intValue,
-		})
-	}
-
-	if len(regValues) == 0 {
-		http.Error(w, "No valid register-value pairs provided", http.StatusBadRequest)
-		return
-	}
-
-	// Find datalogger
-	datalogger := s.registry.GetDataloggerBySerial(dataloggerSerial)
-	if datalogger == nil {
-		http.Error(w, "Datalogger not found: "+dataloggerSerial, http.StatusNotFound)
-		return
-	}
-
-	// Find inverter
-	inverter := s.registry.GetInverterBySerial(datalogger.ID, inverterSerial)
-	if inverter == nil {
-		http.Error(w, "Inverter not found: "+inverterSerial, http.StatusNotFound)
-		return
-	}
-
-	// Queue multi-register write command
-	if err := s.queueMultiRegisterWriteCommand(datalogger, inverter, command, regValues); err != nil {
-		s.logger.Error().Err(err).Msg("Failed to queue multi-register write command")
-		http.Error(w, "Failed to queue command: "+err.Error(), http.StatusInternalServerError)
-		return
+// executeMultiregisterRead queues the multi-register read command and waits for response
+func (s *Server) executeMultiregisterRead(datalogger *domain.DataloggerInfo, inverter *domain.InverterInfo, command string, registers []uint16) error {
+	// Queue multi-register read command
+	if err := s.queueMultiRegisterReadCommand(datalogger, inverter, command, registers); err != nil {
+		return err
 	}
 
 	// Wait for response
@@ -1731,38 +1613,285 @@ func (s *Server) handleMultiregisterPut(w http.ResponseWriter, r *http.Request) 
 	for {
 		select {
 		case <-time.After(timeout):
-			http.Error(w, "Command timeout", http.StatusRequestTimeout)
-			return
+			return fmt.Errorf("Command timeout")
 
 		case <-ticker.C:
-			if responseData, exists := s.responseTracker.GetResponse(command, responseKey); exists && responseData != nil {
-				// For write operations, return success confirmation
-				response := map[string]interface{}{
-					"status":             "success",
-					"datalogger":         dataloggerSerial,
-					"inverter":           inverterSerial,
-					"command":            command,
-					"registers_written":  len(regValues),
-					"message":            "Multi-register write completed successfully",
-				}
-
-				w.Header().Set("Content-Type", "application/json")
-				if err := json.NewEncoder(w).Encode(response); err != nil {
-					s.logger.Error().Err(err).Msg("Failed to encode response")
-					http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-					return
-				}
-
-				s.logger.Debug().
-					Str("datalogger", dataloggerSerial).
-					Str("inverter", inverterSerial).
-					Int("register_count", len(regValues)).
-					Str("format", format).
-					Msg("Multi-register PUT response sent")
-				return
+			if _, exists := s.responseTracker.GetResponse(command, responseKey); exists {
+				return nil // Success
 			}
 		}
 	}
+}
+
+// sendMultiregisterReadResponse sends the success response for multi-register read
+func (s *Server) sendMultiregisterReadResponse(w http.ResponseWriter, dataloggerSerial, inverterSerial, command, format string, registerCount int) {
+	// Get the actual response data
+	responseKey := "multiregister"
+	responseData, exists := s.responseTracker.GetResponse(command, responseKey)
+	
+	var registers interface{} = "Multi-register read completed"
+	if exists && responseData != nil {
+		registers = responseData.Value
+	}
+
+	response := map[string]interface{}{
+		"status":    "success",
+		"format":    format,
+		"message":   "Multi-register read completed",
+		"registers": registers,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		s.logger.Error().Err(err).Msg("Failed to encode response")
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
+
+	s.logger.Debug().
+		Str("datalogger", dataloggerSerial).
+		Str("inverter", inverterSerial).
+		Int("register_count", registerCount).
+		Str("format", format).
+		Msg("Multi-register GET response sent")
+}
+
+// handleMultiregisterPut handles multi-register write requests.
+func (s *Server) handleMultiregisterPut(w http.ResponseWriter, r *http.Request) {
+	s.logger.Debug().
+		Str("method", r.Method).
+		Str("url", r.URL.String()).
+		Msg("Received multiregister PUT request")
+
+	// Parse and validate parameters
+	params, err := s.parseMultiregisterPutParams(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Parse register values
+	regValues, err := s.parseRegisterValues(params.registersParam, params.valuesParam, params.format)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Find devices
+	datalogger, inverter, err := s.findDevicesForMultiregister(params.dataloggerSerial, params.inverterSerial)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			http.Error(w, err.Error(), http.StatusNotFound)
+		} else {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+		return
+	}
+
+	// Queue command and wait for response
+	if err := s.executeMultiregisterWrite(datalogger, inverter, params.command, regValues); err != nil {
+		s.logger.Error().Err(err).Msg("Failed to queue multi-register write command")
+		http.Error(w, "Failed to queue command: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Send response
+	s.sendMultiregisterWriteResponse(w, params.dataloggerSerial, params.inverterSerial, params.command, params.format, len(regValues))
+}
+
+// multiregisterPutParams holds parameters for multi-register PUT operations
+type multiregisterPutParams struct {
+	dataloggerSerial string
+	inverterSerial   string
+	command          string
+	registersParam   string
+	valuesParam      string
+	format           string
+}
+
+// parseMultiregisterPutParams parses and validates parameters for multi-register PUT requests
+func (s *Server) parseMultiregisterPutParams(r *http.Request) (*multiregisterPutParams, error) {
+	query := r.URL.Query()
+	params := &multiregisterPutParams{
+		dataloggerSerial: query.Get("serial"),
+		inverterSerial:   query.Get("invserial"),
+		command:          query.Get("command"),
+		registersParam:   query.Get("registers"),
+		valuesParam:      query.Get("values"),
+		format:           query.Get("format"),
+	}
+
+	// Validate required parameters
+	if params.dataloggerSerial == "" || params.inverterSerial == "" || params.command == "" || 
+	   params.registersParam == "" || params.valuesParam == "" {
+		return nil, fmt.Errorf("Missing required parameters: serial, invserial, command, registers, values")
+	}
+
+	// Validate command type - multi-register commands use ProtocolMultiRegister
+	if params.command != protocol.ProtocolInverterWrite {
+		return nil, fmt.Errorf("Invalid command type for multiregister operation: %s", params.command)
+	}
+
+	// Default format is dec if not specified
+	if params.format == "" {
+		params.format = "dec"
+	}
+
+	// Validate format
+	if !s.formatConverter.IsValidFormat(params.format) {
+		return nil, fmt.Errorf("Invalid format: %s. Supported: dec, hex, text", params.format)
+	}
+
+	return params, nil
+}
+
+// parseRegisterValues parses register and value strings into RegisterValue structs
+func (s *Server) parseRegisterValues(registersParam, valuesParam, format string) ([]RegisterValue, error) {
+	registerStrings := strings.Split(registersParam, ",")
+	valueStrings := strings.Split(valuesParam, ",")
+
+	if len(registerStrings) != len(valueStrings) {
+		return nil, fmt.Errorf("Mismatch between number of registers and values")
+	}
+
+	if len(registerStrings) == 0 {
+		return nil, fmt.Errorf("no registers specified")
+	}
+
+	var regValues []RegisterValue
+	for i, regStr := range registerStrings {
+		regStr = strings.TrimSpace(regStr)
+		valueStr := strings.TrimSpace(valueStrings[i])
+
+		if regStr == "" || valueStr == "" {
+			continue
+		}
+
+		// Parse register
+		reg, err := s.parseRegisterString(regStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid register format: %s", regStr)
+		}
+
+		// Parse value
+		intValue, err := s.parseValueString(valueStr, format)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value format: %s", valueStr)
+		}
+
+		regValues = append(regValues, RegisterValue{
+			Register: uint16(reg),
+			Value:    intValue,
+		})
+	}
+
+	if len(regValues) == 0 {
+		return nil, fmt.Errorf("no valid register-value pairs provided")
+	}
+
+	return regValues, nil
+}
+
+// parseRegisterString parses a register string (hex or decimal)
+func (s *Server) parseRegisterString(regStr string) (uint64, error) {
+	if strings.HasPrefix(regStr, "0x") || strings.HasPrefix(regStr, "0X") {
+		return strconv.ParseUint(regStr[2:], 16, 16)
+	} else if len(regStr) <= 4 && strings.ContainsAny(regStr, "abcdefABCDEF") {
+		return strconv.ParseUint(regStr, 16, 16)
+	} else {
+		return strconv.ParseUint(regStr, 10, 16)
+	}
+}
+
+// parseValueString parses a value string using the format converter
+func (s *Server) parseValueString(valueStr, format string) (int, error) {
+	// Parse value using format converter
+	value, err := s.formatConverter.ConvertFromHex(valueStr, FormatType(format))
+	if err != nil {
+		return 0, err
+	}
+
+	// ConvertFromHex returns interface{}, need to convert to int
+	switch v := value.(type) {
+	case int:
+		return v, nil
+	case int64:
+		return int(v), nil
+	case float64:
+		return int(v), nil
+	default:
+		return 0, fmt.Errorf("invalid value type returned from converter")
+	}
+}
+
+// findDevicesForMultiregister finds datalogger and inverter for multiregister operations
+func (s *Server) findDevicesForMultiregister(dataloggerSerial, inverterSerial string) (*domain.DataloggerInfo, *domain.InverterInfo, error) {
+	// Find datalogger
+	datalogger := s.registry.GetDataloggerBySerial(dataloggerSerial)
+	if datalogger == nil {
+		return nil, nil, fmt.Errorf("datalogger not found: %s", dataloggerSerial)
+	}
+
+	// Find inverter
+	inverter := s.registry.GetInverterBySerial(datalogger.ID, inverterSerial)
+	if inverter == nil {
+		return nil, nil, fmt.Errorf("inverter not found: %s", inverterSerial)
+	}
+
+	return datalogger, inverter, nil
+}
+
+// executeMultiregisterWrite queues the multi-register write command and waits for response
+func (s *Server) executeMultiregisterWrite(datalogger *domain.DataloggerInfo, inverter *domain.InverterInfo, command string, regValues []RegisterValue) error {
+	// Queue multi-register write command
+	if err := s.queueMultiRegisterWriteCommand(datalogger, inverter, command, regValues); err != nil {
+		return err
+	}
+
+	// Wait for response
+	timeout := s.requestTimeout
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	responseKey := "multiregister"
+
+	for {
+		select {
+		case <-time.After(timeout):
+			return fmt.Errorf("Command timeout")
+
+		case <-ticker.C:
+			if _, exists := s.responseTracker.GetResponse(command, responseKey); exists {
+				return nil // Success
+			}
+		}
+	}
+}
+
+// sendMultiregisterWriteResponse sends the success response for multi-register write
+func (s *Server) sendMultiregisterWriteResponse(w http.ResponseWriter, dataloggerSerial, inverterSerial, command, format string, registerCount int) {
+	response := map[string]interface{}{
+		"status":            "success",
+		"datalogger":        dataloggerSerial,
+		"inverter":          inverterSerial,
+		"command":           command,
+		"registers_written": registerCount,
+		"message":           "Multi-register write completed successfully",
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		s.logger.Error().Err(err).Msg("Failed to encode response")
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
+
+	s.logger.Debug().
+		Str("datalogger", dataloggerSerial).
+		Str("inverter", inverterSerial).
+		Int("register_count", registerCount).
+		Str("format", format).
+		Msg("Multi-register PUT response sent")
 }
 
 // queueMultiRegisterReadCommand creates and queues a multi-register read command.
@@ -1770,8 +1899,8 @@ func (s *Server) queueMultiRegisterReadCommand(datalogger *domain.DataloggerInfo
 	// Build command body
 	body := []byte(datalogger.ID)
 	
-	// Add padding for protocol 06
-	if datalogger.Protocol == "06" {
+	// Add padding for protocol ProtocolInverterWrite
+	if datalogger.Protocol == protocol.ProtocolInverterWrite {
 		padding := make([]byte, 20)
 		body = append(body, padding...)
 	}
@@ -1811,7 +1940,7 @@ func (s *Server) queueMultiRegisterReadCommand(datalogger *domain.DataloggerInfo
 	}
 	
 	// Encrypt and add CRC if needed
-	if datalogger.Protocol != "02" {
+	if datalogger.Protocol != protocol.ProtocolTCP {
 		encrypted := s.encryptCommand(commandBytes)
 		crc := s.calculateCRC(encrypted)
 		commandBytes = append(encrypted, crc...)
@@ -1840,8 +1969,8 @@ func (s *Server) queueMultiRegisterWriteCommand(datalogger *domain.DataloggerInf
 	// Build command body
 	body := []byte(datalogger.ID)
 	
-	// Add padding for protocol 06
-	if datalogger.Protocol == "06" {
+	// Add padding for protocol ProtocolInverterWrite
+	if datalogger.Protocol == protocol.ProtocolInverterWrite {
 		padding := make([]byte, 20)
 		body = append(body, padding...)
 	}
@@ -1886,7 +2015,7 @@ func (s *Server) queueMultiRegisterWriteCommand(datalogger *domain.DataloggerInf
 	}
 	
 	// Encrypt and add CRC if needed
-	if datalogger.Protocol != "02" {
+	if datalogger.Protocol != protocol.ProtocolTCP {
 		encrypted := s.encryptCommand(commandBytes)
 		crc := s.calculateCRC(encrypted)
 		commandBytes = append(encrypted, crc...)

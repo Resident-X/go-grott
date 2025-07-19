@@ -25,7 +25,7 @@ func TestCreateAckResponse(t *testing.T) {
 	}{
 		{
 			name:            "valid ack response",
-			protocol:        ProtocolV6,
+			protocol:        ProtocolInverterWrite,
 			originalCommand: []byte{0x00, 0x01, 0x00, 0x06, 0x00, 0x0A, 0x01, 0x18},
 			expectError:     false,
 		},
@@ -68,19 +68,19 @@ func TestCreateTimeSyncResponse(t *testing.T) {
 	}{
 		{
 			name:        "valid time sync response",
-			protocol:    ProtocolV6,
-			command:     "18",
+			protocol:    ProtocolInverterWrite,
+			command:     ProtocolDataloggerWrite,
 			expectError: false,
 		},
 		{
 			name:        "empty protocol",
 			protocol:    "",
-			command:     "18",
+			command:     ProtocolDataloggerWrite,
 			expectError: true,
 		},
 		{
 			name:        "empty command",
-			protocol:    ProtocolV6,
+			protocol:    ProtocolInverterWrite,
 			command:     "",
 			expectError: true,
 		},
@@ -313,7 +313,7 @@ func BenchmarkCreateAckResponse(b *testing.B) {
 	builder := NewResponseBuilder()
 	command := []byte{0x00, 0x01, 0x00, 0x06, 0x00, 0x0A, 0x01, 0x18}
 	for i := 0; i < b.N; i++ {
-		_, err := builder.CreateAckResponse(ProtocolV6, command)
+		_, err := builder.CreateAckResponse(ProtocolInverterWrite, command)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -323,7 +323,7 @@ func BenchmarkCreateAckResponse(b *testing.B) {
 func BenchmarkCreateTimeSyncResponse(b *testing.B) {
 	builder := NewResponseBuilder()
 	for i := 0; i < b.N; i++ {
-		_, err := builder.CreateTimeSyncResponse(ProtocolV6, "18")
+		_, err := builder.CreateTimeSyncResponse(ProtocolInverterWrite, ProtocolDataloggerWrite)
 		if err != nil {
 			b.Fatal(err)
 		}

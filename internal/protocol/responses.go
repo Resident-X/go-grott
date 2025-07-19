@@ -112,14 +112,8 @@ func (rb *ResponseBuilder) buildAckResponse(protocol string, originalCommand []b
 	header[1] = 0x01 // Header byte 1
 	header[2] = 0x00 // Header byte 2
 
-	// Protocol
-	if protocol == ProtocolV5 {
-		header[3] = 0x05
-	} else if protocol == ProtocolV6 {
-		header[3] = 0x06
-	} else {
-		header[3] = 0x02
-	}
+	// Protocol - use helper function to convert string to byte
+	header[3] = ProtocolStringToByte(protocol)
 
 	// Body length (0 for simple ACK)
 	header[4] = 0x00
@@ -292,10 +286,10 @@ func (rm *ResponseManager) HandleIncomingData(data []byte) (*Response, error) {
 			// after sending this ACK response, as it requires session context
 		}
 
-	case "19", "05", "06", "18": // Command responses - no response needed
+	case ProtocolDataloggerRead, ProtocolInverterRead, ProtocolInverterWrite, ProtocolDataloggerWrite: // Command responses - no response needed
 		return nil, fmt.Errorf("command response records do not require acknowledgment")
 
-	case "10", "29": // Other records - no response needed  
+	case ProtocolMultiRegister, "29": // Other records - no response needed  
 		return nil, fmt.Errorf("records of type %s do not require acknowledgment", recType)
 
 	default:
@@ -331,9 +325,9 @@ func (rm *ResponseManager) ShouldRespond(data []byte, clientAddr string) bool {
 		return true
 	case "03", "04", "50", "1b", "20": // Data records - send ACK
 		return true
-	case "19", "05", "06", "18": // Command responses - no response
+	case ProtocolDataloggerRead, ProtocolInverterRead, ProtocolInverterWrite, ProtocolDataloggerWrite: // Command responses - no response
 		return false
-	case "10", "29": // Other records - no response
+	case ProtocolMultiRegister, "29": // Other records - no response
 		return false
 	default:
 		return false
@@ -344,7 +338,7 @@ func (rm *ResponseManager) ShouldRespond(data []byte, clientAddr string) bool {
 func (rm *ResponseManager) createAckResponse(header []byte, protocol string) (*Response, error) {
 	var responseData []byte
 
-	if protocol == "02" {
+	if protocol == ProtocolTCP {
 		// Protocol 02, unencrypted ACK
 		// Python: header[0:8] + '0003' + header[12:16] + '00'
 		// But header[12:16] doesn't exist in 8-byte header, so we use sequence number from 0:4

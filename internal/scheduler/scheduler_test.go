@@ -328,7 +328,7 @@ func TestCommandScheduler(t *testing.T) {
 	addr := &net.TCPAddr{IP: net.ParseIP("192.168.1.100"), Port: 5279}
 	conn := &mockConn{remoteAddr: addr}
 	sess := sessionManager.CreateSession(conn)
-	sess.SetDeviceInfo(session.DeviceTypeInverter, "TEST123456", "06", "1.0")
+	sess.SetDeviceInfo(session.DeviceTypeInverter, "TEST123456", protocol.ProtocolInverterWrite, "1.0")
 
 	// Schedule a command
 	cmd := &ScheduledCommand{
@@ -430,7 +430,7 @@ func TestExecuteTimeSyncCommand(t *testing.T) {
 	addr := &net.TCPAddr{IP: net.ParseIP("192.168.1.100"), Port: 5279}
 	mockConn := &mockConn{remoteAddr: addr}
 	sess := sessionManager.CreateSession(mockConn)
-	sess.SetDeviceInfo(session.DeviceTypeInverter, "TEST123456", "06", "1.0")
+	sess.SetDeviceInfo(session.DeviceTypeInverter, "TEST123456", protocol.ProtocolInverterWrite, "1.0")
 
 	// Create command
 	cmd := &ScheduledCommand{
@@ -468,7 +468,7 @@ func TestExecuteHealthCheckCommand(t *testing.T) {
 	addr := &net.TCPAddr{IP: net.ParseIP("192.168.1.100"), Port: 5279}
 	mockConn := &mockConn{remoteAddr: addr}
 	sess := sessionManager.CreateSession(mockConn)
-	sess.SetDeviceInfo(session.DeviceTypeInverter, "TEST123456", "06", "1.0")
+	sess.SetDeviceInfo(session.DeviceTypeInverter, "TEST123456", protocol.ProtocolInverterWrite, "1.0")
 
 	// Create command
 	cmd := &ScheduledCommand{

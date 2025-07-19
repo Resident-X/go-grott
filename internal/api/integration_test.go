@@ -12,6 +12,7 @@ import (
 	"github.com/resident-x/go-grott/internal/api"
 	"github.com/resident-x/go-grott/internal/config"
 	"github.com/resident-x/go-grott/internal/domain"
+	"github.com/resident-x/go-grott/internal/protocol"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -230,17 +231,17 @@ func TestResponseTrackerIntegration(t *testing.T) {
 		Result: "00",
 	}
 
-	tracker.SetResponse("05", "0001", response)
+	tracker.SetResponse(protocol.ProtocolInverterRead, "0001", response)
 
 	// Retrieve response
-	retrieved, exists := tracker.GetResponse("05", "0001")
+	retrieved, exists := tracker.GetResponse(protocol.ProtocolInverterRead, "0001")
 	assert.True(t, exists)
 	assert.Equal(t, response.Value, retrieved.Value)
 	assert.Equal(t, response.Result, retrieved.Result)
 
 	// Test delete response
-	tracker.DeleteResponse("05", "0001")
-	_, exists = tracker.GetResponse("05", "0001")
+	tracker.DeleteResponse(protocol.ProtocolInverterRead, "0001")
+	_, exists = tracker.GetResponse(protocol.ProtocolInverterRead, "0001")
 	assert.False(t, exists)
 }
 
@@ -391,8 +392,8 @@ func createTestConfig() *config.Config {
 
 func setupTestRegistry(registry *domain.DeviceRegistry) {
 	// Add test dataloggers
-	registry.RegisterDatalogger("TEST_DL_001", "192.168.1.100", 5279, "06")
-	registry.RegisterDatalogger("TEST_DL_002", "192.168.1.101", 5279, "06")
+	registry.RegisterDatalogger("TEST_DL_001", "192.168.1.100", 5279, protocol.ProtocolInverterWrite)
+	registry.RegisterDatalogger("TEST_DL_002", "192.168.1.101", 5279, protocol.ProtocolInverterWrite)
 
 	// Add test inverters
 	registry.RegisterInverter("TEST_DL_001", "TEST_INV_001", "01")

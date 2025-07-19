@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/resident-x/go-grott/internal/protocol"
 )
 
 // Mock connection for testing
@@ -206,10 +207,10 @@ func TestSession(t *testing.T) {
 	assert.True(t, session.LastActivity.After(oldActivity))
 
 	// Test device info
-	session.SetDeviceInfo(DeviceTypeInverter, "TEST123456", "06", "1.0")
+	session.SetDeviceInfo(DeviceTypeInverter, "TEST123456", protocol.ProtocolInverterWrite, "1.0")
 	assert.Equal(t, DeviceTypeInverter, session.DeviceType)
 	assert.Equal(t, "TEST123456", session.SerialNumber)
-	assert.Equal(t, "06", session.Protocol)
+	assert.Equal(t, protocol.ProtocolInverterWrite, session.Protocol)
 	assert.Equal(t, "1.0", session.Version)
 
 	// Test byte counters

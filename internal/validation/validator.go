@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/resident-x/go-grott/internal/protocol"
 	"github.com/rs/zerolog"
 )
 
@@ -308,12 +309,12 @@ func (av *AdvancedValidator) registerDefaultProtocolRules() {
 
 	av.protocolRules["generic"] = genericRules
 
-	// Protocol V6 specific rules
+	// Protocol V6 (Inverter Write) specific rules
 	v6Rules := []*ProtocolRule{
 		{
 			Name:        "v6_length_consistency",
 			Description: "Validates protocol V6 length field consistency",
-			Protocol:    "06",
+			Protocol:    protocol.ProtocolInverterWrite,
 			Level:       ValidationLevelStandard,
 			Check: func(data []byte, metadata map[string]interface{}) *ValidationError {
 				if len(data) < 6 {
@@ -341,7 +342,7 @@ func (av *AdvancedValidator) registerDefaultProtocolRules() {
 		{
 			Name:        "v6_data_pattern_check",
 			Description: "Detects suspicious data patterns in V6 protocol",
-			Protocol:    "06",
+			Protocol:    protocol.ProtocolInverterWrite,
 			Level:       ValidationLevelStrict,
 			Check: func(data []byte, metadata map[string]interface{}) *ValidationError {
 				if len(data) < 20 {
@@ -378,7 +379,7 @@ func (av *AdvancedValidator) registerDefaultProtocolRules() {
 		},
 	}
 
-	av.protocolRules["06"] = append(genericRules, v6Rules...)
+	av.protocolRules[protocol.ProtocolInverterWrite] = append(genericRules, v6Rules...)
 }
 
 // registerDefaultDataRules registers default data integrity rules.

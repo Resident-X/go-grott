@@ -12,6 +12,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/resident-x/go-grott/internal/config"
 	"github.com/resident-x/go-grott/internal/domain"
+	"github.com/resident-x/go-grott/internal/protocol"
 	"github.com/resident-x/go-grott/mocks"
 	"github.com/stretchr/testify/assert"
 )
@@ -1163,7 +1164,8 @@ func TestAPIServer_HandleMultiregisterGet_NoRegisters(t *testing.T) {
 	server := NewServer(cfg, mockRegistry)
 	
 	// Test request with spaces/empty registers that get filtered out (URL encoded)
-	req := httptest.NewRequest(http.MethodGet, "/api/multiregister?serial=DL001&invserial=INV001&command=10&registers=%20,%20,%20%20", nil)
+	// Using command "06" (ProtocolInverterWrite) which is the valid multiregister command
+	req := httptest.NewRequest(http.MethodGet, "/api/multiregister?serial=DL001&invserial=INV001&command=06&registers=%20,%20,%20%20", nil)
 	w := httptest.NewRecorder()
 
 	// Call handler
@@ -1218,7 +1220,8 @@ func TestAPIServer_HandleMultiregisterPut_MismatchedValues(t *testing.T) {
 	server := NewServer(cfg, mockRegistry)
 	
 	// Test request with valid command but mismatched register and value counts
-	req := httptest.NewRequest(http.MethodPut, "/api/multiregister?serial=DL001&invserial=INV001&command=10&registers=1,2,3&values=10,20", nil)
+	// Using command "06" (ProtocolInverterWrite) which is the valid multiregister command
+	req := httptest.NewRequest(http.MethodPut, "/api/multiregister?serial=DL001&invserial=INV001&command=06&registers=1,2,3&values=10,20", nil)
 	w := httptest.NewRecorder()
 
 	// Call handler
@@ -1286,7 +1289,7 @@ func TestServer_QueueRegisterReadCommand(t *testing.T) {
 		ID:          "41424344454647484950",  // Valid hex format (20 bytes)
 		IP:          "192.168.1.100",
 		Port:        5279,
-		Protocol:    "02",  // Valid protocol code
+		Protocol:    protocol.ProtocolTCP,  // Valid protocol code
 		LastContact: time.Now(),
 	}
 	
@@ -1308,7 +1311,7 @@ func TestServer_QueueRegisterWriteCommand(t *testing.T) {
 		ID:          "41424344454647484950",  // Valid hex format (20 bytes)
 		IP:          "192.168.1.100",
 		Port:        5279,
-		Protocol:    "02",  // Valid protocol code
+		Protocol:    protocol.ProtocolTCP,  // Valid protocol code
 		LastContact: time.Now(),
 	}
 	
@@ -1385,7 +1388,7 @@ func TestServer_UpdateDeviceConnection(t *testing.T) {
 		ID:          "41424344454647484950",
 		IP:          "192.168.1.100",
 		Port:        5279,
-		Protocol:    "02",
+		Protocol:    protocol.ProtocolTCP,
 		LastContact: time.Now(),
 	}
 	

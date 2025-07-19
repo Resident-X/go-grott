@@ -546,12 +546,12 @@ func (cs *CommandScheduler) executeCommand(ctx context.Context, cmd *ScheduledCo
 // executeTimeSyncCommand executes a time synchronization command.
 func (cs *CommandScheduler) executeTimeSyncCommand(ctx context.Context, cmd *ScheduledCommand, sess *session.Session) error {
 	// Get protocol from session or parameters
-	protocol := sess.Protocol
-	if protocol == "" {
+	ptcl := sess.Protocol
+	if ptcl == "" {
 		if p, ok := cmd.Parameters["protocol"].(string); ok {
-			protocol = p
+			ptcl = p
 		} else {
-			protocol = "06" // Default to protocol V6
+			ptcl = protocol.ProtocolInverterWrite // Default to ProtocolMultiRegister
 		}
 	}
 
@@ -559,7 +559,7 @@ func (cs *CommandScheduler) executeTimeSyncCommand(ctx context.Context, cmd *Sch
 	timeUnix := time.Now().Unix()
 	//nolint:gosec // Safe conversion, modulo ensures value fits in uint16
 	timeValue := uint16(timeUnix % 65536)
-	timeSyncCmd, data, err := cs.commandBuilder.CreateTimeSyncCommand(protocol, sess.SerialNumber, timeValue)
+	timeSyncCmd, data, err := cs.commandBuilder.CreateTimeSyncCommand(ptcl, sess.SerialNumber, timeValue)
 	if err != nil {
 		return fmt.Errorf("failed to create time sync command: %w", err)
 	}
@@ -582,16 +582,16 @@ func (cs *CommandScheduler) executeTimeSyncCommand(ctx context.Context, cmd *Sch
 // executeHealthCheckCommand executes a health check command.
 func (cs *CommandScheduler) executeHealthCheckCommand(ctx context.Context, cmd *ScheduledCommand, sess *session.Session) error {
 	// Get protocol from session
-	protocol := sess.Protocol
-	if protocol == "" {
-		protocol = "06" // Default to protocol V6
+	ptcl := sess.Protocol
+	if ptcl == "" {
+		ptcl = protocol.ProtocolInverterWrite // Default to ProtocolMultiRegister
 	}
 
 	// Create ping command
 	timeUnix := time.Now().Unix()
 	//nolint:gosec // Safe conversion, modulo ensures value fits in uint16
 	timeValue := uint16(timeUnix % 65536)
-	pingCmd, data, err := cs.commandBuilder.CreatePingCommand(protocol, sess.SerialNumber, timeValue)
+	pingCmd, data, err := cs.commandBuilder.CreatePingCommand(ptcl, sess.SerialNumber, timeValue)
 	if err != nil {
 		return fmt.Errorf("failed to create ping command: %w", err)
 	}

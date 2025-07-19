@@ -26,21 +26,21 @@ func TestCreateTimeSyncCommand(t *testing.T) {
 	}{
 		{
 			name:        "valid protocol 06",
-			protocol:    ProtocolV6,
+			protocol:    ProtocolInverterWrite,
 			loggerID:    "TEST123456",
 			sequenceNo:  1,
 			expectError: false,
 		},
 		{
 			name:        "valid protocol 05",
-			protocol:    ProtocolV5,
+			protocol:    ProtocolInverterRead,
 			loggerID:    "TEST123456",
 			sequenceNo:  1,
 			expectError: false,
 		},
 		{
 			name:        "valid protocol 02",
-			protocol:    ProtocolV2,
+			protocol:    ProtocolTCP,
 			loggerID:    "TEST123456",
 			sequenceNo:  1,
 			expectError: false,
@@ -54,7 +54,7 @@ func TestCreateTimeSyncCommand(t *testing.T) {
 		},
 		{
 			name:        "empty logger ID",
-			protocol:    ProtocolV6,
+			protocol:    ProtocolInverterWrite,
 			loggerID:    "",
 			sequenceNo:  1,
 			expectError: true,
@@ -83,12 +83,12 @@ func TestCreateTimeSyncCommand(t *testing.T) {
 				assert.Greater(t, len(data), 0)
 
 				// For protocol 06, verify it's longer due to padding
-				if tt.protocol == ProtocolV6 {
+				if tt.protocol == ProtocolInverterWrite {
 					assert.Greater(t, len(data), 30) // Should have padding
 				}
 
 				// For protocols other than 02, should have CRC
-				if tt.protocol != ProtocolV2 {
+				if tt.protocol != ProtocolTCP {
 					assert.Greater(t, len(data), 20) // Should have CRC
 				}
 			}
@@ -108,7 +108,7 @@ func TestCreatePingCommand(t *testing.T) {
 	}{
 		{
 			name:        "valid ping command",
-			protocol:    ProtocolV6,
+			protocol:    ProtocolInverterWrite,
 			loggerID:    "TEST123456",
 			sequenceNo:  1,
 			expectError: false,
@@ -122,7 +122,7 @@ func TestCreatePingCommand(t *testing.T) {
 		},
 		{
 			name:        "empty logger ID",
-			protocol:    ProtocolV6,
+			protocol:    ProtocolInverterWrite,
 			loggerID:    "",
 			sequenceNo:  1,
 			expectError: true,
@@ -206,9 +206,9 @@ func TestParseCommandInfo(t *testing.T) {
 		},
 		{
 			name: "valid command info",
-			data: []byte{0x00, 0x01, 0x00, 0x06, 0x00, 0x0A, 0x01, 0x18},
+			data: []byte{0x00, 0x01, 0x00, 0x10, 0x00, 0x0A, 0x01, 0x18},
 			expected: &CommandInfo{
-				Protocol: "06",
+				Protocol: ProtocolMultiRegister,
 				Command:  0x18,
 				BodyLen:  10,
 				IsValid:  true,
@@ -280,21 +280,21 @@ func TestBuildHeader(t *testing.T) {
 	}{
 		{
 			name:     "protocol 06",
-			protocol: ProtocolV6,
+			protocol: ProtocolInverterWrite,
 			bodyLen:  10,
 			cmdType:  CommandTypeTimeSync,
 			expected: []byte{0x00, 0x01, 0x00, 0x06, 0x00, 0x0A, 0x01, 0x18, 0x00, 0x00},
 		},
 		{
 			name:     "protocol 05",
-			protocol: ProtocolV5,
+			protocol: ProtocolInverterRead,
 			bodyLen:  5,
 			cmdType:  CommandTypePing,
 			expected: []byte{0x00, 0x01, 0x00, 0x05, 0x00, 0x05, 0x01, 0x16, 0x00, 0x00},
 		},
 		{
 			name:     "protocol 02",
-			protocol: ProtocolV2,
+			protocol: ProtocolTCP,
 			bodyLen:  8,
 			cmdType:  CommandTypeIdentify,
 			expected: []byte{0x00, 0x01, 0x00, 0x02, 0x00, 0x08, 0x01, 0x05, 0x00, 0x00},
@@ -313,7 +313,7 @@ func TestBuildHeader(t *testing.T) {
 func BenchmarkCreateTimeSyncCommand(b *testing.B) {
 	builder := NewCommandBuilder()
 	for i := 0; i < b.N; i++ {
-		_, _, err := builder.CreateTimeSyncCommand(ProtocolV6, "TEST123456", uint16(i))
+		_, _, err := builder.CreateTimeSyncCommand(ProtocolInverterWrite, "TEST123456", uint16(i))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -323,7 +323,7 @@ func BenchmarkCreateTimeSyncCommand(b *testing.B) {
 func BenchmarkCreatePingCommand(b *testing.B) {
 	builder := NewCommandBuilder()
 	for i := 0; i < b.N; i++ {
-		_, _, err := builder.CreatePingCommand(ProtocolV6, "TEST123456", uint16(i))
+		_, _, err := builder.CreatePingCommand(ProtocolInverterWrite, "TEST123456", uint16(i))
 		if err != nil {
 			b.Fatal(err)
 		}

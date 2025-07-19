@@ -256,7 +256,7 @@ func createTestSession(t testing.TB, manager *session.SessionManager, addr strin
 	}
 
 	sess := manager.CreateSession(mockConn)
-	sess.SetDeviceInfo(session.DeviceTypeInverter, "TEST123456", "06", "1.0")
+	sess.SetDeviceInfo(session.DeviceTypeInverter, "TEST123456", protocol.ProtocolInverterWrite, "1.0")
 
 	return sess
 }

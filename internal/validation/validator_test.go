@@ -8,6 +8,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/resident-x/go-grott/internal/protocol"
 )
 
 func TestValidationLevel_String(t *testing.T) {
@@ -254,14 +255,14 @@ func TestAdvancedValidator_ProtocolV6Rules(t *testing.T) {
 			0x00, 0x00, 0x16, 0x00, // CRC, ETX, checksum
 		}
 
-		result := validator.ValidatePacket(data, "06", make(map[string]interface{}))
+		result := validator.ValidatePacket(data, protocol.ProtocolInverterWrite, make(map[string]interface{}))
 		// This should pass basic validation but may have warnings
 		assert.NotEmpty(t, result)
 
 		// Now test with incorrect length field
 		data[1] = 0x08 // Declare length as 8 instead of 16
 
-		result = validator.ValidatePacket(data, "06", make(map[string]interface{}))
+		result = validator.ValidatePacket(data, protocol.ProtocolInverterWrite, make(map[string]interface{}))
 		assert.False(t, result.Valid)
 		assert.NotEmpty(t, result.Errors)
 		assert.Contains(t, result.Errors[0].Message, "length mismatch")
@@ -283,7 +284,7 @@ func TestAdvancedValidator_PatternDetection(t *testing.T) {
 		}
 		data = append(data, []byte{0x00, 0x00, 0x16, 0x00}...) // Footer
 
-		result := validator.ValidatePacket(data, "06", make(map[string]interface{}))
+		result := validator.ValidatePacket(data, protocol.ProtocolInverterWrite, make(map[string]interface{}))
 		// We expect warnings due to the pattern
 		assert.NotEmpty(t, result.Warnings)
 		assert.Contains(t, result.Warnings[0].Message, "repeated byte pattern")
@@ -299,7 +300,7 @@ func TestAdvancedValidator_PatternDetection(t *testing.T) {
 		}
 		data = append(data, []byte{0x00, 0x00, 0x16, 0x00}...) // Footer
 
-		result := validator.ValidatePacket(data, "06", make(map[string]interface{}))
+		result := validator.ValidatePacket(data, protocol.ProtocolInverterWrite, make(map[string]interface{}))
 		// We expect warnings due to the uniform pattern
 		assert.NotEmpty(t, result.Warnings)
 		// Should contain either "uniform" or "repeated" pattern warning
@@ -468,7 +469,7 @@ func BenchmarkValidatePacket(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		validator.ValidatePacket(data, "06", metadata)
+		validator.ValidatePacket(data, protocol.ProtocolInverterWrite, metadata)
 	}
 }
 

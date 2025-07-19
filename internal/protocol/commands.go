@@ -19,12 +19,59 @@ const (
 	CommandTypeDatalogConf = 0x19
 )
 
-// Protocol versions.
+// Protocol versions and command types.
 const (
-	ProtocolV2 = "02"
-	ProtocolV5 = "05"
-	ProtocolV6 = "06"
+	ProtocolTCP             = "02"  // TCP protocol (unencrypted)
+	ProtocolInverterRead    = "05"  // Inverter read command
+	ProtocolInverterWrite   = "06"  // Inverter write command  
+	ProtocolV8              = "08"  // Protocol version 8
+	ProtocolV9              = "09"  // Protocol version 9
+	ProtocolMultiRegister   = "10"  // Multi-register command
+	ProtocolDataloggerWrite = "18"  // Datalogger write command
+	ProtocolDataloggerRead  = "19"  // Datalogger read command
 )
+
+// Protocol byte values for header[3] - these match the string constants above
+const (
+	ProtocolTCPByte             = 0x02  // TCP protocol (unencrypted)
+	ProtocolInverterReadByte    = 0x05  // Inverter read command
+	ProtocolInverterWriteByte   = 0x06  // Inverter write command  
+	ProtocolV8Byte              = 0x08  // Protocol version 8
+	ProtocolV9Byte              = 0x09  // Protocol version 9
+	ProtocolMultiRegisterByte   = 0x10  // Multi-register command
+	ProtocolDataloggerWriteByte = 0x18  // Datalogger write command
+	ProtocolDataloggerReadByte  = 0x19  // Datalogger read command
+)
+
+// Device ID constants
+const (
+	DeviceDatalogger     = "01"   // Standard datalogger device ID
+	DeviceDataloggerByte = 0x01   // Standard datalogger device ID byte value
+)
+
+// ProtocolStringToByte converts protocol string to byte value for headers.
+func ProtocolStringToByte(protocol string) byte {
+	switch protocol {
+	case ProtocolTCP:
+		return ProtocolTCPByte
+	case ProtocolInverterRead:
+		return ProtocolInverterReadByte
+	case ProtocolInverterWrite:
+		return ProtocolInverterWriteByte
+	case ProtocolV8:
+		return ProtocolV8Byte
+	case ProtocolV9:
+		return ProtocolV9Byte
+	case ProtocolMultiRegister:
+		return ProtocolMultiRegisterByte
+	case ProtocolDataloggerWrite:
+		return ProtocolDataloggerWriteByte
+	case ProtocolDataloggerRead:
+		return ProtocolDataloggerReadByte
+	default:
+		return ProtocolTCPByte // Default to TCP protocol
+	}
+}
 
 // Register addresses for common operations.
 const (
@@ -97,7 +144,7 @@ func (cb *CommandBuilder) buildTimeSyncData(cmd *TimeSyncCommand) ([]byte, error
 	fullCommand := append(header, body...)
 
 	// Add CRC if not protocol 02
-	if cmd.Protocol != ProtocolV2 {
+	if cmd.Protocol != ProtocolTCP {
 		// Encrypt the command first
 		encrypted := cb.encryptData(fullCommand)
 
@@ -120,7 +167,7 @@ func (cb *CommandBuilder) buildTimeSyncBody(cmd *TimeSyncCommand) ([]byte, error
 	body = append(body, loggerBytes...)
 
 	// Add padding for protocol 06
-	if cmd.Protocol == ProtocolV6 {
+	if cmd.Protocol == ProtocolInverterWrite {
 		padding := make([]byte, 20) // 20 bytes of zeros
 		body = append(body, padding...)
 	}
@@ -157,14 +204,8 @@ func (cb *CommandBuilder) buildHeader(protocol string, bodyLen int, cmdType uint
 	header[1] = 0x01 // Header byte 1
 	header[2] = 0x00 // Header byte 2
 
-	// Protocol
-	if protocol == ProtocolV5 {
-		header[3] = 0x05
-	} else if protocol == ProtocolV6 {
-		header[3] = 0x06
-	} else {
-		header[3] = 0x02 // Default to protocol 02
-	}
+	// Protocol - use helper function to convert string to byte
+	header[3] = ProtocolStringToByte(protocol)
 
 	// Body length (2 bytes, big endian)
 	header[4] = byte(bodyLen >> 8)
@@ -219,7 +260,7 @@ func (cb *CommandBuilder) CreatePingCommand(protocol, loggerID string, sequenceN
 	fullCommand := append(header, body...)
 
 	// Add CRC if not protocol 02
-	if protocol != ProtocolV2 {
+	if protocol != ProtocolTCP {
 		encrypted := cb.encryptData(fullCommand)
 		crc := crc16.Checksum(encrypted, cb.crcTable)
 		crcBytes := []byte{byte(crc & 0xFF), byte(crc >> 8)}

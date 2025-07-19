@@ -10,6 +10,7 @@ import (
 	"github.com/resident-x/go-grott/internal/api"
 	"github.com/resident-x/go-grott/internal/config"
 	"github.com/resident-x/go-grott/internal/domain"
+	"github.com/resident-x/go-grott/internal/protocol"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -306,7 +307,7 @@ func createE2ETestConfig() *config.Config {
 
 func setupE2ETestRegistry(registry *domain.DeviceRegistry) {
 	// Add single test datalogger and inverter
-	registry.RegisterDatalogger("TEST_E2E_DL", "127.0.0.1", 5279, "06")
+	registry.RegisterDatalogger("TEST_E2E_DL", "127.0.0.1", 5279, protocol.ProtocolInverterWrite)
 	registry.RegisterInverter("TEST_E2E_DL", "TEST_E2E_INV", "01")
 }
 
