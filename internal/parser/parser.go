@@ -399,7 +399,7 @@ func (p *Parser) findLayout(layoutKey string) (*Layout, string) {
 	lowerKey := strings.ToLower(layoutKey)
 	if layout, found := p.layouts[lowerKey]; found {
 		p.logf("Found layout with lowercase key: %s", lowerKey)
-		return layout
+		return layout, layoutKey
 	}
 
 	// Try generic version.
@@ -414,7 +414,7 @@ func (p *Parser) findLayout(layoutKey string) (*Layout, string) {
 		lowerGenericKey := strings.ToLower(genericKey)
 		if layout, found := p.layouts[lowerGenericKey]; found {
 			p.logf("Found generic layout with lowercase key: %s", lowerGenericKey)
-			return layout
+			return layout, genericKey
 		}
 	}
 
