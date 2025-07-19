@@ -745,6 +745,11 @@ func TestDataCollectionServer_HandleConnection_ProcessDataError(t *testing.T) {
 	mockConn.EXPECT().SetReadDeadline(mock.AnythingOfType("time.Time")).Return(nil).Once()
 	mockConn.EXPECT().Read(mock.AnythingOfType("[]uint8")).Return(0, net.ErrClosed).Once()
 
+	// Mock SetWriteDeadline that might be called during response processing
+	mockConn.EXPECT().SetWriteDeadline(mock.AnythingOfType("time.Time")).Return(nil).Maybe()
+	// Mock Write that might be called during response processing  
+	mockConn.EXPECT().Write(mock.AnythingOfType("[]uint8")).Return(0, nil).Maybe()
+
 	mockConn.EXPECT().Close().Return(nil)
 
 	// Setup parser to return error

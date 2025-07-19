@@ -59,7 +59,6 @@ func TestAPIServer_HandleStatus(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, "ok", response["status"])
-	assert.Equal(t, "1.0.0", response["version"])
 	assert.NotEmpty(t, response["uptime"])
 	assert.Equal(t, float64(2), response["dataloggerCount"]) // JSON unmarshals numbers as float64
 }

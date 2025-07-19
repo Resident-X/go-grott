@@ -103,7 +103,6 @@ func (s *DataCollectionServer) Start(ctx context.Context) error {
 
 	s.logger.Info().
 		Str("address", addr).
-		Str("version", "1.0.0").
 		Msg("Server started")
 
 	// Start command scheduler

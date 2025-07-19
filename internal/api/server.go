@@ -108,7 +108,6 @@ func (s *Server) Stop(ctx context.Context) error {
 func (s *Server) handleStatus(w http.ResponseWriter, _ *http.Request) {
 	status := map[string]interface{}{
 		"status":          "ok",
-		"version":         "dev",
 		"uptime":          time.Since(s.startTime).String(),
 		"dataloggerCount": len(s.registry.GetAllDataloggers()),
 	}
