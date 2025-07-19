@@ -151,7 +151,7 @@ func (p *Parser) processLayoutFile(file fs.DirEntry) error {
 	}
 
 	// Use filename (without extension) as key.
-	layoutName := strings.TrimSuffix(file.Name(), filepath.Ext(file.Name()))
+	layoutName := strings.ToLower(strings.TrimSuffix(file.Name(), filepath.Ext(file.Name())))
 	p.rawLayouts[layoutName] = rawLayout
 
 	// Parse into typed layout structure
