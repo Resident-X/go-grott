@@ -232,10 +232,28 @@ func TestResponseManagerShouldRespond(t *testing.T) {
 			expected:   false,
 		},
 		{
-			name:       "valid command data",
+			name:       "record type 18 - command response (no response needed)",
 			data:       []byte{0x00, 0x01, 0x00, 0x06, 0x00, 0x0A, 0x01, 0x18, 0x54, 0x45, 0x53, 0x54},
 			clientAddr: "192.168.1.100",
-			expected:   true,
+			expected:   false, // Record type 18 should not respond
+		},
+		{
+			name:       "record type 16 - ping (should respond)",
+			data:       []byte{0x00, 0x01, 0x00, 0x06, 0x00, 0x0A, 0x01, 0x16, 0x54, 0x45, 0x53, 0x54},
+			clientAddr: "192.168.1.100",
+			expected:   true, // Record type 16 should echo back data
+		},
+		{
+			name:       "record type 03 - data record (should respond with ACK)",
+			data:       []byte{0x00, 0x01, 0x00, 0x06, 0x00, 0x0A, 0x01, 0x03, 0x54, 0x45, 0x53, 0x54},
+			clientAddr: "192.168.1.100",
+			expected:   true, // Record type 03 should send ACK
+		},
+		{
+			name:       "record type 05 - command response (no response needed)", 
+			data:       []byte{0x00, 0x01, 0x00, 0x06, 0x00, 0x0A, 0x01, 0x05, 0x54, 0x45, 0x53, 0x54},
+			clientAddr: "192.168.1.100",
+			expected:   false, // Record type 05 should not respond
 		},
 	}
 

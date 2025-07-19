@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"time"
+
+	"github.com/sigurn/crc16"
 )
 
 // Response types for inverter communication.
@@ -245,31 +247,63 @@ func NewResponseManager() *ResponseManager {
 	}
 }
 
-// HandleIncomingData processes incoming data and generates appropriate responses.
+// HandleIncomingData processes incoming data and generates appropriate responses following Python logic.
 func (rm *ResponseManager) HandleIncomingData(data []byte) (*Response, error) {
-	response, err := rm.handler.ProcessIncomingData(data)
+	if len(data) < 8 {
+		rm.metrics.ErrorResponses++
+		return nil, fmt.Errorf("data too short: %d bytes", len(data))
+	}
+
+	// Extract header information
+	header := data[:8]
+	protocol := fmt.Sprintf("%02x", header[3])
+	recType := fmt.Sprintf("%02x", header[7])
+
+	var response *Response
+	var err error
 
 	// Update metrics
 	rm.metrics.LastResponseTime = time.Now()
 	rm.metrics.TotalResponses++
 
-	if err != nil {
-		rm.metrics.ErrorResponses++
-		return nil, err
-	}
-
-	if response != nil {
-		switch response.Type {
-		case ResponseTypeTimeSync:
-			rm.metrics.TimeSyncResponses++
-		case ResponseTypePing:
-			rm.metrics.PingResponses++
-		case ResponseTypeAck:
-			rm.metrics.AckResponses++
+	// Process based on record type following Python logic
+	switch recType {
+	case "16": // Ping - echo back the original data
+		response = &Response{
+			Type:      ResponseTypePing,
+			Protocol:  protocol,
+			Data:      make([]byte, len(data)), // Copy the data
+			Timestamp: time.Now(),
 		}
+		copy(response.Data, data) // Echo back original data
+		rm.metrics.PingResponses++
+
+	case "03", "04", "50", "1b", "20": // Data records - send ACK
+		response, err = rm.createAckResponse(header, protocol)
+		if err != nil {
+			rm.metrics.ErrorResponses++
+			return nil, fmt.Errorf("failed to create ACK response: %w", err)
+		}
+		rm.metrics.AckResponses++
+
+		// Special handling for rectype "03" - schedule time sync after ACK
+		if recType == "03" {
+			// Note: The time sync scheduling will be handled by the caller
+			// after sending this ACK response, as it requires session context
+		}
+
+	case "19", "05", "06", "18": // Command responses - no response needed
+		return nil, nil
+
+	case "10", "29": // Other records - no response needed  
+		return nil, nil
+
+	default:
+		// Unknown record type - no response
+		return nil, nil
 	}
 
-	return response, nil
+	return response, err
 }
 
 // GetMetrics returns current response metrics.
@@ -282,25 +316,77 @@ func (rm *ResponseManager) ResetMetrics() {
 	rm.metrics = &ResponseMetrics{}
 }
 
-// ShouldRespond determines if we should respond to incoming data based on various criteria.
+// ShouldRespond determines if we should respond to incoming data based on record type.
 func (rm *ResponseManager) ShouldRespond(data []byte, clientAddr string) bool {
-	if len(data) == 0 {
+	if len(data) < 8 {
 		return false
 	}
 
-	// Parse command info
-	cmdInfo := rm.handler.commandBuilder.ParseCommandInfo(data)
-	if !cmdInfo.IsValid {
-		return false
-	}
+	// Extract record type from bytes 7-8 (0-indexed) as hex string
+	recType := fmt.Sprintf("%02x", data[7])
 
-	// Only respond to specific command types
-	switch cmdInfo.Command {
-	case CommandTypeTimeSync, CommandTypePing, CommandTypeIdentify:
+	// Determine if response is needed based on Python logic
+	switch recType {
+	case "16": // Ping - echo back data
 		return true
+	case "03", "04", "50", "1b", "20": // Data records - send ACK
+		return true
+	case "19", "05", "06", "18": // Command responses - no response
+		return false
+	case "10", "29": // Other records - no response
+		return false
 	default:
 		return false
 	}
+}
+
+// createAckResponse creates an ACK response following Python logic.
+func (rm *ResponseManager) createAckResponse(header []byte, protocol string) (*Response, error) {
+	var responseData []byte
+
+	if protocol == "02" {
+		// Protocol 02, unencrypted ACK
+		// Python: header[0:8] + '0003' + header[12:16] + '00'
+		// But header[12:16] doesn't exist in 8-byte header, so we use sequence number from 0:4
+		responseData = make([]byte, 7)
+		copy(responseData[0:4], header[0:4]) // Copy sequence number
+		copy(responseData[4:8], header[4:8]) // Copy rest of header
+		responseData[4] = 0x00              // Length high byte
+		responseData[5] = 0x03              // Length low byte  
+		responseData[6] = 0x00              // Terminator
+	} else {
+		// Protocol 05/06, encrypted ACK with CRC
+		// Python: headerackx = header[0:8] + '0003' + header[12:16] + '47'
+		headerAck := make([]byte, 8)
+		copy(headerAck[0:4], header[0:4]) // Copy sequence number  
+		copy(headerAck[4:8], header[4:8]) // Copy rest of header
+		headerAck[4] = 0x00               // Length high byte
+		headerAck[5] = 0x03               // Length low byte
+		headerAck[6] = 0x47               // Response marker
+
+		// Calculate CRC16 Modbus
+		crc := rm.calculateModbusCRC(headerAck)
+		
+		// Combine header + CRC
+		responseData = make([]byte, len(headerAck)+2)
+		copy(responseData, headerAck)
+		responseData[len(headerAck)] = byte(crc & 0xFF)
+		responseData[len(headerAck)+1] = byte(crc >> 8)
+	}
+
+	return &Response{
+		Type:      ResponseTypeAck,
+		Protocol:  protocol,
+		Data:      responseData,
+		Timestamp: time.Now(),
+	}, nil
+}
+
+// calculateModbusCRC calculates CRC16 Modbus checksum.
+func (rm *ResponseManager) calculateModbusCRC(data []byte) uint16 {
+	// Use the existing CRC table from CommandBuilder
+	table := rm.handler.commandBuilder.crcTable
+	return crc16.Checksum(data, table)
 }
 
 // FormatResponse returns a hex representation of response data for logging.

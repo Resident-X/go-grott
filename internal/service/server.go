@@ -351,6 +351,27 @@ func (s *DataCollectionServer) processDataBidirectional(ctx context.Context, ses
 					Str("session_id", session.ID).
 					Uint8("response_type", response.Type).
 					Msg("Response sent successfully")
+
+				// Special handling for record type "03" - schedule time sync after ACK
+				if len(data) >= 8 {
+					recType := fmt.Sprintf("%02x", data[7]) // convert to two digit hex
+					if recType == "03" {
+						// Schedule time sync command with a 1-second delay (as per Python logic)
+						go func() {
+							time.Sleep(1 * time.Second)
+							if err := s.commandScheduler.ScheduleTimeSync(session.ID, scheduler.PriorityNormal); err != nil {
+								s.logger.Warn().
+									Err(err).
+									Str("session_id", session.ID).
+									Msg("Failed to schedule time sync after record type 03")
+							} else {
+								s.logger.Debug().
+									Str("session_id", session.ID).
+									Msg("Time sync scheduled after record type 03")
+							}
+						}()
+					}
+				}
 			}
 		}
 	}
