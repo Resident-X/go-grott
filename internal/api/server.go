@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -438,10 +439,11 @@ func (s *Server) handleInfo(w http.ResponseWriter, _ *http.Request) {
 	
 	// Build info response
 	info := map[string]interface{}{
-		"server_version": "go-grott-1.0.0",
-		"uptime_seconds": uptime.Seconds(),
-		"uptime_string":  uptime.String(),
-		"start_time":     s.startTime.Format(time.RFC3339),
+		"server_name":      "go-grott",
+		"server_type":      "Go implementation",
+		"uptime_seconds":   uptime.Seconds(),
+		"uptime_string":    uptime.String(),
+		"start_time":       s.startTime.Format(time.RFC3339),
 		"datalogger_count": len(dataloggers),
 		"active_connections": s.commandQueueMgr.GetQueueCount(),
 		"dataloggers": func() []map[string]interface{} {
@@ -664,157 +666,210 @@ func (s *Server) handleInverterGet(w http.ResponseWriter, r *http.Request) {
 	
 	// If no query parameters, return inverter registry info
 	if len(query) == 0 {
-		dataloggers := s.registry.GetAllDataloggers()
-		inverterInfo := make(map[string]interface{})
-		
-		for _, dl := range dataloggers {
-			for _, inv := range dl.Inverters {
-				inverterInfo[inv.Serial] = map[string]interface{}{
-					"datalogger": dl.ID,
-					"inverterno": inv.InverterNo,
-					"ip":         dl.IP,
-					"port":       dl.Port,
-					"protocol":   dl.Protocol,
-				}
-			}
-		}
-		
-		s.writeJSON(w, inverterInfo, http.StatusOK)
+		s.handleInverterRegistryInfo(w)
 		return
 	}
 
+	// Validate and extract parameters
+	params, err := s.validateInverterGetParams(query)
+	if err != nil {
+		s.writeError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Execute the command
+	if err := s.executeInverterCommand(w, params); err != nil {
+		// Error response is already sent within executeInverterCommand
+		return
+	}
+}
+
+// InverterGetParams holds validated parameters for inverter GET requests.
+type InverterGetParams struct {
+	Command      string
+	InverterID   string
+	Register     int
+	Format       FormatType
+	Datalogger   *domain.DataloggerInfo
+	InverterInfo *domain.InverterInfo
+}
+
+// handleInverterRegistryInfo returns information about all inverters in the registry.
+func (s *Server) handleInverterRegistryInfo(w http.ResponseWriter) {
+	dataloggers := s.registry.GetAllDataloggers()
+	inverterInfo := make(map[string]interface{})
+	
+	for _, dl := range dataloggers {
+		for _, inv := range dl.Inverters {
+			inverterInfo[inv.Serial] = map[string]interface{}{
+				"datalogger": dl.ID,
+				"inverterno": inv.InverterNo,
+				"ip":         dl.IP,
+				"port":       dl.Port,
+				"protocol":   dl.Protocol,
+			}
+		}
+	}
+	
+	s.writeJSON(w, inverterInfo, http.StatusOK)
+}
+
+// validateInverterGetParams validates and extracts parameters from the query.
+func (s *Server) validateInverterGetParams(query url.Values) (*InverterGetParams, error) {
 	// Validate command parameter
 	command := query.Get("command")
 	if command == "" {
-		s.writeError(w, "no command entered", http.StatusBadRequest)
-		return
+		return nil, fmt.Errorf("no command entered")
 	}
-
+	
 	if command != "register" && command != "regall" {
-		s.writeError(w, "no valid command entered", http.StatusBadRequest)
-		return
+		return nil, fmt.Errorf("no valid command entered")
 	}
 
-	// Validate inverter ID and find corresponding datalogger
+	// Validate inverter ID
 	inverterID := query.Get("inverter")
 	if inverterID == "" {
-		s.writeError(w, "no or no valid invertid specified", http.StatusBadRequest)
-		return
+		return nil, fmt.Errorf("no or no valid invertid specified")
 	}
 
-	// Find datalogger that contains this inverter
-	var datalogger *domain.DataloggerInfo
-	var inverterInfo *domain.InverterInfo
-	found := false
-
-	dataloggers := s.registry.GetAllDataloggers()
-	for _, dl := range dataloggers {
-		for _, inv := range dl.Inverters {
-			if inv.Serial == inverterID {
-				datalogger = dl
-				inverterInfo = inv
-				found = true
-				break
-			}
-		}
-		if found {
-			break
-		}
+	// Find datalogger and inverter
+	datalogger, inverterInfo, err := s.findInverterInRegistry(inverterID)
+	if err != nil {
+		return nil, err
 	}
 
-	if !found {
-		s.writeError(w, "no or no valid invertid specified", http.StatusBadRequest)
-		return
-	}
-
-	// Get format parameter (default to dec)
+	// Validate format
 	formatStr := query.Get("format")
 	if formatStr == "" {
 		formatStr = "dec"
 	}
 
 	if err := s.formatConverter.ValidateFormat(formatStr); err != nil {
-		s.writeError(w, "invalid format specified", http.StatusBadRequest)
-		return
+		return nil, fmt.Errorf("invalid format specified")
 	}
 
-	format := FormatType(formatStr)
-
-	// Handle regall command
-	if command == "regall" {
-		allResponses := s.responseTracker.GetAllResponses("05")
-		
-		// Convert response values to requested format
-		convertedResponses := make(map[string]interface{})
-		for regKey, response := range allResponses {
-			if response.Value != nil {
-				//nolint:errcheck // Error is checked in if condition
-				if convertedValue, err := s.formatConverter.FormatResponseValue(response.Value.(string), format); err == nil {
-					convertedResponses[regKey] = map[string]interface{}{
-						"value": convertedValue,
-					}
-				} else {
-					// Log error but continue with original value
-					s.logger.Warn().Err(err).Str("register", regKey).Msg("Failed to convert response value format")
-					convertedResponses[regKey] = map[string]interface{}{
-						"value": response.Value,
-					}
-				}
-			} else {
-				convertedResponses[regKey] = response
-			}
-		}
-		
-		s.writeJSON(w, convertedResponses, http.StatusOK)
-		return
+	params := &InverterGetParams{
+		Command:      command,
+		InverterID:   inverterID,
+		Format:       FormatType(formatStr),
+		Datalogger:   datalogger,
+		InverterInfo: inverterInfo,
 	}
 
-	// Handle register command
+	// Validate register parameter for register command
 	if command == "register" {
 		registerStr := query.Get("register")
 		if registerStr == "" {
-			s.writeError(w, "no register specified", http.StatusBadRequest)
-			return
+			return nil, fmt.Errorf("no register specified")
 		}
 
 		register, err := strconv.Atoi(registerStr)
 		if err != nil || register < 0 || register >= 4096 {
-			s.writeError(w, "invalid reg value specified", http.StatusBadRequest)
-			return
+			return nil, fmt.Errorf("invalid reg value specified")
 		}
+		params.Register = register
+	}
 
-		// Generate and queue inverter register read command
-		if err := s.queueInverterRegisterReadCommand(datalogger, inverterInfo, "05", uint16(register)); err != nil {
-			s.writeError(w, "failed to queue command", http.StatusInternalServerError)
-			s.logger.Error().Err(err).Msg("Failed to queue inverter register read command")
-			return
+	return params, nil
+}
+
+// findInverterInRegistry finds the datalogger and inverter info for the given inverter ID.
+func (s *Server) findInverterInRegistry(inverterID string) (*domain.DataloggerInfo, *domain.InverterInfo, error) {
+	dataloggers := s.registry.GetAllDataloggers()
+	for _, dl := range dataloggers {
+		for _, inv := range dl.Inverters {
+			if inv.Serial == inverterID {
+				return dl, inv, nil
+			}
 		}
+	}
+	return nil, nil, fmt.Errorf("no or no valid invertid specified")
+}
 
-		// Wait for response
-		registerKey := fmt.Sprintf("%04x", register)
-		response, err := s.waitForResponse("05", registerKey, 10*time.Second) // Longer timeout for inverters
-		if err != nil {
-			s.writeError(w, "no or invalid response received", http.StatusBadRequest)
-			s.logger.Warn().Err(err).Msg("No response received for inverter register read")
-			return
-		}
+// executeInverterCommand executes the specified inverter command.
+func (s *Server) executeInverterCommand(w http.ResponseWriter, params *InverterGetParams) error {
+	switch params.Command {
+	case "regall":
+		return s.handleInverterRegallCommand(w, params)
+	case "register":
+		return s.handleInverterRegisterCommand(w, params)
+	default:
+		s.writeError(w, "command not defined or not available yet", http.StatusBadRequest)
+		return fmt.Errorf("unknown command: %s", params.Command)
+	}
+}
 
-		// Convert response value to requested format
+// handleInverterRegallCommand handles the "regall" command for inverters.
+func (s *Server) handleInverterRegallCommand(w http.ResponseWriter, params *InverterGetParams) error {
+	allResponses := s.responseTracker.GetAllResponses("05")
+	
+	// Convert response values to requested format
+	convertedResponses := s.formatAllResponses(allResponses, params.Format)
+	
+	s.writeJSON(w, convertedResponses, http.StatusOK)
+	return nil
+}
+
+// handleInverterRegisterCommand handles the "register" command for inverters.
+func (s *Server) handleInverterRegisterCommand(w http.ResponseWriter, params *InverterGetParams) error {
+	// Generate and queue inverter register read command
+	if err := s.queueInverterRegisterReadCommand(params.Datalogger, params.InverterInfo, "05", uint16(params.Register)); err != nil {
+		s.writeError(w, "failed to queue command", http.StatusInternalServerError)
+		s.logger.Error().Err(err).Msg("Failed to queue inverter register read command")
+		return err
+	}
+
+	// Wait for response
+	registerKey := fmt.Sprintf("%04x", params.Register)
+	response, err := s.waitForResponse("05", registerKey, 10*time.Second) // Longer timeout for inverters
+	if err != nil {
+		s.writeError(w, "no or invalid response received", http.StatusBadRequest)
+		s.logger.Warn().Err(err).Msg("No response received for inverter register read")
+		return err
+	}
+
+	// Convert response value to requested format
+	s.formatSingleResponse(response, params.Format)
+
+	s.writeJSON(w, response, http.StatusOK)
+	return nil
+}
+
+// formatAllResponses formats all response values according to the specified format.
+func (s *Server) formatAllResponses(allResponses map[string]*CommandResponse, format FormatType) map[string]interface{} {
+	convertedResponses := make(map[string]interface{})
+	for regKey, response := range allResponses {
 		if response.Value != nil {
 			//nolint:errcheck // Error is checked in if condition
 			if convertedValue, err := s.formatConverter.FormatResponseValue(response.Value.(string), format); err == nil {
-				response.Value = convertedValue
+				convertedResponses[regKey] = map[string]interface{}{
+					"value": convertedValue,
+				}
 			} else {
 				// Log error but continue with original value
-				s.logger.Warn().Err(err).Msg("Failed to convert response value format")
+				s.logger.Warn().Err(err).Str("register", regKey).Msg("Failed to convert response value format")
+				convertedResponses[regKey] = map[string]interface{}{
+					"value": response.Value,
+				}
 			}
+		} else {
+			convertedResponses[regKey] = response
 		}
-
-		s.writeJSON(w, response, http.StatusOK)
-		return
 	}
+	return convertedResponses
+}
 
-	s.writeError(w, "command not defined or not available yet", http.StatusBadRequest)
+// formatSingleResponse formats a single response value according to the specified format.
+func (s *Server) formatSingleResponse(response *CommandResponse, format FormatType) {
+	if response.Value != nil {
+		//nolint:errcheck // Error is checked in if condition
+		if convertedValue, err := s.formatConverter.FormatResponseValue(response.Value.(string), format); err == nil {
+			response.Value = convertedValue
+		} else {
+			// Log error but continue with original value
+			s.logger.Warn().Err(err).Msg("Failed to convert response value format")
+		}
+	}
 }
 
 // handleInverterPut handles PUT requests for inverter register operations.

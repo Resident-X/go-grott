@@ -178,6 +178,12 @@ tasks:
       - golangci-lint run --enable-only=errcheck,gosec,nilerr,nilnil
     silent: false
 
+  lint-complexity:
+    desc: Run golangci-lint focusing on complexity issues
+    cmds:
+      - golangci-lint run --enable-only=gocyclo,gocognit,funlen
+    silent: false
+
   check:
     desc: Run all code quality checks
     deps: [ fmt, vet, test ]

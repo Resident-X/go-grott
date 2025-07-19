@@ -224,16 +224,32 @@ func isClosedConnError(err error) bool {
 
 // handleConnection processes data from a client connection.
 func (s *DataCollectionServer) handleConnection(ctx context.Context, conn net.Conn) {
-	// Get client IP and port
 	clientAddr := conn.RemoteAddr().String()
+	host, _ := s.extractHost(clientAddr)
+	
+	session := s.setupConnectionSession(conn, clientAddr)
+	defer s.cleanupConnection(conn, clientAddr, session)
 
-	// Extract host for API command queuing
+	s.logger.Info().
+		Str("address", clientAddr).
+		Str("session_id", session.ID).
+		Msg("Client connected")
+
+	s.runConnectionLoop(ctx, conn, session, clientAddr, host)
+}
+
+// extractHost extracts the host part from a client address.
+func (s *DataCollectionServer) extractHost(clientAddr string) (string, error) {
 	host, _, err := net.SplitHostPort(clientAddr)
 	if err != nil {
 		// Fallback to full address if parsing fails
-		host = clientAddr
+		return clientAddr, err
 	}
+	return host, nil
+}
 
+// setupConnectionSession creates and initializes a session for the connection.
+func (s *DataCollectionServer) setupConnectionSession(conn net.Conn, clientAddr string) *session.Session {
 	// Create session for this connection
 	session := s.sessionManager.CreateSession(conn)
 
@@ -258,26 +274,26 @@ func (s *DataCollectionServer) handleConnection(ctx context.Context, conn net.Co
 	s.clients[clientAddr] = conn
 	s.clientMutex.Unlock()
 
-	// Ensure connection is closed when done
-	defer func() {
-		err := conn.Close()
-		if err != nil {
-			s.logger.Error().Err(err).Msg("Failed to close client connection")
-		}
-		s.clientMutex.Lock()
-		delete(s.clients, clientAddr)
-		s.clientMutex.Unlock()
+	return session
+}
 
-		// Remove session
-		s.sessionManager.RemoveSession(session.ID)
-	}()
+// cleanupConnection handles cleanup when a connection ends.
+func (s *DataCollectionServer) cleanupConnection(conn net.Conn, clientAddr string, session *session.Session) {
+	err := conn.Close()
+	if err != nil {
+		s.logger.Error().Err(err).Msg("Failed to close client connection")
+	}
+	
+	s.clientMutex.Lock()
+	delete(s.clients, clientAddr)
+	s.clientMutex.Unlock()
 
-	s.logger.Info().
-		Str("address", clientAddr).
-		Str("session_id", session.ID).
-		Msg("Client connected")
+	// Remove session
+	s.sessionManager.RemoveSession(session.ID)
+}
 
-	// Buffer for reading data
+// runConnectionLoop handles the main connection processing loop.
+func (s *DataCollectionServer) runConnectionLoop(ctx context.Context, conn net.Conn, session *session.Session, clientAddr, host string) {
 	buf := make([]byte, 4096)
 
 	for {
@@ -287,65 +303,97 @@ func (s *DataCollectionServer) handleConnection(ctx context.Context, conn net.Co
 		case <-ctx.Done():
 			return
 		default:
-			// Set read deadline
-			if err := conn.SetReadDeadline(time.Now().Add(30 * time.Second)); err != nil {
-				s.logger.Error().Err(err).Msg("Failed to set read deadline")
+			if s.shouldContinueLoop(ctx, conn, session, buf, clientAddr, host) {
+				continue
+			} else {
 				return
-			}
-
-			// Read data from connection
-			n, err := conn.Read(buf)
-			if err != nil {
-				var netErr net.Error
-				if errors.As(err, &netErr) && netErr.Timeout() {
-					// Just a timeout, continue
-					continue
-				}
-
-				// Log disconnection and exit
-				s.logger.Info().
-					Str("address", clientAddr).
-					Str("session_id", session.ID).
-					Err(err).
-					Msg("Client disconnected")
-				return
-			}
-
-			if n > 0 {
-				// Update session activity and stats
-				session.UpdateActivity()
-				session.AddBytesReceived(int64(n))
-
-				// Process received data and potentially send response
-				if err := s.processDataWithAPIIntegration(ctx, session, buf[:n]); err != nil {
-					session.IncrementErrorCount()
-					s.logger.Error().
-						Str("address", clientAddr).
-						Str("session_id", session.ID).
-						Err(err).
-						Msg("Failed to process data")
-				}
-			}
-
-			// Check for queued commands from HTTP API
-			if s.apiServer != nil {
-				if commandQueue := s.apiServer.GetCommandQueue(host, 0); commandQueue != nil {
-					select {
-					case command := <-commandQueue:
-						// Send command to device
-						if err := s.sendCommandToDevice(session, command); err != nil {
-							s.logger.Error().
-								Str("address", clientAddr).
-								Str("session_id", session.ID).
-								Err(err).
-								Msg("Failed to send queued command")
-						}
-					default:
-						// No commands queued
-					}
-				}
 			}
 		}
+	}
+}
+
+// shouldContinueLoop processes one iteration of the connection loop.
+// Returns true to continue the loop, false to exit.
+func (s *DataCollectionServer) shouldContinueLoop(ctx context.Context, conn net.Conn, session *session.Session, buf []byte, clientAddr, host string) bool {
+	// Set read deadline
+	if err := conn.SetReadDeadline(time.Now().Add(30 * time.Second)); err != nil {
+		s.logger.Error().Err(err).Msg("Failed to set read deadline")
+		return false
+	}
+
+	// Read data from connection
+	n, err := conn.Read(buf)
+	if err != nil {
+		return s.handleReadError(err, clientAddr, session.ID)
+	}
+
+	if n > 0 {
+		s.processIncomingData(ctx, session, buf[:n], clientAddr)
+	}
+
+	// Check for queued commands from HTTP API
+	s.processQueuedCommands(session, clientAddr, host)
+	
+	return true
+}
+
+// handleReadError processes read errors and determines if the loop should continue.
+func (s *DataCollectionServer) handleReadError(err error, clientAddr, sessionID string) bool {
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		// Just a timeout, continue
+		return true
+	}
+
+	// Log disconnection and exit
+	s.logger.Info().
+		Str("address", clientAddr).
+		Str("session_id", sessionID).
+		Err(err).
+		Msg("Client disconnected")
+	return false
+}
+
+// processIncomingData handles incoming data from the client.
+func (s *DataCollectionServer) processIncomingData(ctx context.Context, session *session.Session, data []byte, clientAddr string) {
+	// Update session activity and stats
+	session.UpdateActivity()
+	session.AddBytesReceived(int64(len(data)))
+
+	// Process received data and potentially send response
+	if err := s.processDataWithAPIIntegration(ctx, session, data); err != nil {
+		session.IncrementErrorCount()
+		s.logger.Error().
+			Str("address", clientAddr).
+			Str("session_id", session.ID).
+			Err(err).
+			Msg("Failed to process data")
+	}
+}
+
+// processQueuedCommands checks for and processes any queued commands from the HTTP API.
+func (s *DataCollectionServer) processQueuedCommands(session *session.Session, clientAddr, host string) {
+	if s.apiServer == nil {
+		return
+	}
+
+	commandQueue := s.apiServer.GetCommandQueue(host, 0)
+	if commandQueue == nil {
+		return
+	}
+
+	select {
+	case command := <-commandQueue:
+		// Send command to device
+		if err := s.sendCommandToDevice(session, command); err != nil {
+			s.logger.Error().
+				Str("address", clientAddr).
+				Str("session_id", session.ID).
+				Err(err).
+				Msg("Failed to send queued command")
+		}
+	default:
+		// No commands queued
 	}
 }
 
