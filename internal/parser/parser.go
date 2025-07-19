@@ -30,7 +30,7 @@ const (
 	crcInitial    = 0xFFFF // Initial value for CRC calculation
 
 	// Layout constants.
-	genericLayoutKey = "T06NNNNXMOD" // Generic layout as fallback
+	genericLayoutKey = "T06NNNNXMIN" // Generic layout as fallback
 
 	// Protocol constants.
 	extendedDataThreshold = 750 // 375 bytes = 750 hex characters
@@ -216,7 +216,7 @@ func (p *Parser) Parse(ctx context.Context, data []byte) (*domain.InverterData, 
 	if ctx.Err() != nil {
 		return nil, fmt.Errorf("context error: %w", ctx.Err())
 	}
-
+	p.logf("Data: %s", hex.EncodeToString(data))
 	p.logf("Starting to parse data of length: %d bytes", len(data))
 
 	// Process the raw data (validation or decryption).
@@ -324,7 +324,7 @@ func (p *Parser) detectLayout(hexStr string) (*Layout, string, error) {
 	}
 
 	layoutKey := p.buildLayoutKey(hexStr)
-	layout := p.findLayout(layoutKey)
+	layout, layoutKey := p.findLayout(layoutKey)
 
 	if layout == nil {
 		return nil, "", fmt.Errorf("no layout found for key: %s", layoutKey)
@@ -387,12 +387,12 @@ func (p *Parser) buildFallbackLayoutKey(hexStr string) string {
 }
 
 // findLayout attempts to locate a layout, trying generic versions if needed.
-func (p *Parser) findLayout(layoutKey string) *Layout {
+func (p *Parser) findLayout(layoutKey string) (*Layout, string) {
 	p.logf("Looking for layout with key: %s", layoutKey)
 
 	// Try exact match first
 	if layout, found := p.layouts[layoutKey]; found {
-		return layout
+		return layout, layoutKey
 	}
 
 	// Try case insensitive match - check lowercase version
@@ -404,10 +404,10 @@ func (p *Parser) findLayout(layoutKey string) *Layout {
 
 	// Try generic version.
 	if len(layoutKey) >= 6 {
-		genericKey := layoutKey[:1] + layoutKey[1:3] + "NNNN" + layoutKey[7:]
-		p.logf("Trying generic layout: %s", genericKey)
+		genericKey := layoutKey[:1] + layoutKey[1:3] + "NNNN" + layoutKey[7:] + p.config.InverterType
+		p.logf("Layout not found. Trying generic layout: %s", genericKey)
 		if layout, found := p.layouts[genericKey]; found {
-			return layout
+			return layout, genericKey
 		}
 
 		// Try lowercase generic version too
@@ -420,7 +420,7 @@ func (p *Parser) findLayout(layoutKey string) *Layout {
 
 	// Use default generic layout.
 	p.logf("Using default generic layout: %s", genericLayoutKey)
-	return p.layouts[genericLayoutKey]
+	return p.layouts[genericLayoutKey], genericLayoutKey
 }
 
 // extractFields processes all fields from the layout and populates inverterData.

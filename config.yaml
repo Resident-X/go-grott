@@ -4,7 +4,7 @@
 log_level: debug # Log level: debug, info, warn, error, dpanic, panic, fatal
 min_record_length: 100 # Minimum length of valid data records in bytes
 decrypt: true # Whether to decrypt encrypted data from Growatt inverters
-inverter_type: default # Inverter model type: 'default', 'spf' (Off-grid), 'sph' (Hybrid), or 'max' (Max series)
+inverter_type: MIN # Inverter model type: 'default', 'spf' (Off-grid), 'sph' (Hybrid), or 'max' (Max series)
 timezone: local # Timezone for timestamps: 'local' or an IANA timezone name (e.g., 'Europe/Amsterdam')
 
 # Data Collection Server settings
