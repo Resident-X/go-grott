@@ -289,7 +289,7 @@ func (rm *ResponseManager) HandleIncomingData(data []byte) (*Response, error) {
 	case ProtocolDataloggerRead, ProtocolInverterRead, ProtocolInverterWrite, ProtocolDataloggerWrite: // Command responses - no response needed
 		return nil, fmt.Errorf("command response records do not require acknowledgment")
 
-	case ProtocolMultiRegister, "29": // Other records - no response needed  
+	case ProtocolMultiRegister, "29": // Other records - no response needed
 		return nil, fmt.Errorf("records of type %s do not require acknowledgment", recType)
 
 	default:
@@ -344,14 +344,14 @@ func (rm *ResponseManager) createAckResponse(header []byte, protocol string) (*R
 		// But header[12:16] doesn't exist in 8-byte header, so we use sequence number from 0:4
 		responseData = make([]byte, 7)
 		copy(responseData[0:4], header[0:4]) // Copy sequence number
-		responseData[4] = 0x00              // Length high byte
-		responseData[5] = 0x03              // Length low byte  
-		responseData[6] = 0x00              // Terminator
+		responseData[4] = 0x00               // Length high byte
+		responseData[5] = 0x03               // Length low byte
+		responseData[6] = 0x00               // Terminator
 	} else {
 		// Protocol 05/06, encrypted ACK with CRC
 		// Python: headerackx = header[0:8] + '0003' + header[12:16] + '47'
 		headerAck := make([]byte, 8)
-		copy(headerAck[0:4], header[0:4]) // Copy sequence number  
+		copy(headerAck[0:4], header[0:4]) // Copy sequence number
 		copy(headerAck[4:8], header[4:8]) // Copy rest of header
 		headerAck[4] = 0x00               // Length high byte
 		headerAck[5] = 0x03               // Length low byte
@@ -359,7 +359,7 @@ func (rm *ResponseManager) createAckResponse(header []byte, protocol string) (*R
 
 		// Calculate CRC16 Modbus
 		crc := rm.calculateModbusCRC(headerAck)
-		
+
 		// Combine header + CRC
 		responseData = make([]byte, len(headerAck)+2)
 		copy(responseData, headerAck)

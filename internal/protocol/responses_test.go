@@ -250,7 +250,7 @@ func TestResponseManagerShouldRespond(t *testing.T) {
 			expected:   true, // Record type 03 should send ACK
 		},
 		{
-			name:       "record type 05 - command response (no response needed)", 
+			name:       "record type 05 - command response (no response needed)",
 			data:       []byte{0x00, 0x01, 0x00, 0x06, 0x00, 0x0A, 0x01, 0x05, 0x54, 0x45, 0x53, 0x54},
 			clientAddr: "192.168.1.100",
 			expected:   false, // Record type 05 should not respond

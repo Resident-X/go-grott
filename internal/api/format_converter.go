@@ -61,7 +61,7 @@ func (fc *FormatConverter) ConvertValue(value string, inputFormat, outputFormat 
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert to hex: %w", err)
 	}
-	
+
 	// Then convert hex to output format
 	return fc.ConvertFromHex(hexValue, outputFormat)
 }
@@ -106,11 +106,11 @@ func (fc *FormatConverter) decToHex(decValue string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("invalid decimal value: %s", decValue)
 	}
-	
+
 	if val < 0 || val > 65535 {
 		return "", fmt.Errorf("decimal value out of range (0-65535): %d", val)
 	}
-	
+
 	return fmt.Sprintf("%04x", val), nil
 }
 
@@ -118,12 +118,12 @@ func (fc *FormatConverter) decToHex(decValue string) (string, error) {
 func (fc *FormatConverter) hexToDec(hexValue string) (int, error) {
 	// Remove any 0x prefix
 	hexValue = strings.TrimPrefix(strings.ToLower(hexValue), "0x")
-	
+
 	val, err := strconv.ParseInt(hexValue, 16, 64)
 	if err != nil {
 		return 0, fmt.Errorf("invalid hex value: %s", hexValue)
 	}
-	
+
 	return int(val), nil
 }
 
@@ -132,23 +132,23 @@ func (fc *FormatConverter) textToHex(textValue string) (string, error) {
 	if len(textValue) == 0 {
 		return "", fmt.Errorf("text value cannot be empty")
 	}
-	
+
 	// Convert text to UTF-8 bytes then to hex
 	textBytes := []byte(textValue)
-	
+
 	// For register operations, we typically work with 16-bit values
 	// If text is longer than 2 bytes, we'll use the first 2 bytes
 	if len(textBytes) > 2 {
 		textBytes = textBytes[:2]
 	}
-	
+
 	// Pad to 2 bytes if shorter
 	if len(textBytes) < 2 {
 		padded := make([]byte, 2)
 		copy(padded, textBytes)
 		textBytes = padded
 	}
-	
+
 	// Convert to little-endian hex (as expected by Growatt protocol)
 	return fmt.Sprintf("%02x%02x", textBytes[1], textBytes[0]), nil
 }
@@ -157,26 +157,26 @@ func (fc *FormatConverter) textToHex(textValue string) (string, error) {
 func (fc *FormatConverter) hexToText(hexValue string) (string, error) {
 	// Remove any 0x prefix
 	hexValue = strings.TrimPrefix(strings.ToLower(hexValue), "0x")
-	
+
 	// Ensure even length
 	if len(hexValue)%2 != 0 {
 		hexValue = "0" + hexValue
 	}
-	
+
 	bytes, err := hex.DecodeString(hexValue)
 	if err != nil {
 		return "", fmt.Errorf("invalid hex value: %s", hexValue)
 	}
-	
+
 	// For register values, convert from little-endian
 	if len(bytes) >= 2 {
 		// Swap bytes for little-endian conversion
 		bytes[0], bytes[1] = bytes[1], bytes[0]
 	}
-	
+
 	// Remove null bytes and convert to string
 	text := strings.TrimRight(string(bytes), "\x00")
-	
+
 	return text, nil
 }
 
@@ -184,17 +184,17 @@ func (fc *FormatConverter) hexToText(hexValue string) (string, error) {
 func (fc *FormatConverter) normalizeHex(hexValue string) (string, error) {
 	// Remove any 0x prefix
 	hexValue = strings.TrimPrefix(strings.ToLower(hexValue), "0x")
-	
+
 	// Validate hex characters
 	if _, err := hex.DecodeString(hexValue); err != nil {
 		return "", fmt.Errorf("invalid hex value: %s", hexValue)
 	}
-	
+
 	// Ensure proper length (pad to 4 chars for 16-bit values)
 	if len(hexValue) < 4 {
 		hexValue = strings.Repeat("0", 4-len(hexValue)) + hexValue
 	}
-	
+
 	return hexValue, nil
 }
 
@@ -204,11 +204,11 @@ func (fc *FormatConverter) validateDecValue(value string) error {
 	if err != nil {
 		return fmt.Errorf("invalid decimal value: %s", value)
 	}
-	
+
 	if val < 0 || val > 65535 {
 		return fmt.Errorf("decimal value out of range (0-65535): %d", val)
 	}
-	
+
 	return nil
 }
 
@@ -216,11 +216,11 @@ func (fc *FormatConverter) validateDecValue(value string) error {
 func (fc *FormatConverter) validateHexValue(value string) error {
 	// Remove any 0x prefix
 	value = strings.TrimPrefix(strings.ToLower(value), "0x")
-	
+
 	if _, err := hex.DecodeString(value); err != nil {
 		return fmt.Errorf("invalid hex value: %s", value)
 	}
-	
+
 	return nil
 }
 
@@ -229,12 +229,12 @@ func (fc *FormatConverter) validateTextValue(value string) error {
 	if len(value) == 0 {
 		return fmt.Errorf("text value cannot be empty")
 	}
-	
+
 	// Check for valid UTF-8
 	if !utf8.ValidString(value) {
 		return fmt.Errorf("text value contains invalid UTF-8 characters")
 	}
-	
+
 	return nil
 }
 
@@ -265,11 +265,11 @@ func (fc *FormatConverter) CreateValueForCommand(value string, inputFormat Forma
 	if err != nil {
 		return "", err
 	}
-	
+
 	// Ensure 4-character hex format for 16-bit registers
 	if len(hexValue) < 4 {
 		hexValue = strings.Repeat("0", 4-len(hexValue)) + hexValue
 	}
-	
+
 	return hexValue, nil
 }

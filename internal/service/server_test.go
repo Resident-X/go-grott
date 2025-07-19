@@ -600,7 +600,7 @@ func TestDataCollectionServer_HandleConnection_ReadTimeout(t *testing.T) {
 	}
 
 	// Setup mock expectations
-	mockConn.EXPECT().RemoteAddr().Return(mockAddr).Times(3) // Called for client addr and session creation  
+	mockConn.EXPECT().RemoteAddr().Return(mockAddr).Times(3) // Called for client addr and session creation
 	mockAddr.EXPECT().String().Return("192.168.1.100:12345").Times(4)
 	mockConn.EXPECT().LocalAddr().Return(mockAddr).Once() // Called during session creation
 
@@ -637,7 +637,7 @@ func TestDataCollectionServer_HandleConnection_SetReadDeadlineError(t *testing.T
 	mockAddr := mocks.NewMockAddr(t)
 
 	// Setup mock expectations
-	mockConn.EXPECT().RemoteAddr().Return(mockAddr).Times(3) // Called for client addr and session creation  
+	mockConn.EXPECT().RemoteAddr().Return(mockAddr).Times(3) // Called for client addr and session creation
 	mockAddr.EXPECT().String().Return("192.168.1.100:12345").Times(4)
 	mockConn.EXPECT().LocalAddr().Return(mockAddr).Once() // Called during session creation
 
@@ -668,7 +668,7 @@ func TestDataCollectionServer_HandleConnection_ContextCancelled(t *testing.T) {
 	mockAddr := mocks.NewMockAddr(t)
 
 	// Setup mock expectations
-	mockConn.EXPECT().RemoteAddr().Return(mockAddr).Times(3) // Called for client addr and session creation  
+	mockConn.EXPECT().RemoteAddr().Return(mockAddr).Times(3) // Called for client addr and session creation
 	mockAddr.EXPECT().String().Return("192.168.1.100:12345").Times(4)
 	mockConn.EXPECT().LocalAddr().Return(mockAddr).Once() // Called during session creation
 	mockConn.EXPECT().Close().Return(nil)
@@ -698,7 +698,7 @@ func TestDataCollectionServer_HandleConnection_ServerDone(t *testing.T) {
 	mockAddr := mocks.NewMockAddr(t)
 
 	// Setup mock expectations
-	mockConn.EXPECT().RemoteAddr().Return(mockAddr).Times(3) // Called for client addr and session creation  
+	mockConn.EXPECT().RemoteAddr().Return(mockAddr).Times(3) // Called for client addr and session creation
 	mockAddr.EXPECT().String().Return("192.168.1.100:12345").Times(4)
 	mockConn.EXPECT().LocalAddr().Return(mockAddr).Once() // Called during session creation
 	mockConn.EXPECT().Close().Return(nil)
@@ -747,7 +747,7 @@ func TestDataCollectionServer_HandleConnection_ProcessDataError(t *testing.T) {
 
 	// Mock SetWriteDeadline that might be called during response processing
 	mockConn.EXPECT().SetWriteDeadline(mock.AnythingOfType("time.Time")).Return(nil).Maybe()
-	// Mock Write that might be called during response processing  
+	// Mock Write that might be called during response processing
 	mockConn.EXPECT().Write(mock.AnythingOfType("[]uint8")).Return(0, nil).Maybe()
 
 	mockConn.EXPECT().Close().Return(nil)

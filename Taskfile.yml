@@ -235,17 +235,104 @@ tasks:
       - go mod verify
     silent: false
 
-  deps-update:
-    desc: Update dependencies
+  deps-check:
+    desc: Check for available dependency updates
     cmds:
-      - go get -u ./...
+      - echo "Checking for available dependency updates..."
+      - go list -m -u all
+    silent: false
+
+  deps-analyze:
+    desc: Analyze why dependencies are held back from updating
+    cmds:
+      - echo "Analyzing dependency constraints..."
+      - |
+        echo "Dependencies with available updates:"
+        go list -m -u all | grep '\[' | while read line; do
+          dep=$(echo "$line" | awk '{print $1}')
+          current=$(echo "$line" | awk '{print $2}')
+          available=$(echo "$line" | awk '{print $3}' | tr -d '[]')
+          echo "  $dep: $current → $available"
+          echo "    Required by:"
+          go mod graph | grep "$dep@" | awk '{print "      " $1}' | sort -u
+          echo ""
+        done
+    silent: false
+
+  deps-update:
+    desc: Update all dependencies to latest versions
+    cmds:
+      - echo "Updating all dependencies..."
+      - go get -u all
       - go mod tidy
+      - echo "Dependencies updated successfully!"
+    silent: false
+
+  deps-update-minor:
+    desc: Update dependencies to latest minor versions only (safer)
+    cmds:
+      - echo "Updating dependencies to latest minor versions..."
+      - go get -u=patch all
+      - go mod tidy
+      - echo "Minor dependency updates completed!"
+    silent: false
+
+  deps-update-specific:
+    desc: "Update specific dependency (usage: task deps-update-specific -- github.com/example/pkg)"
+    cmds:
+      - go get -u {{.CLI_ARGS}}
+      - go mod tidy
+      - echo "Updated {{.CLI_ARGS}}"
     silent: false
 
   deps-vendor:
     desc: Vendor dependencies
     cmds:
       - go mod vendor
+    silent: false
+
+  deps-audit:
+    desc: Audit dependencies for known vulnerabilities
+    cmds:
+      - echo "Auditing dependencies for vulnerabilities..."
+      - go list -json -deps ./... | nancy sleuth
+    silent: false
+    ignore_error: true
+
+  deps-update-safe:
+    desc: SAFE dependency update (patch versions only - recommended for production)
+    cmds:
+      - echo "🔒 Performing SAFE dependency update (patch versions only)..."
+      - echo "This only updates bug fixes, no feature changes or breaking changes"
+      - go get -u=patch all
+      - go mod tidy
+      - echo "✅ Safe updates completed!"
+      - echo "Run 'task test' to verify everything still works"
+    silent: false
+
+  deps-update-with-tests:
+    desc: Update dependencies and automatically run tests to verify compatibility
+    cmds:
+      - echo "🧪 Updating dependencies with test verification..."
+      - go get -u all
+      - go mod tidy
+      - echo "Dependencies updated, running tests..."
+      - task: test-unit
+      - echo "✅ Dependencies updated and tests passed!"
+    silent: false
+
+  deps-why-not-updated:
+    desc: Explain why specific dependencies can't be updated
+    cmds:
+      - echo "🔍 Analyzing why some dependencies aren't updating..."
+      - echo "Indirect dependencies that can't be updated:"
+      - |
+        go list -m -u all | grep '\[' | while read line; do
+          dep=$(echo "$line" | awk '{print $1}')
+          echo "❌ $dep is constrained by:"
+          go mod why "$dep" | head -3
+          echo ""
+        done
     silent: false
 
   # Cleanup tasks

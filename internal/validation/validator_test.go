@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/resident-x/go-grott/internal/protocol"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/resident-x/go-grott/internal/protocol"
 )
 
 func TestValidationLevel_String(t *testing.T) {

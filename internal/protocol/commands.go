@@ -21,32 +21,32 @@ const (
 
 // Protocol versions and command types.
 const (
-	ProtocolTCP             = "02"  // TCP protocol (unencrypted)
-	ProtocolInverterRead    = "05"  // Inverter read command
-	ProtocolInverterWrite   = "06"  // Inverter write command  
-	ProtocolV8              = "08"  // Protocol version 8
-	ProtocolV9              = "09"  // Protocol version 9
-	ProtocolMultiRegister   = "10"  // Multi-register command
-	ProtocolDataloggerWrite = "18"  // Datalogger write command
-	ProtocolDataloggerRead  = "19"  // Datalogger read command
+	ProtocolTCP             = "02" // TCP protocol (unencrypted)
+	ProtocolInverterRead    = "05" // Inverter read command
+	ProtocolInverterWrite   = "06" // Inverter write command
+	ProtocolV8              = "08" // Protocol version 8
+	ProtocolV9              = "09" // Protocol version 9
+	ProtocolMultiRegister   = "10" // Multi-register command
+	ProtocolDataloggerWrite = "18" // Datalogger write command
+	ProtocolDataloggerRead  = "19" // Datalogger read command
 )
 
 // Protocol byte values for header[3] - these match the string constants above
 const (
-	ProtocolTCPByte             = 0x02  // TCP protocol (unencrypted)
-	ProtocolInverterReadByte    = 0x05  // Inverter read command
-	ProtocolInverterWriteByte   = 0x06  // Inverter write command  
-	ProtocolV8Byte              = 0x08  // Protocol version 8
-	ProtocolV9Byte              = 0x09  // Protocol version 9
-	ProtocolMultiRegisterByte   = 0x10  // Multi-register command
-	ProtocolDataloggerWriteByte = 0x18  // Datalogger write command
-	ProtocolDataloggerReadByte  = 0x19  // Datalogger read command
+	ProtocolTCPByte             = 0x02 // TCP protocol (unencrypted)
+	ProtocolInverterReadByte    = 0x05 // Inverter read command
+	ProtocolInverterWriteByte   = 0x06 // Inverter write command
+	ProtocolV8Byte              = 0x08 // Protocol version 8
+	ProtocolV9Byte              = 0x09 // Protocol version 9
+	ProtocolMultiRegisterByte   = 0x10 // Multi-register command
+	ProtocolDataloggerWriteByte = 0x18 // Datalogger write command
+	ProtocolDataloggerReadByte  = 0x19 // Datalogger read command
 )
 
 // Device ID constants
 const (
-	DeviceDatalogger     = "01"   // Standard datalogger device ID
-	DeviceDataloggerByte = 0x01   // Standard datalogger device ID byte value
+	DeviceDatalogger     = "01" // Standard datalogger device ID
+	DeviceDataloggerByte = 0x01 // Standard datalogger device ID byte value
 )
 
 // ProtocolStringToByte converts protocol string to byte value for headers.

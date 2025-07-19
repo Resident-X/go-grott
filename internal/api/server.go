@@ -26,18 +26,18 @@ import (
 const (
 	MaxRegisterValue      = 4096
 	DefaultTimeout        = 5 * time.Second
-	LongTimeout          = 10 * time.Second
-	ShutdownTimeout      = 5 * time.Second
+	LongTimeout           = 10 * time.Second
+	ShutdownTimeout       = 5 * time.Second
 	ResponseCheckInterval = 500 * time.Millisecond
 	MinProtocolDataLen    = 8
-	TimeSyncRegister     = 31
-	
+	TimeSyncRegister      = 31
+
 	// Command constants
 	CommandRegister      = "register"
 	CommandRegAll        = "regall"
 	CommandMultiRegister = "multiregister"
 	CommandDateTime      = "datetime"
-	
+
 	// Additional constants not defined in protocol package yet
 	// TODO: Move these to protocol package eventually
 )
@@ -146,21 +146,21 @@ func (rt *ResponseTracker) GetAllResponses(cmdType string) map[string]*CommandRe
 
 // Server represents the HTTP API server that provides monitoring and management functionality.
 type Server struct {
-	config             *config.Config
-	server             *http.Server
-	router             *mux.Router
-	registry           domain.Registry
-	logger             zerolog.Logger
-	startTime          time.Time
-	responseTracker    *ResponseTracker
-	commandBuilder     *protocol.CommandBuilder
-	commandQueueMgr    *CommandQueueManager
-	responseProcessor  *ResponseProcessor
-	connectionTracker  *DeviceConnectionTracker
-	formatConverter    *FormatConverter
-	requestTimeout     time.Duration // Configurable timeout for testing
-	shutdown           bool
-	shutdownMu         sync.RWMutex
+	config            *config.Config
+	server            *http.Server
+	router            *mux.Router
+	registry          domain.Registry
+	logger            zerolog.Logger
+	startTime         time.Time
+	responseTracker   *ResponseTracker
+	commandBuilder    *protocol.CommandBuilder
+	commandQueueMgr   *CommandQueueManager
+	responseProcessor *ResponseProcessor
+	connectionTracker *DeviceConnectionTracker
+	formatConverter   *FormatConverter
+	requestTimeout    time.Duration // Configurable timeout for testing
+	shutdown          bool
+	shutdownMu        sync.RWMutex
 }
 
 // NewServer creates a new HTTP API server.
@@ -239,15 +239,15 @@ func (s *Server) setupRoutes() {
 	// Python grottserver compatibility endpoints
 	s.router.HandleFunc("/", s.handleHome).Methods("GET")
 	s.router.HandleFunc("/info", s.handleInfo).Methods("GET")
-	
+
 	// Datalogger register operations
 	s.router.HandleFunc("/datalogger", s.handleDataloggerGet).Methods("GET")
 	s.router.HandleFunc("/datalogger", s.handleDataloggerPut).Methods("PUT")
-	
-	// Inverter register operations  
+
+	// Inverter register operations
 	s.router.HandleFunc("/inverter", s.handleInverterGet).Methods("GET")
 	s.router.HandleFunc("/inverter", s.handleInverterPut).Methods("PUT")
-	
+
 	// Multi-register operations
 	s.router.HandleFunc("/multiregister", s.handleMultiregisterGet).Methods("GET")
 	s.router.HandleFunc("/multiregister", s.handleMultiregisterPut).Methods("PUT")
@@ -439,23 +439,23 @@ func (s *Server) handleInfo(w http.ResponseWriter, _ *http.Request) {
 	// Get server metrics
 	uptime := time.Since(s.startTime)
 	dataloggers := s.registry.GetAllDataloggers()
-	
+
 	// Build info response
 	info := map[string]interface{}{
-		"server_name":      "go-grott",
-		"server_type":      "Go implementation",
-		"uptime_seconds":   uptime.Seconds(),
-		"uptime_string":    uptime.String(),
-		"start_time":       s.startTime.Format(time.RFC3339),
-		"datalogger_count": len(dataloggers),
+		"server_name":        "go-grott",
+		"server_type":        "Go implementation",
+		"uptime_seconds":     uptime.Seconds(),
+		"uptime_string":      uptime.String(),
+		"start_time":         s.startTime.Format(time.RFC3339),
+		"datalogger_count":   len(dataloggers),
 		"active_connections": s.commandQueueMgr.GetQueueCount(),
 		"dataloggers": func() []map[string]interface{} {
 			result := make([]map[string]interface{}, 0, len(dataloggers))
 			for _, dl := range dataloggers {
 				result = append(result, map[string]interface{}{
-					"id":       dl.ID,
-					"ip":       dl.IP,
-					"protocol": dl.Protocol,
+					"id":             dl.ID,
+					"ip":             dl.IP,
+					"protocol":       dl.Protocol,
 					"inverter_count": len(dl.Inverters),
 				})
 			}
@@ -470,7 +470,7 @@ func (s *Server) handleInfo(w http.ResponseWriter, _ *http.Request) {
 		s.logger.Error().Err(err).Msg("Failed to write info response")
 		return
 	}
-	
+
 	// Log detailed info to server logs
 	s.logger.Info().Interface("server_info", info).Msg("Server information displayed")
 }
@@ -480,12 +480,12 @@ func (s *Server) handleDataloggerGet(w http.ResponseWriter, r *http.Request) {
 	s.logger.Info().Msg("Datalogger GET request received")
 
 	query := r.URL.Query()
-	
+
 	// If no query parameters, return datalogger registry info
 	if len(query) == 0 {
 		dataloggers := s.registry.GetAllDataloggers()
 		registryInfo := make(map[string]interface{})
-		
+
 		for _, dl := range dataloggers {
 			registryInfo[dl.ID] = map[string]interface{}{
 				"ip":       dl.IP,
@@ -502,7 +502,7 @@ func (s *Server) handleDataloggerGet(w http.ResponseWriter, r *http.Request) {
 				}(),
 			}
 		}
-		
+
 		s.writeJSON(w, registryInfo, http.StatusOK)
 		return
 	}
@@ -581,7 +581,7 @@ func (s *Server) handleDataloggerPut(w http.ResponseWriter, r *http.Request) {
 	s.logger.Info().Msg("Datalogger PUT request received")
 
 	query := r.URL.Query()
-	
+
 	if len(query) == 0 {
 		s.writeError(w, "empty put received", http.StatusBadRequest)
 		return
@@ -666,7 +666,7 @@ func (s *Server) handleInverterGet(w http.ResponseWriter, r *http.Request) {
 	s.logger.Info().Msg("Inverter GET request received")
 
 	query := r.URL.Query()
-	
+
 	// If no query parameters, return inverter registry info
 	if len(query) == 0 {
 		s.handleInverterRegistryInfo(w)
@@ -701,7 +701,7 @@ type InverterGetParams struct {
 func (s *Server) handleInverterRegistryInfo(w http.ResponseWriter) {
 	dataloggers := s.registry.GetAllDataloggers()
 	inverterInfo := make(map[string]interface{})
-	
+
 	for _, dl := range dataloggers {
 		for _, inv := range dl.Inverters {
 			inverterInfo[inv.Serial] = map[string]interface{}{
@@ -713,7 +713,7 @@ func (s *Server) handleInverterRegistryInfo(w http.ResponseWriter) {
 			}
 		}
 	}
-	
+
 	s.writeJSON(w, inverterInfo, http.StatusOK)
 }
 
@@ -724,7 +724,7 @@ func (s *Server) validateInverterGetParams(query url.Values) (*InverterGetParams
 	if command == "" {
 		return nil, fmt.Errorf("no command entered")
 	}
-	
+
 	if command != "register" && command != "regall" {
 		return nil, fmt.Errorf("no valid command entered")
 	}
@@ -805,10 +805,10 @@ func (s *Server) executeInverterCommand(w http.ResponseWriter, params *InverterG
 // handleInverterRegallCommand handles the "regall" command for inverters.
 func (s *Server) handleInverterRegallCommand(w http.ResponseWriter, params *InverterGetParams) error {
 	allResponses := s.responseTracker.GetAllResponses(protocol.ProtocolInverterRead)
-	
+
 	// Convert response values to requested format
 	convertedResponses := s.formatAllResponses(allResponses, params.Format)
-	
+
 	s.writeJSON(w, convertedResponses, http.StatusOK)
 	return nil
 }
@@ -920,7 +920,7 @@ type inverterPutParams struct {
 // parseInverterPutParams parses and validates parameters for inverter PUT requests
 func (s *Server) parseInverterPutParams(r *http.Request) (*inverterPutParams, error) {
 	query := r.URL.Query()
-	
+
 	if len(query) == 0 {
 		return nil, fmt.Errorf("empty put received")
 	}
@@ -1065,7 +1065,7 @@ func (s *Server) writeError(w http.ResponseWriter, message string, statusCode in
 		"status":    statusCode,
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
 	}
-	
+
 	if err := json.NewEncoder(w).Encode(errorResponse); err != nil {
 		s.logger.Error().Err(err).Msg("Failed to encode error response")
 	}
@@ -1075,7 +1075,7 @@ func (s *Server) writeError(w http.ResponseWriter, message string, statusCode in
 func (s *Server) handleAPIError(w http.ResponseWriter, err error) {
 	var valErr ValidationError
 	var apiErr APIError
-	
+
 	switch {
 	case errors.As(err, &valErr):
 		s.writeError(w, valErr.Message, http.StatusBadRequest)
@@ -1093,57 +1093,57 @@ func (s *Server) queueRegisterReadCommand(ctx context.Context, datalogger *domai
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("context cancelled: %w", err)
 	}
-	
+
 	// Build command body
 	body := []byte(datalogger.ID)
-	
+
 	// Add padding for protocol ProtocolInverterWrite
 	if datalogger.Protocol == protocol.ProtocolInverterWrite {
 		padding := make([]byte, 20)
 		body = append(body, padding...)
 	}
-	
+
 	// Add register address and end register (same for single register read)
 	regBytes := []byte{byte(register >> 8), byte(register & 0xFF)}
 	body = append(body, regBytes...)
 	body = append(body, regBytes...) // End register same as start
-	
+
 	// Create header
 	sequenceNo := uint16(1) // TODO: Implement proper sequence number tracking
 	bodyLen := len(body) + 2
 	deviceID := protocol.DeviceDatalogger // Datalogger device ID
-	
+
 	header := fmt.Sprintf("%04x00%s%04x%s%s", sequenceNo, datalogger.Protocol, bodyLen, deviceID, commandType)
-	
+
 	// Combine header and body
 	commandHex := header + fmt.Sprintf("%x", body)
 	commandBytes, err := hex.DecodeString(commandHex)
 	if err != nil {
 		return fmt.Errorf("failed to decode command hex: %w", err)
 	}
-	
+
 	// Encrypt and add CRC if needed
 	if datalogger.Protocol != protocol.ProtocolTCP {
 		encrypted := s.encryptCommand(commandBytes)
 		crc := s.calculateCRC(encrypted)
 		commandBytes = append(encrypted, crc...)
 	}
-	
+
 	// Queue the command
 	if err := s.commandQueueMgr.QueueCommand(datalogger.IP, datalogger.Port, commandBytes); err != nil {
 		return fmt.Errorf("failed to queue command: %w", err)
 	}
-	
+
 	// Clear any existing response for this register
 	registerKey := fmt.Sprintf("%04x", register)
 	s.responseTracker.DeleteResponse(commandType, registerKey)
-	
+
 	s.logger.Debug().
 		Str("datalogger", datalogger.ID).
 		Str("command_type", commandType).
 		Uint16("register", register).
 		Msg("Queued register read command")
-	
+
 	return nil
 }
 
@@ -1153,63 +1153,63 @@ func (s *Server) queueRegisterWriteCommand(ctx context.Context, datalogger *doma
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("context cancelled: %w", err)
 	}
-	
+
 	// Build command body
 	body := []byte(datalogger.ID)
-	
+
 	// Add padding for protocol ProtocolInverterWrite
 	if datalogger.Protocol == protocol.ProtocolInverterWrite {
 		padding := make([]byte, 20)
 		body = append(body, padding...)
 	}
-	
+
 	// Add register address
 	regBytes := []byte{byte(register >> 8), byte(register & 0xFF)}
 	body = append(body, regBytes...)
-	
+
 	// Add value
 	valueBytes := []byte(value)
 	valueLenBytes := []byte{byte(len(valueBytes) >> 8), byte(len(valueBytes) & 0xFF)}
 	body = append(body, valueLenBytes...)
 	body = append(body, valueBytes...)
-	
+
 	// Create header
 	sequenceNo := uint16(1) // TODO: Implement proper sequence number tracking
 	bodyLen := len(body) + 2
 	deviceID := protocol.DeviceDatalogger // Datalogger device ID
-	
+
 	header := fmt.Sprintf("%04x00%s%04x%s%s", sequenceNo, datalogger.Protocol, bodyLen, deviceID, commandType)
-	
+
 	// Combine header and body
 	commandHex := header + fmt.Sprintf("%x", body)
 	commandBytes, err := hex.DecodeString(commandHex)
 	if err != nil {
 		return fmt.Errorf("failed to decode command hex: %w", err)
 	}
-	
+
 	// Encrypt and add CRC if needed
 	if datalogger.Protocol != protocol.ProtocolTCP {
 		encrypted := s.encryptCommand(commandBytes)
 		crc := s.calculateCRC(encrypted)
 		commandBytes = append(encrypted, crc...)
 	}
-	
+
 	// Queue the command
 	if err := s.commandQueueMgr.QueueCommand(datalogger.IP, datalogger.Port, commandBytes); err != nil {
 		return fmt.Errorf("failed to queue command: %w", err)
 	}
-	
+
 	// Clear any existing response for this register
 	registerKey := fmt.Sprintf("%04x", register)
 	s.responseTracker.DeleteResponse(commandType, registerKey)
-	
+
 	s.logger.Debug().
 		Str("datalogger", datalogger.ID).
 		Str("command_type", commandType).
 		Uint16("register", register).
 		Str("value", value).
 		Msg("Queued register write command")
-	
+
 	return nil
 }
 
@@ -1219,7 +1219,7 @@ func (s *Server) waitForResponse(commandType, registerKey string, timeout time.D
 	defer ticker.Stop()
 
 	timeoutChan := time.After(timeout)
-	
+
 	for {
 		select {
 		case <-ticker.C:
@@ -1236,7 +1236,7 @@ func (s *Server) waitForResponse(commandType, registerKey string, timeout time.D
 func (s *Server) encryptCommand(data []byte) []byte {
 	mask := []byte("Growatt")
 	result := make([]byte, len(data))
-		// Copy header unchanged (first 8 bytes)
+	// Copy header unchanged (first 8 bytes)
 	copy(result[:MinProtocolDataLen], data[:MinProtocolDataLen])
 
 	// XOR the rest with the mask
@@ -1244,7 +1244,7 @@ func (s *Server) encryptCommand(data []byte) []byte {
 		maskIdx := (i - MinProtocolDataLen) % len(mask)
 		result[i] = data[i] ^ mask[maskIdx]
 	}
-	
+
 	return result
 }
 
@@ -1290,60 +1290,60 @@ func (s *Server) RemoveDeviceConnection(dataloggerID string, ip string, port int
 func (s *Server) queueInverterRegisterReadCommand(datalogger *domain.DataloggerInfo, inverter *domain.InverterInfo, commandType string, register uint16) error {
 	// Build command body
 	body := []byte(datalogger.ID)
-	
+
 	// Add padding for ProtocolInverterWrite
 	if datalogger.Protocol == protocol.ProtocolInverterWrite {
 		padding := make([]byte, 20)
 		body = append(body, padding...)
 	}
-	
+
 	// Add register address and end register (same for single register read)
 	regBytes := []byte{byte(register >> 8), byte(register & 0xFF)}
 	body = append(body, regBytes...)
 	body = append(body, regBytes...) // End register same as start
-	
+
 	// Create header
 	sequenceNo := uint16(1) // TODO: Implement proper sequence number tracking
 	bodyLen := len(body) + 2
-	
+
 	// For inverter commands, use the inverter number as device ID
 	deviceID := inverter.InverterNo
 	if len(deviceID) < 2 {
 		deviceID = "0" + deviceID // Pad to 2 characters
 	}
-	
+
 	header := fmt.Sprintf("%04x00%s%04x%s%s", sequenceNo, datalogger.Protocol, bodyLen, deviceID, commandType)
-	
+
 	// Combine header and body
 	commandHex := header + fmt.Sprintf("%x", body)
 	commandBytes, err := hex.DecodeString(commandHex)
 	if err != nil {
 		return fmt.Errorf("failed to decode command hex: %w", err)
 	}
-	
+
 	// Encrypt and add CRC if needed
 	if datalogger.Protocol != protocol.ProtocolTCP {
 		encrypted := s.encryptCommand(commandBytes)
 		crc := s.calculateCRC(encrypted)
 		commandBytes = append(encrypted, crc...)
 	}
-	
+
 	// Queue the command
 	if err := s.commandQueueMgr.QueueCommand(datalogger.IP, datalogger.Port, commandBytes); err != nil {
 		return fmt.Errorf("failed to queue command: %w", err)
 	}
-	
+
 	// Clear any existing response for this register
 	registerKey := fmt.Sprintf("%04x", register)
 	s.responseTracker.DeleteResponse(commandType, registerKey)
-	
+
 	s.logger.Debug().
 		Str("datalogger", datalogger.ID).
 		Str("inverter", inverter.Serial).
 		Str("command_type", commandType).
 		Uint16("register", register).
 		Msg("Queued inverter register read command")
-	
+
 	return nil
 }
 
@@ -1351,56 +1351,56 @@ func (s *Server) queueInverterRegisterReadCommand(datalogger *domain.DataloggerI
 func (s *Server) queueInverterRegisterWriteCommand(datalogger *domain.DataloggerInfo, inverter *domain.InverterInfo, commandType string, register uint16, value int) error {
 	// Build command body
 	body := []byte(datalogger.ID)
-	
+
 	// Add padding for protocol ProtocolInverterWrite
 	if datalogger.Protocol == protocol.ProtocolInverterWrite {
 		padding := make([]byte, 20)
 		body = append(body, padding...)
 	}
-	
+
 	// Add register address
 	regBytes := []byte{byte(register >> 8), byte(register & 0xFF)}
 	body = append(body, regBytes...)
-	
+
 	// Add value (2 bytes, big endian for inverter commands)
 	valueBytes := []byte{byte(value >> 8), byte(value & 0xFF)}
 	body = append(body, valueBytes...)
-	
+
 	// Create header
 	sequenceNo := uint16(1) // TODO: Implement proper sequence number tracking
 	bodyLen := len(body) + 2
-	
+
 	// For inverter commands, use the inverter number as device ID
 	deviceID := inverter.InverterNo
 	if len(deviceID) < 2 {
 		deviceID = "0" + deviceID // Pad to 2 characters
 	}
-	
+
 	header := fmt.Sprintf("%04x00%s%04x%s%s", sequenceNo, datalogger.Protocol, bodyLen, deviceID, commandType)
-	
+
 	// Combine header and body
 	commandHex := header + fmt.Sprintf("%x", body)
 	commandBytes, err := hex.DecodeString(commandHex)
 	if err != nil {
 		return fmt.Errorf("failed to decode command hex: %w", err)
 	}
-	
+
 	// Encrypt and add CRC if needed
 	if datalogger.Protocol != protocol.ProtocolTCP {
 		encrypted := s.encryptCommand(commandBytes)
 		crc := s.calculateCRC(encrypted)
 		commandBytes = append(encrypted, crc...)
 	}
-	
+
 	// Queue the command
 	if err := s.commandQueueMgr.QueueCommand(datalogger.IP, datalogger.Port, commandBytes); err != nil {
 		return fmt.Errorf("failed to queue command: %w", err)
 	}
-	
+
 	// Clear any existing response for this register
 	registerKey := fmt.Sprintf("%04x", register)
 	s.responseTracker.DeleteResponse(commandType, registerKey)
-	
+
 	s.logger.Debug().
 		Str("datalogger", datalogger.ID).
 		Str("inverter", inverter.Serial).
@@ -1408,7 +1408,7 @@ func (s *Server) queueInverterRegisterWriteCommand(datalogger *domain.Datalogger
 		Uint16("register", register).
 		Int("value", value).
 		Msg("Queued inverter register write command")
-	
+
 	return nil
 }
 
@@ -1416,60 +1416,60 @@ func (s *Server) queueInverterRegisterWriteCommand(datalogger *domain.Datalogger
 func (s *Server) queueInverterRegallCommand(datalogger *domain.DataloggerInfo, inverter *domain.InverterInfo, commandType string) error {
 	// Build command body
 	body := []byte(datalogger.ID)
-	
+
 	// Add padding for protocol ProtocolInverterWrite
 	if datalogger.Protocol == protocol.ProtocolInverterWrite {
 		padding := make([]byte, 20)
 		body = append(body, padding...)
 	}
-	
+
 	// For regall commands, typically read from register 0 to end of meaningful registers
 	// Based on Python grott implementation, this is usually register 0x0000 to 0x00FF
 	startReg := uint16(0x0000)
 	endReg := uint16(0x00FF)
-	
+
 	// Add start register
 	startBytes := []byte{byte(startReg >> 8), byte(startReg & 0xFF)}
 	body = append(body, startBytes...)
-	
+
 	// Add end register
 	endBytes := []byte{byte(endReg >> 8), byte(endReg & 0xFF)}
 	body = append(body, endBytes...)
-	
+
 	// Create header
 	sequenceNo := uint16(1) // TODO: Implement proper sequence number tracking
 	bodyLen := len(body) + 2
-	
+
 	// For inverter commands, use the inverter number as device ID
 	deviceID := inverter.InverterNo
 	if len(deviceID) < 2 {
 		deviceID = "0" + deviceID // Pad to 2 characters
 	}
-	
+
 	header := fmt.Sprintf("%04x00%s%04x%s%s", sequenceNo, datalogger.Protocol, bodyLen, deviceID, commandType)
-	
+
 	// Combine header and body
 	commandHex := header + fmt.Sprintf("%x", body)
 	commandBytes, err := hex.DecodeString(commandHex)
 	if err != nil {
 		return fmt.Errorf("failed to decode command hex: %w", err)
 	}
-	
+
 	// Encrypt and add CRC if needed
 	if datalogger.Protocol != protocol.ProtocolTCP {
 		encrypted := s.encryptCommand(commandBytes)
 		crc := s.calculateCRC(encrypted)
 		commandBytes = append(encrypted, crc...)
 	}
-	
+
 	// Queue the command
 	if err := s.commandQueueMgr.QueueCommand(datalogger.IP, datalogger.Port, commandBytes); err != nil {
 		return fmt.Errorf("failed to queue command: %w", err)
 	}
-	
+
 	// Clear any existing response for regall
 	s.responseTracker.DeleteResponse(commandType, "regall")
-	
+
 	s.logger.Debug().
 		Str("datalogger", datalogger.ID).
 		Str("inverter", inverter.Serial).
@@ -1477,7 +1477,7 @@ func (s *Server) queueInverterRegallCommand(datalogger *domain.DataloggerInfo, i
 		Uint16("start_reg", startReg).
 		Uint16("end_reg", endReg).
 		Msg("Queued inverter regall command")
-	
+
 	return nil
 }
 
@@ -1488,7 +1488,7 @@ func (s *Server) handleMultiregisterGet(w http.ResponseWriter, r *http.Request) 
 		Str("url", r.URL.String()).
 		Msg("Received multiregister GET request")
 
-	// Parse and validate parameters  
+	// Parse and validate parameters
 	params, err := s.parseMultiregisterGetParams(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -1628,7 +1628,7 @@ func (s *Server) sendMultiregisterReadResponse(w http.ResponseWriter, datalogger
 	// Get the actual response data
 	responseKey := "multiregister"
 	responseData, exists := s.responseTracker.GetResponse(command, responseKey)
-	
+
 	var registers interface{} = "Multi-register read completed"
 	if exists && responseData != nil {
 		registers = responseData.Value
@@ -1722,8 +1722,8 @@ func (s *Server) parseMultiregisterPutParams(r *http.Request) (*multiregisterPut
 	}
 
 	// Validate required parameters
-	if params.dataloggerSerial == "" || params.inverterSerial == "" || params.command == "" || 
-	   params.registersParam == "" || params.valuesParam == "" {
+	if params.dataloggerSerial == "" || params.inverterSerial == "" || params.command == "" ||
+		params.registersParam == "" || params.valuesParam == "" {
 		return nil, fmt.Errorf("Missing required parameters: serial, invserial, command, registers, values")
 	}
 
@@ -1898,13 +1898,13 @@ func (s *Server) sendMultiregisterWriteResponse(w http.ResponseWriter, datalogge
 func (s *Server) queueMultiRegisterReadCommand(datalogger *domain.DataloggerInfo, inverter *domain.InverterInfo, commandType string, registers []uint16) error {
 	// Build command body
 	body := []byte(datalogger.ID)
-	
+
 	// Add padding for protocol ProtocolInverterWrite
 	if datalogger.Protocol == protocol.ProtocolInverterWrite {
 		padding := make([]byte, 20)
 		body = append(body, padding...)
 	}
-	
+
 	// Add register count (2 bytes, big endian)
 	if len(registers) > 65535 {
 		return fmt.Errorf("too many registers: %d, maximum is 65535", len(registers))
@@ -1913,54 +1913,54 @@ func (s *Server) queueMultiRegisterReadCommand(datalogger *domain.DataloggerInfo
 	regCount := uint16(len(registers))
 	countBytes := []byte{byte(regCount >> 8), byte(regCount & 0xFF)}
 	body = append(body, countBytes...)
-	
+
 	// Add all registers (2 bytes each, big endian)
 	for _, register := range registers {
 		regBytes := []byte{byte(register >> 8), byte(register & 0xFF)}
 		body = append(body, regBytes...)
 	}
-	
+
 	// Create header
 	sequenceNo := uint16(1) // TODO: Implement proper sequence number tracking
 	bodyLen := len(body) + 2
-	
+
 	// For multi-register commands, use the inverter number as device ID
 	deviceID := inverter.InverterNo
 	if len(deviceID) < 2 {
 		deviceID = "0" + deviceID // Pad to 2 characters
 	}
-	
+
 	header := fmt.Sprintf("%04x00%s%04x%s%s", sequenceNo, datalogger.Protocol, bodyLen, deviceID, commandType)
-	
+
 	// Combine header and body
 	commandHex := header + fmt.Sprintf("%x", body)
 	commandBytes, err := hex.DecodeString(commandHex)
 	if err != nil {
 		return fmt.Errorf("failed to decode command hex: %w", err)
 	}
-	
+
 	// Encrypt and add CRC if needed
 	if datalogger.Protocol != protocol.ProtocolTCP {
 		encrypted := s.encryptCommand(commandBytes)
 		crc := s.calculateCRC(encrypted)
 		commandBytes = append(encrypted, crc...)
 	}
-	
+
 	// Queue the command
 	if err := s.commandQueueMgr.QueueCommand(datalogger.IP, datalogger.Port, commandBytes); err != nil {
 		return fmt.Errorf("failed to queue command: %w", err)
 	}
-	
+
 	// Clear any existing response for multiregister
 	s.responseTracker.DeleteResponse(commandType, "multiregister")
-	
+
 	s.logger.Debug().
 		Str("datalogger", datalogger.ID).
 		Str("inverter", inverter.Serial).
 		Str("command_type", commandType).
 		Int("register_count", len(registers)).
 		Msg("Queued multi-register read command")
-	
+
 	return nil
 }
 
@@ -1968,13 +1968,13 @@ func (s *Server) queueMultiRegisterReadCommand(datalogger *domain.DataloggerInfo
 func (s *Server) queueMultiRegisterWriteCommand(datalogger *domain.DataloggerInfo, inverter *domain.InverterInfo, commandType string, regValues []RegisterValue) error {
 	// Build command body
 	body := []byte(datalogger.ID)
-	
+
 	// Add padding for protocol ProtocolInverterWrite
 	if datalogger.Protocol == protocol.ProtocolInverterWrite {
 		padding := make([]byte, 20)
 		body = append(body, padding...)
 	}
-	
+
 	// Add register count (2 bytes, big endian)
 	if len(regValues) > 65535 {
 		return fmt.Errorf("too many register values: %d, maximum is 65535", len(regValues))
@@ -1983,77 +1983,77 @@ func (s *Server) queueMultiRegisterWriteCommand(datalogger *domain.DataloggerInf
 	regCount := uint16(len(regValues))
 	countBytes := []byte{byte(regCount >> 8), byte(regCount & 0xFF)}
 	body = append(body, countBytes...)
-	
+
 	// Add all register-value pairs (4 bytes each: 2 for register, 2 for value)
 	for _, rv := range regValues {
 		// Add register address (2 bytes, big endian)
 		regBytes := []byte{byte(rv.Register >> 8), byte(rv.Register & 0xFF)}
 		body = append(body, regBytes...)
-		
+
 		// Add value (2 bytes, big endian)
 		valueBytes := []byte{byte(rv.Value >> 8), byte(rv.Value & 0xFF)}
 		body = append(body, valueBytes...)
 	}
-	
+
 	// Create header
 	sequenceNo := uint16(1) // TODO: Implement proper sequence number tracking
 	bodyLen := len(body) + 2
-	
+
 	// For multi-register commands, use the inverter number as device ID
 	deviceID := inverter.InverterNo
 	if len(deviceID) < 2 {
 		deviceID = "0" + deviceID // Pad to 2 characters
 	}
-	
+
 	header := fmt.Sprintf("%04x00%s%04x%s%s", sequenceNo, datalogger.Protocol, bodyLen, deviceID, commandType)
-	
+
 	// Combine header and body
 	commandHex := header + fmt.Sprintf("%x", body)
 	commandBytes, err := hex.DecodeString(commandHex)
 	if err != nil {
 		return fmt.Errorf("failed to decode command hex: %w", err)
 	}
-	
+
 	// Encrypt and add CRC if needed
 	if datalogger.Protocol != protocol.ProtocolTCP {
 		encrypted := s.encryptCommand(commandBytes)
 		crc := s.calculateCRC(encrypted)
 		commandBytes = append(encrypted, crc...)
 	}
-	
+
 	// Queue the command
 	if err := s.commandQueueMgr.QueueCommand(datalogger.IP, datalogger.Port, commandBytes); err != nil {
 		return fmt.Errorf("failed to queue command: %w", err)
 	}
-	
+
 	// Clear any existing response for multiregister
 	s.responseTracker.DeleteResponse(commandType, "multiregister")
-	
+
 	s.logger.Debug().
 		Str("datalogger", datalogger.ID).
 		Str("inverter", inverter.Serial).
 		Str("command_type", commandType).
 		Int("register_count", len(regValues)).
 		Msg("Queued multi-register write command")
-	
+
 	return nil
 }
 
 // parseMultiRegisterResponse parses a multi-register response and formats the values.
 func (s *Server) parseMultiRegisterResponse(responseData []byte, registers []uint16, format string) map[string]interface{} {
 	response := map[string]interface{}{
-		"status":   "success",
-		"format":   format,
+		"status":    "success",
+		"format":    format,
 		"registers": make(map[string]interface{}),
 	}
-	
+
 	// Basic response validation
 	if len(responseData) < 10 {
 		response["status"] = "error"
 		response["message"] = "Response too short"
 		return response
 	}
-	
+
 	// Skip header and protocol overhead (this varies by protocol)
 	// For now, assume the register values start at offset 20
 	dataOffset := 20
@@ -2062,9 +2062,9 @@ func (s *Server) parseMultiRegisterResponse(responseData []byte, registers []uin
 		response["message"] = "Insufficient response data"
 		return response
 	}
-	
+
 	registersMap := make(map[string]interface{})
-	
+
 	// Parse each register value (assuming 2 bytes per register)
 	for i, register := range registers {
 		valueOffset := dataOffset + (i * 2)
@@ -2074,10 +2074,10 @@ func (s *Server) parseMultiRegisterResponse(responseData []byte, registers []uin
 			}
 			continue
 		}
-		
+
 		// Extract 2-byte value (big endian)
 		rawValue := int(responseData[valueOffset])<<8 | int(responseData[valueOffset+1])
-		
+
 		// Convert to requested format
 		valueStr := fmt.Sprintf("%d", rawValue) // Convert int to string
 		formattedValue, err := s.formatConverter.ConvertToHex(valueStr, FormatType(format))
@@ -2088,14 +2088,14 @@ func (s *Server) parseMultiRegisterResponse(responseData []byte, registers []uin
 			}
 			continue
 		}
-		
+
 		registersMap[fmt.Sprintf("%04x", register)] = map[string]interface{}{
 			"value":  formattedValue,
 			"format": format,
 			"raw":    rawValue,
 		}
 	}
-	
+
 	response["registers"] = registersMap
 	return response
 }

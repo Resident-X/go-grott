@@ -226,7 +226,7 @@ func isClosedConnError(err error) bool {
 func (s *DataCollectionServer) handleConnection(ctx context.Context, conn net.Conn) {
 	clientAddr := conn.RemoteAddr().String()
 	host, _ := s.extractHost(clientAddr)
-	
+
 	session := s.setupConnectionSession(conn, clientAddr)
 	defer s.cleanupConnection(conn, clientAddr, session)
 
@@ -283,7 +283,7 @@ func (s *DataCollectionServer) cleanupConnection(conn net.Conn, clientAddr strin
 	if err != nil {
 		s.logger.Error().Err(err).Msg("Failed to close client connection")
 	}
-	
+
 	s.clientMutex.Lock()
 	delete(s.clients, clientAddr)
 	s.clientMutex.Unlock()
@@ -333,7 +333,7 @@ func (s *DataCollectionServer) shouldContinueLoop(ctx context.Context, conn net.
 
 	// Check for queued commands from HTTP API
 	s.processQueuedCommands(session, clientAddr, host)
-	
+
 	return true
 }
 
@@ -636,7 +636,7 @@ func (s *DataCollectionServer) connectAPIToSessions() {
 	if s.apiServer == nil {
 		return
 	}
-	
+
 	s.logger.Debug().Msg("Connected API server to session management system")
 }
 
@@ -646,7 +646,7 @@ func (s *DataCollectionServer) processDataWithAPIIntegration(ctx context.Context
 	if s.apiServer != nil {
 		s.apiServer.ProcessDeviceResponse(data)
 	}
-	
+
 	// Then process the data normally
 	return s.processDataBidirectional(ctx, session, data)
 }

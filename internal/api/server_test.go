@@ -553,7 +553,7 @@ func TestAPIServer_HandleHome(t *testing.T) {
 	// Assertions
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "text/html", w.Header().Get("Content-Type"))
-	
+
 	body := w.Body.String()
 	assert.Contains(t, body, "Welcome to go-grott")
 	assert.Contains(t, body, "Growatt inverter monitor")
@@ -565,7 +565,7 @@ func TestAPIServer_HandleInfo(t *testing.T) {
 	// Setup
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
-	
+
 	// Mock dataloggers data
 	mockDataloggers := []*domain.DataloggerInfo{
 		{
@@ -577,7 +577,7 @@ func TestAPIServer_HandleInfo(t *testing.T) {
 			},
 		},
 		{
-			ID:       "DL002", 
+			ID:       "DL002",
 			IP:       "192.168.1.101",
 			Protocol: "tcp",
 			Inverters: map[string]*domain.InverterInfo{
@@ -586,11 +586,11 @@ func TestAPIServer_HandleInfo(t *testing.T) {
 			},
 		},
 	}
-	
+
 	mockRegistry.EXPECT().GetAllDataloggers().Return(mockDataloggers)
-	
+
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Test request
 	req := httptest.NewRequest(http.MethodGet, "/info", nil)
 	w := httptest.NewRecorder()
@@ -601,7 +601,7 @@ func TestAPIServer_HandleInfo(t *testing.T) {
 	// Assertions
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "text/html", w.Header().Get("Content-Type"))
-	
+
 	body := w.Body.String()
 	assert.Contains(t, body, "go-grott Server Info")
 	assert.Contains(t, body, "See server logs for detailed information")
@@ -612,7 +612,7 @@ func TestAPIServer_HandleDataloggerGet_NoQueryParams(t *testing.T) {
 	// Setup
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
-	
+
 	// Mock dataloggers data
 	mockDataloggers := []*domain.DataloggerInfo{
 		{
@@ -628,10 +628,10 @@ func TestAPIServer_HandleDataloggerGet_NoQueryParams(t *testing.T) {
 			},
 		},
 	}
-	
+
 	mockRegistry.EXPECT().GetAllDataloggers().Return(mockDataloggers)
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Test request with no query parameters
 	req := httptest.NewRequest(http.MethodGet, "/api/datalogger", nil)
 	w := httptest.NewRecorder()
@@ -642,17 +642,17 @@ func TestAPIServer_HandleDataloggerGet_NoQueryParams(t *testing.T) {
 	// Assertions
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
-	
+
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	
+
 	// Check datalogger info structure
 	dl001 := response["DL001"].(map[string]interface{})
 	assert.Equal(t, "192.168.1.100", dl001["ip"])
 	assert.Equal(t, float64(5279), dl001["port"])
 	assert.Equal(t, "modbus", dl001["protocol"])
-	
+
 	inverters := dl001["inverters"].(map[string]interface{})
 	assert.Contains(t, inverters, "SER001")
 }
@@ -661,20 +661,20 @@ func TestAPIServer_HandleDataloggerGet_RegallCommand(t *testing.T) {
 	// Setup
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
-	
+
 	mockDatalogger := &domain.DataloggerInfo{
 		ID:       "DL001",
 		IP:       "192.168.1.100",
 		Protocol: "modbus",
 	}
-	
+
 	mockRegistry.EXPECT().GetDatalogger("DL001").Return(mockDatalogger, true)
-	
+
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Mock response data
 	server.responseTracker.SetResponse("19", "test_key", &CommandResponse{Value: map[string]interface{}{"register": "value"}})
-	
+
 	// Test request with regall command
 	req := httptest.NewRequest(http.MethodGet, "/api/datalogger?command=regall&datalogger=DL001", nil)
 	w := httptest.NewRecorder()
@@ -685,7 +685,7 @@ func TestAPIServer_HandleDataloggerGet_RegallCommand(t *testing.T) {
 	// Assertions
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
-	
+
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
@@ -696,7 +696,7 @@ func TestAPIServer_HandleDataloggerGet_InvalidCommand(t *testing.T) {
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Test request with invalid command
 	req := httptest.NewRequest(http.MethodGet, "/api/datalogger?command=invalid", nil)
 	w := httptest.NewRecorder()
@@ -706,7 +706,7 @@ func TestAPIServer_HandleDataloggerGet_InvalidCommand(t *testing.T) {
 
 	// Assertions
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	
+
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
@@ -718,7 +718,7 @@ func TestAPIServer_HandleDataloggerGet_MissingDatalogger(t *testing.T) {
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Test request without datalogger ID
 	req := httptest.NewRequest(http.MethodGet, "/api/datalogger?command=register", nil)
 	w := httptest.NewRecorder()
@@ -728,7 +728,7 @@ func TestAPIServer_HandleDataloggerGet_MissingDatalogger(t *testing.T) {
 
 	// Assertions
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	
+
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
@@ -740,9 +740,9 @@ func TestAPIServer_HandleDataloggerGet_InvalidDatalogger(t *testing.T) {
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
 	mockRegistry.EXPECT().GetDatalogger("INVALID").Return((*domain.DataloggerInfo)(nil), false)
-	
+
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Test request with invalid datalogger ID
 	req := httptest.NewRequest(http.MethodGet, "/api/datalogger?command=register&datalogger=INVALID", nil)
 	w := httptest.NewRecorder()
@@ -752,7 +752,7 @@ func TestAPIServer_HandleDataloggerGet_InvalidDatalogger(t *testing.T) {
 
 	// Assertions
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	
+
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
@@ -763,15 +763,15 @@ func TestAPIServer_HandleDataloggerGet_RegisterMissing(t *testing.T) {
 	// Setup
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
-	
+
 	mockDatalogger := &domain.DataloggerInfo{
 		ID: "DL001",
 		IP: "192.168.1.100",
 	}
 	mockRegistry.EXPECT().GetDatalogger("DL001").Return(mockDatalogger, true)
-	
+
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Test request with register command but no register parameter
 	req := httptest.NewRequest(http.MethodGet, "/api/datalogger?command=register&datalogger=DL001", nil)
 	w := httptest.NewRecorder()
@@ -781,7 +781,7 @@ func TestAPIServer_HandleDataloggerGet_RegisterMissing(t *testing.T) {
 
 	// Assertions
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	
+
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
@@ -792,15 +792,15 @@ func TestAPIServer_HandleDataloggerGet_InvalidRegister(t *testing.T) {
 	// Setup
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
-	
+
 	mockDatalogger := &domain.DataloggerInfo{
 		ID: "DL001",
 		IP: "192.168.1.100",
 	}
 	mockRegistry.EXPECT().GetDatalogger("DL001").Return(mockDatalogger, true)
-	
+
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Test request with invalid register value
 	req := httptest.NewRequest(http.MethodGet, "/api/datalogger?command=register&datalogger=DL001&register=invalid", nil)
 	w := httptest.NewRecorder()
@@ -810,7 +810,7 @@ func TestAPIServer_HandleDataloggerGet_InvalidRegister(t *testing.T) {
 
 	// Assertions
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	
+
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
@@ -823,7 +823,7 @@ func TestAPIServer_HandleDataloggerPut_EmptyQuery(t *testing.T) {
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Test request with no query parameters
 	req := httptest.NewRequest(http.MethodPut, "/api/datalogger", nil)
 	w := httptest.NewRecorder()
@@ -833,7 +833,7 @@ func TestAPIServer_HandleDataloggerPut_EmptyQuery(t *testing.T) {
 
 	// Assertions
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	
+
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
@@ -845,7 +845,7 @@ func TestAPIServer_HandleDataloggerPut_NoCommand(t *testing.T) {
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Test request without command
 	req := httptest.NewRequest(http.MethodPut, "/api/datalogger?datalogger=DL001", nil)
 	w := httptest.NewRecorder()
@@ -855,7 +855,7 @@ func TestAPIServer_HandleDataloggerPut_NoCommand(t *testing.T) {
 
 	// Assertions
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	
+
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
@@ -867,7 +867,7 @@ func TestAPIServer_HandleDataloggerPut_InvalidCommand(t *testing.T) {
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Test request with invalid command
 	req := httptest.NewRequest(http.MethodPut, "/api/datalogger?command=invalid&datalogger=DL001", nil)
 	w := httptest.NewRecorder()
@@ -877,7 +877,7 @@ func TestAPIServer_HandleDataloggerPut_InvalidCommand(t *testing.T) {
 
 	// Assertions
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	
+
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
@@ -889,7 +889,7 @@ func TestAPIServer_HandleDataloggerPut_MissingDatalogger(t *testing.T) {
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Test request without datalogger ID
 	req := httptest.NewRequest(http.MethodPut, "/api/datalogger?command=register", nil)
 	w := httptest.NewRecorder()
@@ -899,7 +899,7 @@ func TestAPIServer_HandleDataloggerPut_MissingDatalogger(t *testing.T) {
 
 	// Assertions
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	
+
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
@@ -911,9 +911,9 @@ func TestAPIServer_HandleDataloggerPut_InvalidDatalogger(t *testing.T) {
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
 	mockRegistry.EXPECT().GetDatalogger("INVALID").Return((*domain.DataloggerInfo)(nil), false)
-	
+
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Test request with invalid datalogger ID
 	req := httptest.NewRequest(http.MethodPut, "/api/datalogger?command=register&datalogger=INVALID", nil)
 	w := httptest.NewRecorder()
@@ -923,7 +923,7 @@ func TestAPIServer_HandleDataloggerPut_InvalidDatalogger(t *testing.T) {
 
 	// Assertions
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	
+
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
@@ -935,7 +935,7 @@ func TestAPIServer_HandleInverterGet_NoQueryParams(t *testing.T) {
 	// Setup
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
-	
+
 	// Mock dataloggers data with inverters
 	mockDataloggers := []*domain.DataloggerInfo{
 		{
@@ -955,10 +955,10 @@ func TestAPIServer_HandleInverterGet_NoQueryParams(t *testing.T) {
 			},
 		},
 	}
-	
+
 	mockRegistry.EXPECT().GetAllDataloggers().Return(mockDataloggers)
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Test request with no query parameters
 	req := httptest.NewRequest(http.MethodGet, "/api/inverter", nil)
 	w := httptest.NewRecorder()
@@ -969,11 +969,11 @@ func TestAPIServer_HandleInverterGet_NoQueryParams(t *testing.T) {
 	// Assertions
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
-	
+
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	
+
 	// Check inverter info structure
 	ser001 := response["SER001"].(map[string]interface{})
 	assert.Equal(t, "DL001", ser001["datalogger"])
@@ -981,7 +981,7 @@ func TestAPIServer_HandleInverterGet_NoQueryParams(t *testing.T) {
 	assert.Equal(t, "192.168.1.100", ser001["ip"])
 	assert.Equal(t, float64(5279), ser001["port"])
 	assert.Equal(t, "modbus", ser001["protocol"])
-	
+
 	ser002 := response["SER002"].(map[string]interface{})
 	assert.Equal(t, "DL001", ser002["datalogger"])
 	assert.Equal(t, "2", ser002["inverterno"])
@@ -992,7 +992,7 @@ func TestAPIServer_HandleInverterGet_NoCommand(t *testing.T) {
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Test request without command
 	req := httptest.NewRequest(http.MethodGet, "/api/inverter?inverter=INV001", nil)
 	w := httptest.NewRecorder()
@@ -1002,7 +1002,7 @@ func TestAPIServer_HandleInverterGet_NoCommand(t *testing.T) {
 
 	// Assertions
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	
+
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
@@ -1014,7 +1014,7 @@ func TestAPIServer_HandleInverterGet_InvalidCommand(t *testing.T) {
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Test request with invalid command
 	req := httptest.NewRequest(http.MethodGet, "/api/inverter?command=invalid&inverter=INV001", nil)
 	w := httptest.NewRecorder()
@@ -1024,7 +1024,7 @@ func TestAPIServer_HandleInverterGet_InvalidCommand(t *testing.T) {
 
 	// Assertions
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	
+
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
@@ -1036,7 +1036,7 @@ func TestAPIServer_HandleInverterGet_NoInverter(t *testing.T) {
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Test request without inverter ID
 	req := httptest.NewRequest(http.MethodGet, "/api/inverter?command=register", nil)
 	w := httptest.NewRecorder()
@@ -1046,7 +1046,7 @@ func TestAPIServer_HandleInverterGet_NoInverter(t *testing.T) {
 
 	// Assertions
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	
+
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
@@ -1059,7 +1059,7 @@ func TestAPIServer_HandleInverterPut_EmptyQuery(t *testing.T) {
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Test request with no query parameters
 	req := httptest.NewRequest(http.MethodPut, "/api/inverter", nil)
 	w := httptest.NewRecorder()
@@ -1069,7 +1069,7 @@ func TestAPIServer_HandleInverterPut_EmptyQuery(t *testing.T) {
 
 	// Assertions
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	
+
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
@@ -1081,7 +1081,7 @@ func TestAPIServer_HandleInverterPut_NoCommand(t *testing.T) {
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Test request without command
 	req := httptest.NewRequest(http.MethodPut, "/api/inverter?inverter=INV001", nil)
 	w := httptest.NewRecorder()
@@ -1091,7 +1091,7 @@ func TestAPIServer_HandleInverterPut_NoCommand(t *testing.T) {
 
 	// Assertions
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	
+
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
@@ -1103,7 +1103,7 @@ func TestAPIServer_HandleInverterPut_InvalidCommand(t *testing.T) {
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Test request with invalid command
 	req := httptest.NewRequest(http.MethodPut, "/api/inverter?command=invalid&inverter=INV001", nil)
 	w := httptest.NewRecorder()
@@ -1113,7 +1113,7 @@ func TestAPIServer_HandleInverterPut_InvalidCommand(t *testing.T) {
 
 	// Assertions
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	
+
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
@@ -1126,7 +1126,7 @@ func TestAPIServer_HandleMultiregisterGet_MissingParams(t *testing.T) {
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Test request without required parameters
 	req := httptest.NewRequest(http.MethodGet, "/api/multiregister", nil)
 	w := httptest.NewRecorder()
@@ -1144,7 +1144,7 @@ func TestAPIServer_HandleMultiregisterGet_InvalidCommand(t *testing.T) {
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Test request with invalid command
 	req := httptest.NewRequest(http.MethodGet, "/api/multiregister?serial=DL001&invserial=INV001&command=invalid&registers=1,2,3", nil)
 	w := httptest.NewRecorder()
@@ -1162,7 +1162,7 @@ func TestAPIServer_HandleMultiregisterGet_NoRegisters(t *testing.T) {
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Test request with spaces/empty registers that get filtered out (URL encoded)
 	// Using command "10" (ProtocolMultiRegister) which is the valid multiregister command
 	req := httptest.NewRequest(http.MethodGet, "/api/multiregister?serial=DL001&invserial=INV001&command=10&registers=%20,%20,%20%20", nil)
@@ -1176,13 +1176,13 @@ func TestAPIServer_HandleMultiregisterGet_NoRegisters(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "No valid registers provided")
 }
 
-// TestAPIServer_HandleMultiregisterPut tests the multiregister PUT handler  
+// TestAPIServer_HandleMultiregisterPut tests the multiregister PUT handler
 func TestAPIServer_HandleMultiregisterPut_MissingParams(t *testing.T) {
 	// Setup
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Test request without required parameters
 	req := httptest.NewRequest(http.MethodPut, "/api/multiregister", nil)
 	w := httptest.NewRecorder()
@@ -1200,7 +1200,7 @@ func TestAPIServer_HandleMultiregisterPut_InvalidCommand(t *testing.T) {
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Test request with invalid command
 	req := httptest.NewRequest(http.MethodPut, "/api/multiregister?serial=DL001&invserial=INV001&command=invalid&registers=1,2,3&values=10,20,30", nil)
 	w := httptest.NewRecorder()
@@ -1218,7 +1218,7 @@ func TestAPIServer_HandleMultiregisterPut_MismatchedValues(t *testing.T) {
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Test request with valid command but mismatched register and value counts
 	// Using command "10" (ProtocolMultiRegister) which is the valid multiregister command
 	req := httptest.NewRequest(http.MethodPut, "/api/multiregister?serial=DL001&invserial=INV001&command=10&registers=1,2,3&values=10,20", nil)
@@ -1238,15 +1238,15 @@ func TestAPIServer_Stop_Success(t *testing.T) {
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Start the server first to have something to stop
 	go server.Start(context.Background())
 	time.Sleep(10 * time.Millisecond) // Give it time to start
-	
+
 	// Test Stop
 	ctx := context.Background()
 	err := server.Stop(ctx)
-	
+
 	// Assertions
 	assert.NoError(t, err)
 }
@@ -1284,19 +1284,19 @@ func TestServer_QueueRegisterReadCommand(t *testing.T) {
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
 	server := NewServer(cfg, mockRegistry)
-	
+
 	datalogger := &domain.DataloggerInfo{
-		ID:          "41424344454647484950",  // Valid hex format (20 bytes)
+		ID:          "41424344454647484950", // Valid hex format (20 bytes)
 		IP:          "192.168.1.100",
 		Port:        5279,
-		Protocol:    protocol.ProtocolTCP,  // Valid protocol code
+		Protocol:    protocol.ProtocolTCP, // Valid protocol code
 		LastContact: time.Now(),
 	}
-	
+
 	// Test successful queue
 	err := server.queueRegisterReadCommand(context.Background(), datalogger, "19", 123)
 	assert.NoError(t, err)
-	
+
 	// Verify command was queued
 	queueManager := server.GetCommandQueueManager()
 	assert.NotNil(t, queueManager)
@@ -1306,19 +1306,19 @@ func TestServer_QueueRegisterWriteCommand(t *testing.T) {
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
 	server := NewServer(cfg, mockRegistry)
-	
+
 	datalogger := &domain.DataloggerInfo{
-		ID:          "41424344454647484950",  // Valid hex format (20 bytes)
+		ID:          "41424344454647484950", // Valid hex format (20 bytes)
 		IP:          "192.168.1.100",
 		Port:        5279,
-		Protocol:    protocol.ProtocolTCP,  // Valid protocol code
+		Protocol:    protocol.ProtocolTCP, // Valid protocol code
 		LastContact: time.Now(),
 	}
-	
+
 	// Test successful queue
 	err := server.queueRegisterWriteCommand(context.Background(), datalogger, "18", 123, "456")
 	assert.NoError(t, err)
-	
+
 	// Verify command was queued
 	queueManager := server.GetCommandQueueManager()
 	assert.NotNil(t, queueManager)
@@ -1328,7 +1328,7 @@ func TestServer_WaitForResponse_Timeout(t *testing.T) {
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Test timeout case
 	_, err := server.waitForResponse("19", "123", 10*time.Millisecond)
 	assert.Error(t, err)
@@ -1339,18 +1339,18 @@ func TestServer_WaitForResponse_Success(t *testing.T) {
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Test response received case - set response first
 	responseTracker := server.GetResponseTracker()
 	responseTracker.SetResponse("19", "123", &CommandResponse{
 		Value:  "789",
 		Result: "success",
 	})
-	
+
 	// Wait for response with short timeout since it's already set
 	response, err := server.waitForResponse("19", "123", 1*time.Second)
 	assert.NoError(t, err)
-	if response != nil {  // Handle potential nil response due to deletion
+	if response != nil { // Handle potential nil response due to deletion
 		assert.Equal(t, "789", response.Value)
 		assert.Equal(t, "success", response.Result)
 	}
@@ -1360,9 +1360,9 @@ func TestServer_ProcessDeviceResponse(t *testing.T) {
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
 	server := NewServer(cfg, mockRegistry)
-	
+
 	testData := []byte{0x01, 0x02, 0x03, 0x04}
-	
+
 	// Should not panic
 	assert.NotPanics(t, func() {
 		server.ProcessDeviceResponse(testData)
@@ -1373,7 +1373,7 @@ func TestServer_GetCommandQueue(t *testing.T) {
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Test getting command queue
 	queue := server.GetCommandQueue("192.168.1.100", 5279)
 	assert.NotNil(t, queue)
@@ -1383,7 +1383,7 @@ func TestServer_UpdateDeviceConnection(t *testing.T) {
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
 	server := NewServer(cfg, mockRegistry)
-	
+
 	datalogger := &domain.DataloggerInfo{
 		ID:          "41424344454647484950",
 		IP:          "192.168.1.100",
@@ -1391,7 +1391,7 @@ func TestServer_UpdateDeviceConnection(t *testing.T) {
 		Protocol:    protocol.ProtocolTCP,
 		LastContact: time.Now(),
 	}
-	
+
 	// Should not panic
 	assert.NotPanics(t, func() {
 		server.UpdateDeviceConnection(datalogger)
@@ -1402,7 +1402,7 @@ func TestServer_RemoveDeviceConnection(t *testing.T) {
 	cfg := &config.Config{}
 	mockRegistry := mocks.NewMockRegistry(t)
 	server := NewServer(cfg, mockRegistry)
-	
+
 	// Should not panic
 	assert.NotPanics(t, func() {
 		server.RemoveDeviceConnection("41424344454647484950", "192.168.1.100", 5279)
