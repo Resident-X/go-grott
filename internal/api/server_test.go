@@ -1164,8 +1164,8 @@ func TestAPIServer_HandleMultiregisterGet_NoRegisters(t *testing.T) {
 	server := NewServer(cfg, mockRegistry)
 	
 	// Test request with spaces/empty registers that get filtered out (URL encoded)
-	// Using command "06" (ProtocolInverterWrite) which is the valid multiregister command
-	req := httptest.NewRequest(http.MethodGet, "/api/multiregister?serial=DL001&invserial=INV001&command=06&registers=%20,%20,%20%20", nil)
+	// Using command "10" (ProtocolMultiRegister) which is the valid multiregister command
+	req := httptest.NewRequest(http.MethodGet, "/api/multiregister?serial=DL001&invserial=INV001&command=10&registers=%20,%20,%20%20", nil)
 	w := httptest.NewRecorder()
 
 	// Call handler
@@ -1220,8 +1220,8 @@ func TestAPIServer_HandleMultiregisterPut_MismatchedValues(t *testing.T) {
 	server := NewServer(cfg, mockRegistry)
 	
 	// Test request with valid command but mismatched register and value counts
-	// Using command "06" (ProtocolInverterWrite) which is the valid multiregister command
-	req := httptest.NewRequest(http.MethodPut, "/api/multiregister?serial=DL001&invserial=INV001&command=06&registers=1,2,3&values=10,20", nil)
+	// Using command "10" (ProtocolMultiRegister) which is the valid multiregister command
+	req := httptest.NewRequest(http.MethodPut, "/api/multiregister?serial=DL001&invserial=INV001&command=10&registers=1,2,3&values=10,20", nil)
 	w := httptest.NewRecorder()
 
 	// Call handler

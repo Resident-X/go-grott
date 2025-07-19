@@ -1550,7 +1550,7 @@ func (s *Server) parseMultiregisterGetParams(r *http.Request) (*multiregisterGet
 	}
 
 	// Validate command type - multi-register commands use ProtocolMultiRegister
-	if params.command != protocol.ProtocolInverterWrite {
+	if params.command != protocol.ProtocolMultiRegister {
 		return nil, fmt.Errorf("Invalid command type for multiregister operation: %s", params.command)
 	}
 
@@ -1728,7 +1728,7 @@ func (s *Server) parseMultiregisterPutParams(r *http.Request) (*multiregisterPut
 	}
 
 	// Validate command type - multi-register commands use ProtocolMultiRegister
-	if params.command != protocol.ProtocolInverterWrite {
+	if params.command != protocol.ProtocolMultiRegister {
 		return nil, fmt.Errorf("Invalid command type for multiregister operation: %s", params.command)
 	}
 
