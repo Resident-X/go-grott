@@ -162,7 +162,7 @@ func (rh *ResponseHandler) ProcessIncomingData(data []byte) (*Response, error) {
 	loggerID, err := rh.extractLoggerID(data, cmdInfo)
 	if err != nil {
 		// If we can't extract logger ID, don't send a response
-		return nil, nil
+		return nil, fmt.Errorf("failed to extract logger ID: %w", err)
 	}
 
 	// Determine response based on command type
@@ -175,8 +175,8 @@ func (rh *ResponseHandler) ProcessIncomingData(data []byte) (*Response, error) {
 		// For identify commands, we typically just acknowledge
 		return rh.responseBuilder.CreateAckResponse(cmdInfo.Protocol, data)
 	default:
-		// For unknown commands, don't respond
-		return nil, nil
+		// For unknown commands, return an error instead of nil, nil
+		return nil, fmt.Errorf("unknown command type: %d", cmdInfo.Command)
 	}
 }
 
@@ -293,14 +293,14 @@ func (rm *ResponseManager) HandleIncomingData(data []byte) (*Response, error) {
 		}
 
 	case "19", "05", "06", "18": // Command responses - no response needed
-		return nil, nil
+		return nil, fmt.Errorf("command response records do not require acknowledgment")
 
 	case "10", "29": // Other records - no response needed  
-		return nil, nil
+		return nil, fmt.Errorf("records of type %s do not require acknowledgment", recType)
 
 	default:
-		// Unknown record type - no response
-		return nil, nil
+		// Unknown record type - return error instead of nil, nil
+		return nil, fmt.Errorf("unknown record type: %s", recType)
 	}
 
 	return response, err
@@ -350,7 +350,6 @@ func (rm *ResponseManager) createAckResponse(header []byte, protocol string) (*R
 		// But header[12:16] doesn't exist in 8-byte header, so we use sequence number from 0:4
 		responseData = make([]byte, 7)
 		copy(responseData[0:4], header[0:4]) // Copy sequence number
-		copy(responseData[4:8], header[4:8]) // Copy rest of header
 		responseData[4] = 0x00              // Length high byte
 		responseData[5] = 0x03              // Length low byte  
 		responseData[6] = 0x00              // Terminator

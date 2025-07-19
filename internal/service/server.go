@@ -83,6 +83,8 @@ func NewDataCollectionServer(cfg *config.Config, parser domain.DataParser,
 	// Initialize HTTP API server if enabled.
 	if cfg.API.Enabled {
 		server.apiServer = api.NewServer(cfg, registry)
+		// Connect the API server to the session manager for command queuing
+		server.connectAPIToSessions()
 	}
 
 	return server, nil
@@ -225,6 +227,13 @@ func (s *DataCollectionServer) handleConnection(ctx context.Context, conn net.Co
 	// Get client IP and port
 	clientAddr := conn.RemoteAddr().String()
 
+	// Extract host for API command queuing
+	host, _, err := net.SplitHostPort(clientAddr)
+	if err != nil {
+		// Fallback to full address if parsing fails
+		host = clientAddr
+	}
+
 	// Create session for this connection
 	session := s.sessionManager.CreateSession(conn)
 
@@ -308,13 +317,32 @@ func (s *DataCollectionServer) handleConnection(ctx context.Context, conn net.Co
 				session.AddBytesReceived(int64(n))
 
 				// Process received data and potentially send response
-				if err := s.processDataBidirectional(ctx, session, buf[:n]); err != nil {
+				if err := s.processDataWithAPIIntegration(ctx, session, buf[:n]); err != nil {
 					session.IncrementErrorCount()
 					s.logger.Error().
 						Str("address", clientAddr).
 						Str("session_id", session.ID).
 						Err(err).
 						Msg("Failed to process data")
+				}
+			}
+
+			// Check for queued commands from HTTP API
+			if s.apiServer != nil {
+				if commandQueue := s.apiServer.GetCommandQueue(host, 0); commandQueue != nil {
+					select {
+					case command := <-commandQueue:
+						// Send command to device
+						if err := s.sendCommandToDevice(session, command); err != nil {
+							s.logger.Error().
+								Str("address", clientAddr).
+								Str("session_id", session.ID).
+								Err(err).
+								Msg("Failed to send queued command")
+						}
+					default:
+						// No commands queued
+					}
 				}
 			}
 		}
@@ -552,4 +580,53 @@ func (s *DataCollectionServer) ScheduleDeviceCommand(sessionID string, cmdType s
 	}
 
 	return s.commandScheduler.ScheduleCommand(cmd)
+}
+
+// connectAPIToSessions connects the HTTP API server to the session management system
+// for command queuing and response tracking.
+func (s *DataCollectionServer) connectAPIToSessions() {
+	if s.apiServer == nil {
+		return
+	}
+	
+	s.logger.Debug().Msg("Connected API server to session management system")
+}
+
+// processDataWithAPIIntegration processes data and integrates with the HTTP API response tracking.
+func (s *DataCollectionServer) processDataWithAPIIntegration(ctx context.Context, session *session.Session, data []byte) error {
+	// First, let the API server process the response for command tracking
+	if s.apiServer != nil {
+		s.apiServer.ProcessDeviceResponse(data)
+	}
+	
+	// Then process the data normally
+	return s.processDataBidirectional(ctx, session, data)
+}
+
+// sendCommandToDevice sends a command to a connected device.
+func (s *DataCollectionServer) sendCommandToDevice(session *session.Session, command []byte) error {
+	if session.Connection == nil {
+		return fmt.Errorf("session has no active connection")
+	}
+
+	// Set write deadline
+	if err := session.Connection.SetWriteDeadline(time.Now().Add(10 * time.Second)); err != nil {
+		return fmt.Errorf("failed to set write deadline: %w", err)
+	}
+
+	// Write command data
+	n, err := session.Connection.Write(command)
+	if err != nil {
+		return fmt.Errorf("failed to write command: %w", err)
+	}
+
+	// Update session stats
+	session.AddBytesSent(int64(n))
+
+	s.logger.Debug().
+		Str("session_id", session.ID).
+		Int("bytes", n).
+		Msg("Command sent to device")
+
+	return nil
 }

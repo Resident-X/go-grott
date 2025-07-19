@@ -63,10 +63,44 @@ tasks:
 
   # Testing tasks
   test:
-    desc: Run all tests
+    desc: Run all unit tests
     deps: [ mocks-clean ]
     cmds:
       - go test -v -race ./...
+    silent: false
+
+  test-unit:
+    desc: Run unit tests only (excludes integration and e2e tests)
+    deps: [ mocks-clean ]
+    cmds:
+      - go test -v -race -short ./...
+    silent: false
+
+  test-integration:
+    desc: Run integration tests
+    deps: [ mocks-clean ]
+    cmds:
+      - go test -v -race ./internal/api/...
+      - go test -v -race ./internal/scheduler/...
+    silent: false
+
+  test-e2e:
+    desc: Run end-to-end tests
+    deps: [ mocks-clean, build ]
+    cmds:
+      - go test -v -race ./test/...
+    silent: false
+
+  test-all:
+    desc: Run all tests including unit, integration, and e2e
+    deps: [ mocks-clean, build ]
+    cmds:
+      - echo "Running unit tests..."
+      - go test -v -race -short ./...
+      - echo "Running integration tests..."
+      - go test -v -race ./internal/api/... ./internal/scheduler/...
+      - echo "Running end-to-end tests..."
+      - go test -v -race ./test/...
     silent: false
 
   test-coverage:
@@ -101,6 +135,12 @@ tasks:
       - go test -v -race ./internal/parser/...
     silent: false
 
+  test-performance:
+    desc: Run performance benchmarks
+    cmds:
+      - go test -bench=. -benchmem -benchtime=10s ./...
+    silent: false
+
   benchmark:
     desc: Run benchmarks
     cmds:
@@ -126,11 +166,45 @@ tasks:
       - golangci-lint run
     silent: false
 
+  lint-fix:
+    desc: Run golangci-lint with auto-fix for safe issues
+    cmds:
+      - golangci-lint run --fix
+    silent: false
+
+  lint-critical:
+    desc: Run golangci-lint focusing on critical issues only
+    cmds:
+      - golangci-lint run --enable-only=errcheck,gosec,nilerr,nilnil
+    silent: false
+
   check:
     desc: Run all code quality checks
     deps: [ fmt, vet, test ]
     cmds:
       - echo "All checks passed!"
+    silent: false
+
+  ci:
+    desc: Run full CI pipeline (format, lint, test, build)
+    deps: [ fmt, vet ]
+    cmds:
+      - echo "Running full CI pipeline..."
+      - task: mocks-clean
+      - task: test-unit
+      - task: test-integration
+      - task: build
+      - task: test-e2e
+      - echo "CI pipeline completed successfully!"
+    silent: false
+
+  ci-quick:
+    desc: Run quick CI checks (format, vet, unit tests)
+    deps: [ fmt, vet ]
+    cmds:
+      - echo "Running quick CI checks..."
+      - task: test-unit
+      - echo "Quick CI checks completed!"
     silent: false
 
   # Mock generation

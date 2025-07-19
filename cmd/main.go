@@ -39,7 +39,7 @@ func run() int {
 	// Show version if requested
 	if *showVersion {
 		fmt.Printf("go-grott server %s\n", Version)
-		return 1
+		return 0
 	}
 
 	// Initialize context with cancellation

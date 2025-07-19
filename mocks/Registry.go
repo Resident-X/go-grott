@@ -125,6 +125,103 @@ func (_c *MockRegistry_GetDatalogger_Call) RunAndReturn(run func(string) (*domai
 	return _c
 }
 
+// GetDataloggerBySerial provides a mock function with given fields: serial
+func (_m *MockRegistry) GetDataloggerBySerial(serial string) *domain.DataloggerInfo {
+	ret := _m.Called(serial)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetDataloggerBySerial")
+	}
+
+	var r0 *domain.DataloggerInfo
+	if rf, ok := ret.Get(0).(func(string) *domain.DataloggerInfo); ok {
+		r0 = rf(serial)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*domain.DataloggerInfo)
+		}
+	}
+
+	return r0
+}
+
+// MockRegistry_GetDataloggerBySerial_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetDataloggerBySerial'
+type MockRegistry_GetDataloggerBySerial_Call struct {
+	*mock.Call
+}
+
+// GetDataloggerBySerial is a helper method to define mock.On call
+//   - serial string
+func (_e *MockRegistry_Expecter) GetDataloggerBySerial(serial interface{}) *MockRegistry_GetDataloggerBySerial_Call {
+	return &MockRegistry_GetDataloggerBySerial_Call{Call: _e.mock.On("GetDataloggerBySerial", serial)}
+}
+
+func (_c *MockRegistry_GetDataloggerBySerial_Call) Run(run func(serial string)) *MockRegistry_GetDataloggerBySerial_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string))
+	})
+	return _c
+}
+
+func (_c *MockRegistry_GetDataloggerBySerial_Call) Return(_a0 *domain.DataloggerInfo) *MockRegistry_GetDataloggerBySerial_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockRegistry_GetDataloggerBySerial_Call) RunAndReturn(run func(string) *domain.DataloggerInfo) *MockRegistry_GetDataloggerBySerial_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetInverterBySerial provides a mock function with given fields: dataloggerID, inverterSerial
+func (_m *MockRegistry) GetInverterBySerial(dataloggerID string, inverterSerial string) *domain.InverterInfo {
+	ret := _m.Called(dataloggerID, inverterSerial)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetInverterBySerial")
+	}
+
+	var r0 *domain.InverterInfo
+	if rf, ok := ret.Get(0).(func(string, string) *domain.InverterInfo); ok {
+		r0 = rf(dataloggerID, inverterSerial)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*domain.InverterInfo)
+		}
+	}
+
+	return r0
+}
+
+// MockRegistry_GetInverterBySerial_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetInverterBySerial'
+type MockRegistry_GetInverterBySerial_Call struct {
+	*mock.Call
+}
+
+// GetInverterBySerial is a helper method to define mock.On call
+//   - dataloggerID string
+//   - inverterSerial string
+func (_e *MockRegistry_Expecter) GetInverterBySerial(dataloggerID interface{}, inverterSerial interface{}) *MockRegistry_GetInverterBySerial_Call {
+	return &MockRegistry_GetInverterBySerial_Call{Call: _e.mock.On("GetInverterBySerial", dataloggerID, inverterSerial)}
+}
+
+func (_c *MockRegistry_GetInverterBySerial_Call) Run(run func(dataloggerID string, inverterSerial string)) *MockRegistry_GetInverterBySerial_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockRegistry_GetInverterBySerial_Call) Return(_a0 *domain.InverterInfo) *MockRegistry_GetInverterBySerial_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockRegistry_GetInverterBySerial_Call) RunAndReturn(run func(string, string) *domain.InverterInfo) *MockRegistry_GetInverterBySerial_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetInverters provides a mock function with given fields: dataloggerID
 func (_m *MockRegistry) GetInverters(dataloggerID string) ([]*domain.InverterInfo, bool) {
 	ret := _m.Called(dataloggerID)

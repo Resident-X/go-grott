@@ -85,6 +85,12 @@ type Registry interface {
 
 	// GetInverters returns all inverters for a datalogger
 	GetInverters(dataloggerID string) ([]*InverterInfo, bool)
+
+	// GetDataloggerBySerial retrieves a datalogger by its serial number
+	GetDataloggerBySerial(serial string) *DataloggerInfo
+
+	// GetInverterBySerial retrieves an inverter by its serial number from a specific datalogger
+	GetInverterBySerial(dataloggerID, inverterSerial string) *InverterInfo
 }
 
 // DataloggerInfo contains information about a connected datalogger.

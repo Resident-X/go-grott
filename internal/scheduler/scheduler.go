@@ -556,7 +556,10 @@ func (cs *CommandScheduler) executeTimeSyncCommand(ctx context.Context, cmd *Sch
 	}
 
 	// Create time sync command
-	timeSyncCmd, data, err := cs.commandBuilder.CreateTimeSyncCommand(protocol, sess.SerialNumber, uint16(time.Now().Unix()%65536))
+	timeUnix := time.Now().Unix()
+	//nolint:gosec // Safe conversion, modulo ensures value fits in uint16
+	timeValue := uint16(timeUnix % 65536)
+	timeSyncCmd, data, err := cs.commandBuilder.CreateTimeSyncCommand(protocol, sess.SerialNumber, timeValue)
 	if err != nil {
 		return fmt.Errorf("failed to create time sync command: %w", err)
 	}
@@ -585,7 +588,10 @@ func (cs *CommandScheduler) executeHealthCheckCommand(ctx context.Context, cmd *
 	}
 
 	// Create ping command
-	pingCmd, data, err := cs.commandBuilder.CreatePingCommand(protocol, sess.SerialNumber, uint16(time.Now().Unix()%65536))
+	timeUnix := time.Now().Unix()
+	//nolint:gosec // Safe conversion, modulo ensures value fits in uint16
+	timeValue := uint16(timeUnix % 65536)
+	pingCmd, data, err := cs.commandBuilder.CreatePingCommand(protocol, sess.SerialNumber, timeValue)
 	if err != nil {
 		return fmt.Errorf("failed to create ping command: %w", err)
 	}

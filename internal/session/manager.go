@@ -253,7 +253,8 @@ func (sm *SessionManager) CreateSession(conn net.Conn) *Session {
 	// Clean up any existing session for this address
 	if existingSession, exists := sm.sessionsByAddr[session.RemoteAddr]; exists {
 		delete(sm.sessions, existingSession.ID)
-		existingSession.Close()
+		//nolint:errcheck // Ignore close errors during cleanup
+		_ = existingSession.Close()
 	}
 
 	sm.sessions[session.ID] = session
@@ -305,7 +306,8 @@ func (sm *SessionManager) RemoveSession(id string) {
 	if session, exists := sm.sessions[id]; exists {
 		delete(sm.sessionsByAddr, session.RemoteAddr)
 		delete(sm.sessions, id)
-		session.Close()
+		//nolint:errcheck // Ignore close errors during cleanup
+		_ = session.Close()
 	}
 }
 
@@ -326,7 +328,8 @@ func (sm *SessionManager) CleanupExpiredSessions() int {
 		if session, exists := sm.sessions[id]; exists {
 			delete(sm.sessionsByAddr, session.RemoteAddr)
 			delete(sm.sessions, id)
-			session.Close()
+			//nolint:errcheck // Ignore close errors during cleanup
+			_ = session.Close()
 		}
 	}
 
@@ -353,7 +356,8 @@ func (sm *SessionManager) Close() {
 	defer sm.mutex.Unlock()
 
 	for _, session := range sm.sessions {
-		session.Close()
+		//nolint:errcheck // Ignore close errors during shutdown
+		_ = session.Close()
 	}
 
 	sm.sessions = make(map[string]*Session)
