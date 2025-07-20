@@ -404,7 +404,7 @@ func (p *Parser) findLayout(layoutKey string) (*Layout, string) {
 
 	// Try generic version.
 	if len(layoutKey) >= 6 {
-		genericKey := layoutKey[:1] + layoutKey[1:3] + "NNNN" + layoutKey[7:] + p.config.InverterType
+		genericKey := layoutKey[:1] + layoutKey[1:3] + "NNNN" + layoutKey[7:] // + p.config.InverterType
 		p.logf("Layout not found. Trying generic layout: %s", genericKey)
 		if layout, found := p.layouts[genericKey]; found {
 			return layout, genericKey

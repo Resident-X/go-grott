@@ -158,8 +158,15 @@ func (ts *E2EHexTestServer) Start(t *testing.T) int {
 		}
 	}()
 
-	// Give server time to start
-	time.Sleep(100 * time.Millisecond)
+	// Give server time to start - wait for it to actually be ready
+	for i := 0; i < 50; i++ {
+		conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", ts.actualPort))
+		if err == nil {
+			conn.Close()
+			break
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
 
 	return ts.actualPort
 }
@@ -195,7 +202,7 @@ func (ts *E2EHexTestServer) SendHexData(t *testing.T, hexData string) error {
 	defer conn.Close()
 
 	// Set write deadline
-	err = conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+	err = conn.SetWriteDeadline(time.Now().Add(1 * time.Second))
 	if err != nil {
 		return fmt.Errorf("failed to set write deadline: %w", err)
 	}
@@ -208,8 +215,8 @@ func (ts *E2EHexTestServer) SendHexData(t *testing.T, hexData string) error {
 
 	t.Logf("Sent %d bytes of data", n)
 
-	// Set read deadline for potential response
-	err = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	// Set read deadline for potential response (reduced timeout)
+	err = conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
 	if err != nil {
 		return fmt.Errorf("failed to set read deadline: %w", err)
 	}
@@ -223,9 +230,40 @@ func (ts *E2EHexTestServer) SendHexData(t *testing.T, hexData string) error {
 		t.Logf("No response received (this may be expected)")
 	}
 
-	// Give server time to process
-	time.Sleep(100 * time.Millisecond)
+	// Give server time to process (reduced)
+	time.Sleep(5 * time.Millisecond)
 
+	return nil
+}
+
+// SendHexDataFast sends hex data without waiting for responses (for performance tests)
+func (ts *E2EHexTestServer) SendHexDataFast(t *testing.T, hexData string) error {
+	// Decode hex string to bytes
+	data, err := hex.DecodeString(strings.ReplaceAll(hexData, " ", ""))
+	if err != nil {
+		return fmt.Errorf("failed to decode hex data: %w", err)
+	}
+
+	// Connect to the server
+	conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", ts.actualPort))
+	if err != nil {
+		return fmt.Errorf("failed to connect to server: %w", err)
+	}
+	defer conn.Close()
+
+	// Set write deadline
+	err = conn.SetWriteDeadline(time.Now().Add(1 * time.Second))
+	if err != nil {
+		return fmt.Errorf("failed to set write deadline: %w", err)
+	}
+
+	// Send data
+	_, err = conn.Write(data)
+	if err != nil {
+		return fmt.Errorf("failed to write data: %w", err)
+	}
+
+	// No waiting for responses or processing delays in fast mode
 	return nil
 }
 
@@ -399,12 +437,12 @@ func TestE2E_PerformanceWithMultipleConnections(t *testing.T) {
 	for i := 0; i < numConnections; i++ {
 		go func(connID int) {
 			for j := 0; j < numPacketsPerConnection; j++ {
-				err := testServer.SendHexData(t, hexData)
+				err := testServer.SendHexDataFast(t, hexData)
 				if err != nil {
 					results <- fmt.Errorf("connection %d packet %d failed: %w", connID, j, err)
 					return
 				}
-				time.Sleep(10 * time.Millisecond) // Small delay between packets
+				// No delay between packets in performance test
 			}
 			results <- nil
 		}(i)
@@ -445,7 +483,7 @@ func BenchmarkE2E_HexDataProcessing(b *testing.B) {
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			_ = testServer.SendHexData(&testing.T{}, hexData)
+			_ = testServer.SendHexDataFast(&testing.T{}, hexData)
 		}
 	})
 }
