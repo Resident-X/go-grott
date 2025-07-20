@@ -690,29 +690,15 @@ func (p *Parser) logf(format string, args ...interface{}) {
 }
 
 // Validate implements domain.DataParser.Validate.
+// Note: Python reference only checks minimum length - removed strict header/footer validation for compatibility
 func (p *Parser) Validate(data []byte) error {
+	// Python equivalent: if ndata < 12
 	if len(data) < 12 {
 		return fmt.Errorf("data too short (%d bytes), minimum is 12 bytes", len(data))
 	}
 
-	// Verify Start of Header (SOH).
-	if data[0] != 0x68 || data[3] != 0x68 {
-		return fmt.Errorf("invalid protocol header")
-	}
-
-	// Verify End of Text (ETX).
-	if data[len(data)-2] != 0x16 {
-		return fmt.Errorf("invalid end of text marker")
-	}
-
-	// Calculate and verify CRC.
-	dataCrc := uint16(data[len(data)-4])<<8 | uint16(data[len(data)-3])
-	calcCrc := crc16.Checksum(data[0:len(data)-4], p.crcTable)
-
-	if calcCrc != dataCrc {
-		return fmt.Errorf("CRC check failed: expected 0x%04x, got 0x%04x", dataCrc, calcCrc)
-	}
-
+	// Python reference doesn't validate SOH/ETX markers or CRC in basic validation
+	// Advanced validation can be performed separately if needed
 	return nil
 }
 

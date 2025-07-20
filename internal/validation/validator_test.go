@@ -101,7 +101,7 @@ func TestAdvancedValidator_ValidatePacket(t *testing.T) {
 	validator := NewAdvancedValidator(ValidationLevelStandard, logger)
 
 	t.Run("Valid Packet", func(t *testing.T) {
-		// Create a valid packet structure
+		// Create a valid packet structure (Python only checks minimum length)
 		data := []byte{
 			0x68, 0x20, 0x00, 0x68, // Header: SOH, length, SOH
 			0x01, 0x02, 0x03, 0x04, // Data
@@ -120,18 +120,18 @@ func TestAdvancedValidator_ValidatePacket(t *testing.T) {
 		assert.Empty(t, result.Errors)
 	})
 
-	t.Run("Invalid Header", func(t *testing.T) {
+	t.Run("Non-Standard Header Format", func(t *testing.T) {
+		// Python doesn't validate header format, so this should still be valid
 		data := []byte{
-			0x69, 0x20, 0x00, 0x68, // Invalid first SOH
+			0x69, 0x20, 0x00, 0x68, // Non-standard first byte
 			0x01, 0x02, 0x03, 0x04,
 			0x05, 0x06, 0x07, 0x08,
 			0x00, 0x00, 0x16, 0x00,
 		}
 
 		result := validator.ValidatePacket(data, "generic", make(map[string]interface{}))
-		assert.False(t, result.Valid)
-		assert.NotEmpty(t, result.Errors)
-		assert.Contains(t, result.Errors[0].Message, "invalid SOH markers")
+		assert.True(t, result.Valid) // Should be valid now (Python compatibility)
+		assert.Empty(t, result.Errors)
 	})
 
 	t.Run("Too Short Packet", func(t *testing.T) {
@@ -143,17 +143,16 @@ func TestAdvancedValidator_ValidatePacket(t *testing.T) {
 		assert.Contains(t, result.Errors[0].Message, "packet too short")
 	})
 
-	t.Run("Large Packet Warning", func(t *testing.T) {
-		// Create a large packet (over 2048 bytes)
+	t.Run("Large Packet No Warning", func(t *testing.T) {
+		// Python doesn't check maximum packet size, so no warning should be generated
 		data := make([]byte, 2100)
 		data[0] = 0x68
 		data[3] = 0x68
 		data[len(data)-2] = 0x16
 
 		result := validator.ValidatePacket(data, "generic", make(map[string]interface{}))
-		assert.True(t, result.Valid) // Still valid, just a warning
-		assert.NotEmpty(t, result.Warnings)
-		assert.Contains(t, result.Warnings[0].Message, "unusually large packet")
+		assert.True(t, result.Valid) // Should be valid
+		assert.Empty(t, result.Warnings) // No size warnings in Python compatibility mode
 	})
 }
 

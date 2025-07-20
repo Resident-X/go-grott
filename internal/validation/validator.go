@@ -241,10 +241,11 @@ func (av *AdvancedValidator) registerDefaultProtocolRules() {
 	genericRules := []*ProtocolRule{
 		{
 			Name:        "packet_size_check",
-			Description: "Validates packet size is within reasonable bounds",
+			Description: "Validates packet size is within reasonable bounds (matches Python behavior)",
 			Protocol:    "generic",
 			Level:       ValidationLevelBasic,
 			Check: func(data []byte, metadata map[string]interface{}) *ValidationError {
+				// Python only checks: if ndata < 12 (minimum packet size)
 				if len(data) < 12 {
 					return &ValidationError{
 						Type:     "protocol",
@@ -255,56 +256,12 @@ func (av *AdvancedValidator) registerDefaultProtocolRules() {
 						Context:  metadata,
 					}
 				}
-				if len(data) > 2048 {
-					return &ValidationError{
-						Type:     "protocol",
-						Severity: "warning",
-						Message:  fmt.Sprintf("unusually large packet: %d bytes", len(data)),
-						Field:    "packet_size",
-						Value:    len(data),
-						Context:  metadata,
-					}
-				}
+				// Note: Python doesn't check maximum size - removed for compatibility
 				return nil
 			},
 		},
-		{
-			Name:        "protocol_structure_check",
-			Description: "Validates basic protocol structure markers",
-			Protocol:    "generic",
-			Level:       ValidationLevelBasic,
-			Check: func(data []byte, metadata map[string]interface{}) *ValidationError {
-				if len(data) < 12 {
-					return nil // Handled by packet_size_check
-				}
-
-				// Check SOH markers
-				if data[0] != 0x68 || data[3] != 0x68 {
-					return &ValidationError{
-						Type:     "protocol",
-						Severity: "critical",
-						Message:  "invalid SOH markers",
-						Field:    "protocol_header",
-						Value:    fmt.Sprintf("0x%02x, 0x%02x", data[0], data[3]),
-						Context:  metadata,
-					}
-				}
-
-				// Check ETX marker
-				if data[len(data)-2] != 0x16 {
-					return &ValidationError{
-						Type:     "protocol",
-						Severity: "critical",
-						Message:  "invalid ETX marker",
-						Field:    "protocol_footer",
-						Value:    fmt.Sprintf("0x%02x", data[len(data)-2]),
-						Context:  metadata,
-					}
-				}
-
-				return nil
-			},
-		},
+		// Note: Python reference implementation doesn't validate SOH/ETX markers
+		// Removed strict protocol structure check to match Python behavior
 	}
 
 	av.protocolRules["generic"] = genericRules

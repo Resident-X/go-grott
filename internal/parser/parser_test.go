@@ -155,24 +155,24 @@ func TestValidate(t *testing.T) {
 	err = parser.Validate(validData)
 	assert.NoError(t, err, "Valid data should pass validation")
 
-	// Test validation of too short data
+	// Test validation of too short data (only check that matters now - Python compatibility)
 	shortData := []byte{0x68, 0x00, 0x00, 0x68, 0x16}
 	err = parser.Validate(shortData)
 	assert.Error(t, err, "Short data should fail validation")
 
-	// Test validation with invalid header
+	// Test validation with various packet sizes - all should pass if >= 12 bytes (Python behavior)
 	invalidHeaderData := make([]byte, len(validData))
 	copy(invalidHeaderData, validData)
-	invalidHeaderData[0] = 0x00 // Corrupt header
+	invalidHeaderData[0] = 0x00 // Different header - should still pass (Python compatibility)
 	err = parser.Validate(invalidHeaderData)
-	assert.Error(t, err, "Data with invalid header should fail validation")
+	assert.NoError(t, err, "Data with different header should pass validation (Python compatibility)")
 
-	// Test validation with invalid ETX
+	// Test validation with different ETX - should still pass (Python compatibility)
 	invalidEtxData := make([]byte, len(validData))
 	copy(invalidEtxData, validData)
-	invalidEtxData[len(invalidEtxData)-2] = 0x00 // Corrupt ETX
+	invalidEtxData[len(invalidEtxData)-2] = 0x00 // Different ETX - should still pass
 	err = parser.Validate(invalidEtxData)
-	assert.Error(t, err, "Data with invalid ETX should fail validation")
+	assert.NoError(t, err, "Data with different ETX should pass validation (Python compatibility)")
 }
 
 // TestModbusRTUWithCRC tests the parser with proper Modbus RTU format including CRC.
