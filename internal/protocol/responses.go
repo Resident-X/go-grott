@@ -280,7 +280,7 @@ func (rm *ResponseManager) HandleIncomingData(data []byte) (*Response, error) {
 		}
 
 	case "03", "04", "50", "1b", "20": // Data records - send ACK
-		response, err = rm.createAckResponse(header, protocol)
+		response, err = rm.createAckResponse(data, protocol) // Pass full data, not just header
 		if err != nil {
 			rm.metrics.ErrorResponses++
 			return nil, fmt.Errorf("failed to create ACK response: %w", err)
@@ -347,36 +347,51 @@ func (rm *ResponseManager) ShouldRespond(data []byte, clientAddr string) bool {
 }
 
 // createAckResponse creates an ACK response following Python logic.
-func (rm *ResponseManager) createAckResponse(header []byte, protocol string) (*Response, error) {
+func (rm *ResponseManager) createAckResponse(data []byte, protocol string) (*Response, error) {
+	// Need at least 8 bytes for header
+	if len(data) < 8 {
+		return nil, fmt.Errorf("data too short: %d bytes", len(data))
+	}
+
+	// Extract header bytes (Python header is hex string representation)
+	header := data[:8]
+	
+	// In Python: header[0:8] means first 8 hex chars = first 4 bytes
+	// In Python: header[12:16] means hex chars 12-15 = bytes 6-7 
+	headerBytes04 := header[0:4] // Python header[0:8] (first 8 hex chars)
+	headerBytes67 := header[6:8] // Python header[12:16] (hex chars 12-15)
+
 	var responseData []byte
 
 	if protocol == ProtocolTCP {
 		// Protocol 02, unencrypted ACK
 		// Python: header[0:8] + '0003' + header[12:16] + '00'
-		// But header[12:16] doesn't exist in 8-byte header, so we use sequence number from 0:4
-		responseData = make([]byte, 7)
-		copy(responseData[0:4], header[0:4]) // Copy sequence number
-		responseData[4] = 0x00               // Length high byte
-		responseData[5] = 0x03               // Length low byte
-		responseData[6] = 0x00               // Terminator
+		// That's: 4_bytes + '0003' + 2_bytes + '00' = 4+2+2+1 = 9 bytes
+		responseData = make([]byte, 9)
+		copy(responseData[0:4], headerBytes04)   // header[0:8] = first 4 bytes
+		responseData[4] = 0x00                   // '0003' high byte
+		responseData[5] = 0x03                   // '0003' low byte  
+		copy(responseData[6:8], headerBytes67)   // header[12:16] = bytes 6-7
+		responseData[8] = 0x00                   // '00' terminator
 	} else {
 		// Protocol 05/06, encrypted ACK with CRC
-		// Python: headerackx = header[0:8] + '0003' + header[12:16] + '47'
-		headerAck := make([]byte, 8)
-		copy(headerAck[0:4], header[0:4]) // Copy sequence number
-		copy(headerAck[4:8], header[4:8]) // Copy rest of header
-		headerAck[4] = 0x00               // Length high byte
-		headerAck[5] = 0x03               // Length low byte
-		headerAck[6] = 0x47               // Response marker
+		// Python: header[0:8] + '0003' + header[12:16] + '47'
+		// That's: 4_bytes + '0003' + 2_bytes + '47' = 4+2+2+1 = 9 bytes + CRC
+		headerAck := make([]byte, 9)
+		copy(headerAck[0:4], headerBytes04)      // header[0:8] = first 4 bytes
+		headerAck[4] = 0x00                      // '0003' high byte
+		headerAck[5] = 0x03                      // '0003' low byte
+		copy(headerAck[6:8], headerBytes67)      // header[12:16] = bytes 6-7
+		headerAck[8] = 0x47                      // '47' response marker
 
 		// Calculate CRC16 Modbus
 		crc := rm.calculateModbusCRC(headerAck)
 
-		// Combine header + CRC
+		// Combine header + CRC (big endian)
 		responseData = make([]byte, len(headerAck)+2)
 		copy(responseData, headerAck)
-		responseData[len(headerAck)] = byte(crc & 0xFF)
-		responseData[len(headerAck)+1] = byte(crc >> 8)
+		responseData[len(headerAck)] = byte(crc >> 8)   // CRC high byte
+		responseData[len(headerAck)+1] = byte(crc & 0xFF) // CRC low byte
 	}
 
 	return &Response{

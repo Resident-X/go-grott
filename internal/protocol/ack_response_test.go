@@ -121,23 +121,32 @@ func TestResponseManagerAckResponses(t *testing.T) {
 				
 				// Check ACK format based on protocol
 				if tt.protocol == "02" {
-					// Protocol 02: unencrypted ACK format
-					// Should be: sequence(4) + length(2) + terminator(1) = 7 bytes
-					assert.Equal(t, 7, len(response.Data))
-					assert.Equal(t, tt.data[0], response.Data[0]) // Sequence byte 0
-					assert.Equal(t, tt.data[1], response.Data[1]) // Sequence byte 1
-					assert.Equal(t, uint8(0x00), response.Data[4]) // Length high byte
-					assert.Equal(t, uint8(0x03), response.Data[5]) // Length low byte
-					assert.Equal(t, uint8(0x00), response.Data[6]) // Terminator
+					// Protocol 02: unencrypted ACK format (Python format)
+					// header[0:8] + '0003' + header[12:16] + '00' = 4 + 2 + 2 + 1 = 9 bytes
+					assert.Equal(t, 9, len(response.Data))
+					assert.Equal(t, tt.data[0], response.Data[0]) // First 4 bytes from header
+					assert.Equal(t, tt.data[1], response.Data[1]) 
+					assert.Equal(t, tt.data[2], response.Data[2]) 
+					assert.Equal(t, tt.data[3], response.Data[3]) 
+					assert.Equal(t, uint8(0x00), response.Data[4]) // '0003' high byte
+					assert.Equal(t, uint8(0x03), response.Data[5]) // '0003' low byte
+					assert.Equal(t, tt.data[6], response.Data[6]) // header[12:16] = bytes 6-7
+					assert.Equal(t, tt.data[7], response.Data[7])
+					assert.Equal(t, uint8(0x00), response.Data[8]) // '00' terminator
 				} else {
-					// Protocol 05/06: encrypted ACK format with CRC
-					// Should be: header(8) + CRC(2) = 10 bytes
-					assert.Equal(t, 10, len(response.Data))
-					assert.Equal(t, tt.data[0], response.Data[0]) // Sequence byte 0
-					assert.Equal(t, tt.data[1], response.Data[1]) // Sequence byte 1
-					assert.Equal(t, uint8(0x00), response.Data[4]) // Length high byte
-					assert.Equal(t, uint8(0x03), response.Data[5]) // Length low byte
-					assert.Equal(t, uint8(0x47), response.Data[6]) // Response marker
+					// Protocol 05/06: encrypted ACK format with CRC (Python format)
+					// header[0:8] + '0003' + header[12:16] + '47' + CRC = 4 + 2 + 2 + 1 + 2 = 11 bytes
+					assert.Equal(t, 11, len(response.Data))
+					assert.Equal(t, tt.data[0], response.Data[0]) // First 4 bytes from header
+					assert.Equal(t, tt.data[1], response.Data[1])
+					assert.Equal(t, tt.data[2], response.Data[2])
+					assert.Equal(t, tt.data[3], response.Data[3])
+					assert.Equal(t, uint8(0x00), response.Data[4]) // '0003' high byte
+					assert.Equal(t, uint8(0x03), response.Data[5]) // '0003' low byte
+					assert.Equal(t, tt.data[6], response.Data[6]) // header[12:16] = bytes 6-7
+					assert.Equal(t, tt.data[7], response.Data[7])
+					assert.Equal(t, uint8(0x47), response.Data[8]) // '47' response marker
+					// Bytes 9-10 are CRC, don't test exact values as they depend on calculation
 				}
 				
 			} else if tt.recType == "16" {

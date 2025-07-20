@@ -28,35 +28,35 @@ func TestE2E_ACKResponses(t *testing.T) {
 			name:             "Record_03_Protocol_02_ACK",
 			hexData:          "000100020010010354455354", // Record type 03, protocol 02
 			expectResponse:   true,
-			responseContains: "000300", // Should contain ACK pattern
+			responseContains: "000100020003010300", // Python format: header[0:4] + 0003 + header[6:8] + 00
 			description:      "Record 03 with protocol 02 should get unencrypted ACK",
 		},
 		{
 			name:             "Record_04_Protocol_05_ACK", 
 			hexData:          "000100050010010454455354", // Record type 04, protocol 05
 			expectResponse:   true,
-			responseContains: "000347", // Should contain ACK pattern with marker 47
+			responseContains: "000100050003010447", // Python format: header[0:4] + 0003 + header[6:8] + 47
 			description:      "Record 04 with protocol 05 should get encrypted ACK with CRC",
 		},
 		{
 			name:             "Record_50_Protocol_06_ACK",
 			hexData:          "000100060010015054455354", // Record type 50, protocol 06  
 			expectResponse:   true,
-			responseContains: "000347", // Should contain ACK pattern with marker 47
+			responseContains: "000100060003015047", // Python format: header[0:4] + 0003 + header[6:8] + 47
 			description:      "Record 50 with protocol 06 should get encrypted ACK with CRC",
 		},
 		{
 			name:             "Record_1B_Protocol_05_ACK",
 			hexData:          "000100050010011b54455354", // Record type 1B, protocol 05
 			expectResponse:   true,
-			responseContains: "000347", // Should contain ACK pattern with marker 47
+			responseContains: "000100050003011b47", // Python format: header[0:4] + 0003 + header[6:8] + 47  
 			description:      "Record 1B with protocol 05 should get encrypted ACK with CRC",
 		},
 		{
 			name:             "Record_20_Protocol_06_ACK",
 			hexData:          "000100060010012054455354", // Record type 20, protocol 06
 			expectResponse:   true,
-			responseContains: "000347", // Should contain ACK pattern with marker 47
+			responseContains: "000100060003012047", // Python format: header[0:4] + 0003 + header[6:8] + 47
 			description:      "Record 20 with protocol 06 should get encrypted ACK with CRC",
 		},
 		{
