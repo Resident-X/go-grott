@@ -386,8 +386,10 @@ func (s *DataCollectionServer) processDataBidirectional(ctx context.Context, ses
 					Uint8("response_type", response.Type).
 					Msg("Response sent successfully")
 
-				// Note: Python reference implementation does not have automatic scheduling
-				// after record type "03" - keeping behavior simple and reactive only
+				// Handle special case for record type "03" - send time sync after ACK
+				if len(data) >= 8 && fmt.Sprintf("%02x", data[7]) == "03" {
+					go s.handleRecord03TimeSync(session, data)
+				}
 			}
 		}
 	}
@@ -594,4 +596,129 @@ func (s *DataCollectionServer) sendCommandToDevice(session *session.Session, com
 		Msg("Command sent to device")
 
 	return nil
+}
+
+// handleRecord03TimeSync handles the time sync command after record type "03" (inverter announce)
+// following the Python implementation pattern
+func (s *DataCollectionServer) handleRecord03TimeSync(session *session.Session, originalData []byte) {
+	// Wait 1 second like Python implementation
+	time.Sleep(1 * time.Second)
+
+	// Extract logger ID from the original data for time sync command
+	if len(originalData) < 8 {
+		s.logger.Error().
+			Str("session_id", session.ID).
+			Msg("Cannot extract logger ID from record 03 - data too short")
+		return
+	}
+
+	// Extract protocol and logger ID (following Python logic)
+	header := originalData[:8]
+	protocolStr := fmt.Sprintf("%02x", header[3])
+
+	// Decrypt data if needed to get logger ID
+	var loggerID string
+	if protocolStr == "05" || protocolStr == "06" {
+		// For encrypted protocols, we need to decrypt first
+		decryptedData := s.decryptData(originalData)
+		if len(decryptedData) >= 36 {
+			loggerIDBytes := decryptedData[16:36]
+			// Convert hex string to bytes then to string, removing null chars
+			loggerIDStr := string(loggerIDBytes)
+			for i, b := range loggerIDStr {
+				if b == 0 {
+					loggerIDStr = loggerIDStr[:i]
+					break
+				}
+			}
+			loggerID = loggerIDStr
+		}
+	} else {
+		// For protocol "02", data is unencrypted
+		if len(originalData) >= 18 {
+			loggerIDBytes := originalData[8:18] // Adjust based on actual structure
+			loggerIDStr := string(loggerIDBytes)
+			for i, b := range loggerIDStr {
+				if b == 0 {
+					loggerIDStr = loggerIDStr[:i]
+					break
+				}
+			}
+			loggerID = loggerIDStr
+		}
+	}
+
+	if loggerID == "" {
+		s.logger.Error().
+			Str("session_id", session.ID).
+			Msg("Could not extract logger ID for time sync")
+		return
+	}
+
+	// Create time sync command
+	commandBuilder := protocol.NewCommandBuilder()
+	_, timeCmd, err := commandBuilder.CreateTimeSyncCommand(protocolStr, loggerID, 1)
+	if err != nil {
+		s.logger.Error().
+			Str("session_id", session.ID).
+			Err(err).
+			Msg("Failed to create time sync command")
+		return
+	}
+
+	// Send time sync command by writing directly to the connection
+	if err := session.Connection.SetWriteDeadline(time.Now().Add(10 * time.Second)); err != nil {
+		s.logger.Error().
+			Str("session_id", session.ID).
+			Err(err).
+			Msg("Failed to set write deadline for time sync")
+		return
+	}
+
+	n, err := session.Connection.Write(timeCmd)
+	if err != nil {
+		s.logger.Error().
+			Str("session_id", session.ID).
+			Err(err).
+			Msg("Failed to send time sync command after record 03")
+	} else {
+		session.AddBytesSent(int64(n))
+		s.logger.Debug().
+			Str("session_id", session.ID).
+			Str("logger_id", loggerID).
+			Int("bytes", n).
+			Msg("Time sync command sent after record 03")
+	}
+}
+
+// decryptData decrypts data using Growatt XOR mask (simplified version)
+func (s *DataCollectionServer) decryptData(data []byte) []byte {
+	if len(data) < 8 {
+		return data
+	}
+
+	// Growatt XOR mask
+	mask := []byte("Growatt")
+	result := make([]byte, len(data))
+
+	// Copy header unchanged (first 8 bytes)
+	copy(result[:8], data[:8])
+
+	// XOR the rest with the mask (excluding CRC at end)
+	dataEnd := len(data)
+	if dataEnd >= 2 {
+		dataEnd -= 2 // Exclude CRC
+	}
+
+	for i := 8; i < dataEnd; i++ {
+		maskIdx := (i - 8) % len(mask)
+		result[i] = data[i] ^ mask[maskIdx]
+	}
+
+	// Copy CRC unchanged
+	if len(data) >= 2 {
+		copy(result[dataEnd:], data[dataEnd:])
+	}
+
+	return result
 }

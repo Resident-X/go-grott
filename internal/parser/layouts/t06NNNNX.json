@@ -1,6 +1,7 @@
 {
   "T06NNNNX": {
     "decrypt": { "value": "true" },
+    "datalogserial": {"value" :16, "length" : 10, "type" : "text", "incl" : "yes"},
     "pvserial": { "value": 76, "length": 10, "type": "text", "divide": 10 },
     "date": { "value": 136, "divide": 10 },
     "pvstatus": { "value": 158, "length": 2, "type": "num" },

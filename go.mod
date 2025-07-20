@@ -7,6 +7,7 @@ toolchain go1.24.4
 require (
 	github.com/eclipse/paho.mqtt.golang v1.5.0
 	github.com/gorilla/mux v1.8.1
+	github.com/mochi-mqtt/server/v2 v2.7.9
 	github.com/rs/zerolog v1.34.0
 	github.com/sigurn/crc16 v0.0.0-20240131213347-83fcde1e29d1
 	github.com/spf13/viper v1.20.1
@@ -22,6 +23,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
+	github.com/rs/xid v1.6.0 // indirect
 	github.com/sagikazarmark/locafero v0.9.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.14.0 // indirect

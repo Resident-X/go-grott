@@ -272,6 +272,13 @@ func (rm *ResponseManager) HandleIncomingData(data []byte) (*Response, error) {
 		copy(response.Data, data) // Echo back original data
 		rm.metrics.PingResponses++
 
+		// Add debug logging for ping responses
+		if len(data) >= 8 {
+			sequenceNum := fmt.Sprintf("%02x%02x", data[0], data[1])
+			fmt.Printf("\t - Grottserver - 16 - Ping response (seq: %s, %d bytes):\n", sequenceNum, len(data))
+			fmt.Printf("\t\t %x\n", data)
+		}
+
 	case "03", "04", "50", "1b", "20": // Data records - send ACK
 		response, err = rm.createAckResponse(header, protocol)
 		if err != nil {
@@ -280,8 +287,13 @@ func (rm *ResponseManager) HandleIncomingData(data []byte) (*Response, error) {
 		}
 		rm.metrics.AckResponses++
 
+		// Add debug logging for data records like Python
+		sequenceNum := fmt.Sprintf("%02x%02x", data[0], data[1])
+		fmt.Printf("\t - Grottserver - %s data record received (seq: %s, %d bytes)\n", recType, sequenceNum, len(data))
+
 		// Special handling for rectype "03" - schedule time sync after ACK
 		if recType == "03" {
+			fmt.Printf("\t - Grottserver - Record 03 (inverter announce) - will send time sync after ACK\n")
 			// Note: The time sync scheduling will be handled by the caller
 			// after sending this ACK response, as it requires session context
 		}
