@@ -1,4 +1,4 @@
-{ "T060103X": 
+{ "T060103XMIN": 
   { 
     "decrypt": { "value": "true" },
     "pvserial": { "value": 76, "length": 10, "type": "text", "divide": 10 },
