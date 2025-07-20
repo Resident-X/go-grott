@@ -1,6 +1,6 @@
 {
   "T06NNNNX": {
-    "decrypt": { "value": "True" },
+    "decrypt": { "value": "true" },
     "pvserial": { "value": 76, "length": 10, "type": "text", "divide": 10 },
     "date": { "value": 136, "divide": 10 },
     "pvstatus": { "value": 158, "length": 2, "type": "num" },

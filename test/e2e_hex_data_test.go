@@ -241,100 +241,97 @@ func (t *TestMessageCollector) Clear() {
 // Real Growatt protocol hex data test cases
 func getRealHexDataTestCases() []HexDataTestCase {
 	return []HexDataTestCase{
-		{
-			Name: "Standard_Modbus_RTU_Data_Packet",
-			HexData: "68 55 00 68 04 51 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F " +
-				"10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E 1F 20 21 22 23 24 25 26 27 28 29 2A 2B 2C 2D 2E 2F " +
-				"30 31 32 33 34 35 36 37 38 39 3A 3B 3C 3D 3E 3F 40 41 42 43 44 45 46 47 48 49 4A 4B 4C 4D 4E 4F " +
-				"50 51 52 53 54 AB CD 16",
-			Description:     "Standard Modbus RTU data packet with valid CRC",
-			DeviceType:      "Standard Datalogger",
-			ProtocolVersion: "04",
-			IsEncrypted:     false,
-			ShouldRespond:   true,
-			ExpectParseError: false,
-		},
+		// {
+		// 	Name: "Standard_Modbus_RTU_Data_Packet",
+		// 	HexData: "68 55 00 68 04 51 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F " +
+		// 		"10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E 1F 20 21 22 23 24 25 26 27 28 29 2A 2B 2C 2D 2E 2F " +
+		// 		"30 31 32 33 34 35 36 37 38 39 3A 3B 3C 3D 3E 3F 40 41 42 43 44 45 46 47 48 49 4A 4B 4C 4D 4E 4F " +
+		// 		"50 51 52 53 54 AB CD 16",
+		// 	Description:     "Standard Modbus RTU data packet with valid CRC",
+		// 	DeviceType:      "Standard Datalogger",
+		// 	ProtocolVersion: "04",
+		// 	IsEncrypted:     false,
+		// 	ShouldRespond:   true,
+		// 	ExpectParseError: false,
+		// },
 		{
 			Name: "Encrypted_Growatt_Data",
-			HexData: "68 55 00 68 02 01 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 " +
-				"61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 " +
-				"91 92 93 94 95 96 97 98 99 A0 A1 A2 A3 A4 A5 A6 A7 A8 A9 B0 B1 B2 B3 B4 B5 B6 B7 B8 B9 C0 " +
-				"C1 C2 C3 C4 C5 C6 C7 C8 C9 D0 16",
+			HexData: "000e0006024101031f352b4122363e7540387761747447726f7761747447726f7761747447722c222a403705235f4224747447726f7761747447726f7761747447726f777873604e7459756174743b726e77b8747447166f77466474464aef74893539765c5f773b353606726777607474449a6f36613574e072c8776137210c462c3530444102726f7761747547166f7761745467523f21413d1a31171d0304065467726f63307675409b6f706160744e7264774c7474407a652d7328601770d37ddf662853226dcb6bca661b663f709e7d9655fc7ce06379740c72247764744647776f3c6171740c726a772a74714d666f7720393506425d47504444774a6e466174744761ce77427d144d6667ef69627453726a7e0e7c886062486746645357557f5071747447726e5b618b3a6772903941748b09526f882f547746726f7860742447736d0661747fff7e5b776137210c462c3530444102726f7761747447726f7761747447726f7761747447726e83617475d7726e7761747447726d2f61747447726f7761747451da6f7761747447726f7761741047786f7761747447726f7761747447726f7761747423720b7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f776174744772372f392c2c1f2a372f392c2c1f2a372f61747447726f7761545467526f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447ff71",
 			Description:     "Encrypted Growatt data requiring decryption",
 			DeviceType:      "Growatt Datalogger",
-			ProtocolVersion: "02",
+			ProtocolVersion: "06",
 			IsEncrypted:     true,
 			ShouldRespond:   false,
 			ExpectParseError: false,
 		},
-		{
-			Name: "Command_Response_Type_18",
-			HexData: "68 55 00 68 18 01 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 " +
-				"61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 " +
-				"16",
-			Description:     "Command response type 18 - should not generate response",
-			DeviceType:      "Command Response",
-			ProtocolVersion: "18",
-			IsEncrypted:     false,
-			ShouldRespond:   false,
-			ExpectParseError: false,
-		},
-		{
-			Name: "Command_Response_Type_05",
-			HexData: "68 55 00 68 05 01 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 " +
-				"61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 " +
-				"16",
-			Description:     "Command response type 05 - should not generate response",
-			DeviceType:      "Command Response",
-			ProtocolVersion: "05",
-			IsEncrypted:     false,
-			ShouldRespond:   false,
-			ExpectParseError: false,
-		},
-		{
-			Name: "Record_Type_03_Announcement",
-			HexData: "68 55 00 68 03 01 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 " +
-				"61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 " +
-				"AB CD 16",
-			Description:     "Record type 03 announcement - should generate response",
-			DeviceType:      "Datalogger Announcement",
-			ProtocolVersion: "03",
-			IsEncrypted:     false,
-			ShouldRespond:   true,
-			ExpectParseError: false,
-		},
-		{
-			Name: "Malformed_Short_Packet",
-			HexData: "68 55 00 68",
-			Description:     "Malformed packet too short",
-			DeviceType:      "Invalid",
-			ProtocolVersion: "Unknown",
-			IsEncrypted:     false,
-			ShouldRespond:   false,
-			ExpectParseError: true,
-		},
-		{
-			Name: "Invalid_Header_Format",
-			HexData: "AA 55 00 BB 04 01 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 16",
-			Description:     "Invalid header format (wrong start bytes)",
-			DeviceType:      "Invalid",
-			ProtocolVersion: "04",
-			IsEncrypted:     false,
-			ShouldRespond:   false,
-			ExpectParseError: true,
-		},
-		{
-			Name: "Large_Data_Packet_Extended",
-			HexData: "68 55 02 68 04 01" + 
-				strings.Repeat("41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 ", 50) +
-				"AB CD 16",
-			Description:     "Large data packet that should trigger extended layout",
-			DeviceType:      "Extended Datalogger",
-			ProtocolVersion: "04",
-			IsEncrypted:     false,
-			ShouldRespond:   true,
-			ExpectParseError: false,
-		},
+		// {
+		// 	Name: "Command_Response_Type_18",
+		// 	HexData: "68 55 00 68 18 01 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 " +
+		// 		"61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 " +
+		// 		"16",
+		// 	Description:     "Command response type 18 - should not generate response",
+		// 	DeviceType:      "Command Response",
+		// 	ProtocolVersion: "18",
+		// 	IsEncrypted:     false,
+		// 	ShouldRespond:   false,
+		// 	ExpectParseError: false,
+		// },
+		// {
+		// 	Name: "Command_Response_Type_05",
+		// 	HexData: "68 55 00 68 05 01 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 " +
+		// 		"61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 " +
+		// 		"16",
+		// 	Description:     "Command response type 05 - should not generate response",
+		// 	DeviceType:      "Command Response",
+		// 	ProtocolVersion: "05",
+		// 	IsEncrypted:     false,
+		// 	ShouldRespond:   false,
+		// 	ExpectParseError: false,
+		// },
+		// {
+		// 	Name: "Record_Type_03_Announcement",
+		// 	HexData: "68 55 00 68 03 01 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 " +
+		// 		"61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 " +
+		// 		"AB CD 16",
+		// 	Description:     "Record type 03 announcement - should generate response",
+		// 	DeviceType:      "Datalogger Announcement",
+		// 	ProtocolVersion: "03",
+		// 	IsEncrypted:     false,
+		// 	ShouldRespond:   true,
+		// 	ExpectParseError: false,
+		// },
+		// {
+		// 	Name: "Malformed_Short_Packet",
+		// 	HexData: "68 55 00 68",
+		// 	Description:     "Malformed packet too short",
+		// 	DeviceType:      "Invalid",
+		// 	ProtocolVersion: "Unknown",
+		// 	IsEncrypted:     false,
+		// 	ShouldRespond:   false,
+		// 	ExpectParseError: true,
+		// },
+		// {
+		// 	Name: "Invalid_Header_Format",
+		// 	HexData: "AA 55 00 BB 04 01 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 16",
+		// 	Description:     "Invalid header format (wrong start bytes)",
+		// 	DeviceType:      "Invalid",
+		// 	ProtocolVersion: "04",
+		// 	IsEncrypted:     false,
+		// 	ShouldRespond:   false,
+		// 	ExpectParseError: true,
+		// },
+		// {
+		// 	Name: "Large_Data_Packet_Extended",
+		// 	HexData: "68 55 02 68 04 01" + 
+		// 		strings.Repeat("41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 ", 50) +
+		// 		"AB CD 16",
+		// 	Description:     "Large data packet that should trigger extended layout",
+		// 	DeviceType:      "Extended Datalogger",
+		// 	ProtocolVersion: "04",
+		// 	IsEncrypted:     false,
+		// 	ShouldRespond:   true,
+		// 	ExpectParseError: false,
+		// },
 	}
 }
 

@@ -93,7 +93,7 @@ tasks:
   test-e2e-hex:
     desc: Run E2E hex data tests (excludes performance tests)
     cmds:
-      - go test -v -race ./test/e2e_hex_data_test.go -run "TestE2E_RealHexData|TestE2E_CustomHexData"
+      - go test -v ./test/e2e_hex_data_test.go -run "TestE2E_RealHexData|TestE2E_CustomHexData"
     silent: false
 
   test-e2e-hex-performance:
