@@ -402,9 +402,25 @@ func (p *Parser) findLayout(layoutKey string) (*Layout, string) {
 		return layout, lowerKey
 	}
 
-	// Try generic version.
+	// Try generic inverter version.
 	if len(layoutKey) >= 6 {
-		genericKey := layoutKey[:1] + layoutKey[1:3] + "NNNNX" + layoutKey[7:] // + p.config.InverterType
+		genericKey := layoutKey[:1] + layoutKey[1:3] + "NNNNX" + layoutKey[7:]
+		p.logf("Layout not found. Trying generic layout: %s", genericKey)
+		if layout, found := p.layouts[genericKey]; found {
+			return layout, genericKey
+		}
+
+		// Try lowercase generic version too
+		lowerGenericKey := strings.ToLower(genericKey)
+		if layout, found := p.layouts[lowerGenericKey]; found {
+			p.logf("Found generic layout with lowercase key: %s", lowerGenericKey)
+			return layout, lowerGenericKey
+		}
+	}
+
+	// Try generic default version.
+	if len(layoutKey) >= 6 {
+		genericKey := layoutKey[:1] + layoutKey[1:3] + "NNNNX"
 		p.logf("Layout not found. Trying generic layout: %s", genericKey)
 		if layout, found := p.layouts[genericKey]; found {
 			return layout, genericKey
