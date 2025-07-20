@@ -302,6 +302,17 @@ func getRealHexDataTestCases() []HexDataTestCase {
 			ShouldRespond:   false,
 			ExpectParseError: false,
 		},
+		{
+			Name: "Encrypted_Growatt_Data",
+			HexData: "00020006002001161f352b4122363e7540387761747447726f7761747447726f7761747447722eb2",
+			Description:     "Encrypted Growatt data requiring decryption",
+			DeviceType:      "Growatt Datalogger",
+			ProtocolVersion: "06",
+			IsEncrypted:     true,
+			ShouldRespond:   false,
+			ExpectParseError: false,
+		},
+		
 		// {
 		// 	Name: "Command_Response_Type_18",
 		// 	HexData: "68 55 00 68 18 01 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 " +
