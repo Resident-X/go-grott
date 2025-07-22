@@ -5,8 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"time"
-
-	"github.com/sigurn/crc16"
 )
 
 // Response types for inverter communication.
@@ -355,9 +353,9 @@ func (rm *ResponseManager) createAckResponse(data []byte, protocol string) (*Res
 
 	// Extract header bytes (Python header is hex string representation)
 	header := data[:8]
-	
+
 	// In Python: header[0:8] means first 8 hex chars = first 4 bytes
-	// In Python: header[12:16] means hex chars 12-15 = bytes 6-7 
+	// In Python: header[12:16] means hex chars 12-15 = bytes 6-7
 	headerBytes04 := header[0:4] // Python header[0:8] (first 8 hex chars)
 	headerBytes67 := header[6:8] // Python header[12:16] (hex chars 12-15)
 
@@ -368,21 +366,21 @@ func (rm *ResponseManager) createAckResponse(data []byte, protocol string) (*Res
 		// Python: header[0:8] + '0003' + header[12:16] + '00'
 		// That's: 4_bytes + '0003' + 2_bytes + '00' = 4+2+2+1 = 9 bytes
 		responseData = make([]byte, 9)
-		copy(responseData[0:4], headerBytes04)   // header[0:8] = first 4 bytes
-		responseData[4] = 0x00                   // '0003' high byte
-		responseData[5] = 0x03                   // '0003' low byte  
-		copy(responseData[6:8], headerBytes67)   // header[12:16] = bytes 6-7
-		responseData[8] = 0x00                   // '00' terminator
+		copy(responseData[0:4], headerBytes04) // header[0:8] = first 4 bytes
+		responseData[4] = 0x00                 // '0003' high byte
+		responseData[5] = 0x03                 // '0003' low byte
+		copy(responseData[6:8], headerBytes67) // header[12:16] = bytes 6-7
+		responseData[8] = 0x00                 // '00' terminator
 	} else {
 		// Protocol 05/06, encrypted ACK with CRC
 		// Python: header[0:8] + '0003' + header[12:16] + '47'
 		// That's: 4_bytes + '0003' + 2_bytes + '47' = 4+2+2+1 = 9 bytes + CRC
 		headerAck := make([]byte, 9)
-		copy(headerAck[0:4], headerBytes04)      // header[0:8] = first 4 bytes
-		headerAck[4] = 0x00                      // '0003' high byte
-		headerAck[5] = 0x03                      // '0003' low byte
-		copy(headerAck[6:8], headerBytes67)      // header[12:16] = bytes 6-7
-		headerAck[8] = 0x47                      // '47' response marker
+		copy(headerAck[0:4], headerBytes04) // header[0:8] = first 4 bytes
+		headerAck[4] = 0x00                 // '0003' high byte
+		headerAck[5] = 0x03                 // '0003' low byte
+		copy(headerAck[6:8], headerBytes67) // header[12:16] = bytes 6-7
+		headerAck[8] = 0x47                 // '47' response marker
 
 		// Calculate CRC16 Modbus
 		crc := rm.calculateModbusCRC(headerAck)
@@ -390,7 +388,7 @@ func (rm *ResponseManager) createAckResponse(data []byte, protocol string) (*Res
 		// Combine header + CRC (big endian)
 		responseData = make([]byte, len(headerAck)+2)
 		copy(responseData, headerAck)
-		responseData[len(headerAck)] = byte(crc >> 8)   // CRC high byte
+		responseData[len(headerAck)] = byte(crc >> 8)     // CRC high byte
 		responseData[len(headerAck)+1] = byte(crc & 0xFF) // CRC low byte
 	}
 
@@ -402,11 +400,22 @@ func (rm *ResponseManager) createAckResponse(data []byte, protocol string) (*Res
 	}, nil
 }
 
-// calculateModbusCRC calculates CRC16 Modbus checksum.
+// calculateModbusCRC calculates CRC16 Modbus checksum matching Python libscrc.modbus().
 func (rm *ResponseManager) calculateModbusCRC(data []byte) uint16 {
-	// Use the existing CRC table from CommandBuilder
-	table := rm.handler.commandBuilder.crcTable
-	return crc16.Checksum(data, table)
+	// Manual CRC16-Modbus implementation to match Python libscrc.modbus()
+	// This matches the standard Modbus CRC algorithm used by Python
+	crc := uint16(0xFFFF)
+	for _, b := range data {
+		crc ^= uint16(b)
+		for i := 0; i < 8; i++ {
+			if crc&1 != 0 {
+				crc = (crc >> 1) ^ 0xA001
+			} else {
+				crc >>= 1
+			}
+		}
+	}
+	return crc
 }
 
 // FormatResponse returns a hex representation of response data for logging.

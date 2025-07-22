@@ -176,40 +176,53 @@ func TestCreateAckResponseFormats(t *testing.T) {
 			name:        "Protocol 02 ACK",
 			header:      []byte{0x12, 0x34, 0x00, 0x02, 0x00, 0x0A, 0x01, 0x03},
 			protocol:    "02",
-			expectedLen: 7,
+			expectedLen: 9, // Python-compatible: 4 + 2 + 2 + 1 = 9 bytes
 			expectedBytes: map[int]byte{
-				0: 0x12, // Sequence byte 0
-				1: 0x34, // Sequence byte 1
-				4: 0x00, // Length high
-				5: 0x03, // Length low
-				6: 0x00, // Terminator
+				0: 0x12, // header[0]
+				1: 0x34, // header[1] 
+				2: 0x00, // header[2]
+				3: 0x02, // header[3]
+				4: 0x00, // 0x0003 high byte
+				5: 0x03, // 0x0003 low byte
+				6: 0x01, // header[6]
+				7: 0x03, // header[7]
+				8: 0x00, // Terminator
 			},
 		},
 		{
 			name:        "Protocol 05 ACK",
 			header:      []byte{0xAB, 0xCD, 0x00, 0x05, 0x00, 0x0A, 0x01, 0x03},
 			protocol:    "05",
-			expectedLen: 10,
+			expectedLen: 11, // Python-compatible: 4 + 2 + 2 + 1 + 2 = 11 bytes
 			expectedBytes: map[int]byte{
-				0: 0xAB, // Sequence byte 0
-				1: 0xCD, // Sequence byte 1
-				4: 0x00, // Length high
-				5: 0x03, // Length low
-				6: 0x47, // Response marker
-				// Bytes 8-9 are CRC, tested separately
+				0: 0xAB, // header[0]
+				1: 0xCD, // header[1]
+				2: 0x00, // header[2] 
+				3: 0x05, // header[3]
+				4: 0x00, // 0x0003 high byte
+				5: 0x03, // 0x0003 low byte
+				6: 0x01, // header[6]
+				7: 0x03, // header[7]
+				8: 0x47, // Response marker
+				// Bytes 9-10 are CRC, tested separately
 			},
 		},
 		{
 			name:        "Protocol 06 ACK",
 			header:      []byte{0xEF, 0x01, 0x00, 0x06, 0x00, 0x0A, 0x01, 0x03},
 			protocol:    "06",
-			expectedLen: 10,
+			expectedLen: 11, // Python-compatible: 4 + 2 + 2 + 1 + 2 = 11 bytes
 			expectedBytes: map[int]byte{
-				0: 0xEF, // Sequence byte 0
-				1: 0x01, // Sequence byte 1
-				4: 0x00, // Length high
-				5: 0x03, // Length low
-				6: 0x47, // Response marker
+				0: 0xEF, // header[0]
+				1: 0x01, // header[1]
+				2: 0x00, // header[2]
+				3: 0x06, // header[3]
+				4: 0x00, // 0x0003 high byte
+				5: 0x03, // 0x0003 low byte
+				6: 0x01, // header[6]
+				7: 0x03, // header[7]
+				8: 0x47, // Response marker
+				// Bytes 9-10 are CRC, tested separately
 			},
 		},
 	}
