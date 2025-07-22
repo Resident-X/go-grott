@@ -54,11 +54,6 @@ func TestMainFunctionality(t *testing.T) {
 	}
 }
 
-func TestVersion(t *testing.T) {
-	// Test that version variable is set
-	assert.Equal(t, "1.0.0", version)
-}
-
 func TestMainWithArgs(t *testing.T) {
 	// Test main function doesn't panic with various arguments
 	oldArgs := os.Args
@@ -115,7 +110,7 @@ func TestMainVersionOutput(t *testing.T) {
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Printf("go-grott server %s\n", version)
+		fmt.Printf("go-grott server %s\n", Version)
 	}
 
 	// Close writer and capture output
@@ -123,7 +118,7 @@ func TestMainVersionOutput(t *testing.T) {
 	output := <-outputChan
 
 	// Verify output
-	expectedOutput := fmt.Sprintf("go-grott server %s\n", version)
+	expectedOutput := fmt.Sprintf("go-grott server %s\n", Version)
 	assert.Equal(t, expectedOutput, output)
 	assert.NotNil(t, configFile) // Just verify flags were parsed
 }

@@ -1,0 +1,435 @@
+// Package protocol provides response generation and validation for Growatt inverter communication.
+package protocol
+
+import (
+	"encoding/hex"
+	"fmt"
+	"time"
+)
+
+// Response types for inverter communication.
+const (
+	ResponseTypeAck      = 0x01
+	ResponseTypeNak      = 0x02
+	ResponseTypeData     = 0x04
+	ResponseTypeTimeSync = 0x18
+	ResponseTypePing     = 0x16
+	ResponseTypeIdentify = 0x05
+)
+
+// ResponseBuilder provides functionality to create responses to inverter commands.
+type ResponseBuilder struct {
+	commandBuilder *CommandBuilder
+}
+
+// NewResponseBuilder creates a new response builder instance.
+func NewResponseBuilder() *ResponseBuilder {
+	return &ResponseBuilder{
+		commandBuilder: NewCommandBuilder(),
+	}
+}
+
+// Response represents a response to be sent to an inverter.
+type Response struct {
+	Type      uint8
+	Protocol  string
+	Data      []byte
+	Timestamp time.Time
+}
+
+// CreateAckResponse creates an acknowledgment response.
+func (rb *ResponseBuilder) CreateAckResponse(protocol string, originalCommand []byte) (*Response, error) {
+	if protocol == "" {
+		return nil, fmt.Errorf("protocol cannot be empty")
+	}
+
+	response := &Response{
+		Type:      ResponseTypeAck,
+		Protocol:  protocol,
+		Timestamp: time.Now(),
+	}
+
+	data, err := rb.buildAckResponse(protocol, originalCommand)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build ack response: %w", err)
+	}
+
+	response.Data = data
+	return response, nil
+}
+
+// CreateTimeSyncResponse creates a response to a time sync request.
+func (rb *ResponseBuilder) CreateTimeSyncResponse(protocol, loggerID string) (*Response, error) {
+	if protocol == "" || loggerID == "" {
+		return nil, fmt.Errorf("protocol and loggerID cannot be empty")
+	}
+
+	response := &Response{
+		Type:      ResponseTypeTimeSync,
+		Protocol:  protocol,
+		Timestamp: time.Now(),
+	}
+
+	// Create time sync command as response
+	_, data, err := rb.commandBuilder.CreateTimeSyncCommand(protocol, loggerID, 1)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create time sync response: %w", err)
+	}
+
+	response.Data = data
+	return response, nil
+}
+
+// CreatePingResponse creates a response to a ping request.
+func (rb *ResponseBuilder) CreatePingResponse(protocol, loggerID string) (*Response, error) {
+	if protocol == "" || loggerID == "" {
+		return nil, fmt.Errorf("protocol and loggerID cannot be empty")
+	}
+
+	response := &Response{
+		Type:      ResponseTypePing,
+		Protocol:  protocol,
+		Timestamp: time.Now(),
+	}
+
+	// Create ping command as response
+	_, data, err := rb.commandBuilder.CreatePingCommand(protocol, loggerID, 1)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create ping response: %w", err)
+	}
+
+	response.Data = data
+	return response, nil
+}
+
+// buildAckResponse constructs a simple acknowledgment response.
+func (rb *ResponseBuilder) buildAckResponse(protocol string, originalCommand []byte) ([]byte, error) {
+	// Build minimal ACK header
+	header := make([]byte, 8)
+	header[0] = 0x00 // Header byte 0
+	header[1] = 0x01 // Header byte 1
+	header[2] = 0x00 // Header byte 2
+
+	// Protocol - use helper function to convert string to byte
+	header[3] = ProtocolStringToByte(protocol)
+
+	// Body length (0 for simple ACK)
+	header[4] = 0x00
+	header[5] = 0x00
+
+	// Response type
+	header[6] = 0x01
+	header[7] = ResponseTypeAck
+
+	return header, nil
+}
+
+// ResponseHandler manages response logic and decision making.
+type ResponseHandler struct {
+	responseBuilder *ResponseBuilder
+	commandBuilder  *CommandBuilder
+}
+
+// NewResponseHandler creates a new response handler instance.
+func NewResponseHandler() *ResponseHandler {
+	return &ResponseHandler{
+		responseBuilder: NewResponseBuilder(),
+		commandBuilder:  NewCommandBuilder(),
+	}
+}
+
+// ProcessIncomingData determines if and how to respond to incoming data.
+func (rh *ResponseHandler) ProcessIncomingData(data []byte) (*Response, error) {
+	if len(data) == 0 {
+		return nil, fmt.Errorf("empty data received")
+	}
+
+	// Parse command info
+	cmdInfo := rh.commandBuilder.ParseCommandInfo(data)
+	if !cmdInfo.IsValid {
+		return nil, fmt.Errorf("invalid command format")
+	}
+
+	// Extract logger ID if possible
+	loggerID, err := rh.extractLoggerID(data, cmdInfo)
+	if err != nil {
+		// If we can't extract logger ID, don't send a response
+		return nil, fmt.Errorf("failed to extract logger ID: %w", err)
+	}
+
+	// Determine response based on command type
+	switch cmdInfo.Command {
+	case CommandTypeTimeSync:
+		return rh.responseBuilder.CreateTimeSyncResponse(cmdInfo.Protocol, loggerID)
+	case CommandTypePing:
+		return rh.responseBuilder.CreatePingResponse(cmdInfo.Protocol, loggerID)
+	case CommandTypeIdentify:
+		// For identify commands, we typically just acknowledge
+		return rh.responseBuilder.CreateAckResponse(cmdInfo.Protocol, data)
+	default:
+		// For unknown commands, return an error instead of nil, nil
+		return nil, fmt.Errorf("unknown command type: %d", cmdInfo.Command)
+	}
+}
+
+// extractLoggerID attempts to extract the logger ID from command data.
+func (rh *ResponseHandler) extractLoggerID(data []byte, cmdInfo *CommandInfo) (string, error) {
+	if len(data) < 10 {
+		return "", fmt.Errorf("data too short to contain logger ID")
+	}
+
+	// For most commands, logger ID starts at byte 8
+	startPos := 8
+
+	// Try to find a reasonable logger ID length (typically 10 characters)
+	maxLen := min(cmdInfo.BodyLen, 20) // Reasonable maximum
+	if startPos+maxLen > len(data) {
+		maxLen = len(data) - startPos
+	}
+
+	if maxLen <= 0 {
+		return "", fmt.Errorf("no space for logger ID")
+	}
+
+	// Extract and clean the logger ID
+	loggerBytes := data[startPos : startPos+maxLen]
+	loggerID := cleanLoggerID(string(loggerBytes))
+
+	if len(loggerID) == 0 {
+		return "", fmt.Errorf("empty logger ID")
+	}
+
+	return loggerID, nil
+}
+
+// cleanLoggerID removes non-printable characters from logger ID.
+func cleanLoggerID(id string) string {
+	var result []byte
+	for _, b := range []byte(id) {
+		if b >= 32 && b <= 126 { // Printable ASCII
+			result = append(result, b)
+		} else if b == 0 { // Stop at null terminator
+			break
+		}
+	}
+	return string(result)
+}
+
+// ResponseMetrics holds metrics about response generation.
+type ResponseMetrics struct {
+	TotalResponses    int64
+	TimeSyncResponses int64
+	PingResponses     int64
+	AckResponses      int64
+	ErrorResponses    int64
+	LastResponseTime  time.Time
+}
+
+// ResponseManager manages response generation with metrics and logging.
+type ResponseManager struct {
+	handler *ResponseHandler
+	metrics *ResponseMetrics
+}
+
+// NewResponseManager creates a new response manager instance.
+func NewResponseManager() *ResponseManager {
+	return &ResponseManager{
+		handler: NewResponseHandler(),
+		metrics: &ResponseMetrics{},
+	}
+}
+
+// HandleIncomingData processes incoming data and generates appropriate responses following Python logic.
+func (rm *ResponseManager) HandleIncomingData(data []byte) (*Response, error) {
+	if len(data) < 8 {
+		rm.metrics.ErrorResponses++
+		return nil, fmt.Errorf("data too short: %d bytes", len(data))
+	}
+
+	// Extract header information
+	header := data[:8]
+	protocol := fmt.Sprintf("%02x", header[3])
+	recType := fmt.Sprintf("%02x", header[7])
+
+	var response *Response
+	var err error
+
+	// Update metrics
+	rm.metrics.LastResponseTime = time.Now()
+	rm.metrics.TotalResponses++
+
+	// Process based on record type following Python logic
+	switch recType {
+	case "16": // Ping - echo back the original data
+		response = &Response{
+			Type:      ResponseTypePing,
+			Protocol:  protocol,
+			Data:      make([]byte, len(data)), // Copy the data
+			Timestamp: time.Now(),
+		}
+		copy(response.Data, data) // Echo back original data
+		rm.metrics.PingResponses++
+
+		// Add debug logging for ping responses
+		if len(data) >= 8 {
+			sequenceNum := fmt.Sprintf("%02x%02x", data[0], data[1])
+			fmt.Printf("\t - Grottserver - 16 - Ping response (seq: %s, %d bytes):\n", sequenceNum, len(data))
+			fmt.Printf("\t\t %x\n", data)
+		}
+
+	case "03", "04", "50", "1b", "20": // Data records - send ACK
+		response, err = rm.createAckResponse(data, protocol) // Pass full data, not just header
+		if err != nil {
+			rm.metrics.ErrorResponses++
+			return nil, fmt.Errorf("failed to create ACK response: %w", err)
+		}
+		rm.metrics.AckResponses++
+
+		// Add debug logging for data records like Python
+		sequenceNum := fmt.Sprintf("%02x%02x", data[0], data[1])
+		fmt.Printf("\t - Grottserver - %s data record received (seq: %s, %d bytes)\n", recType, sequenceNum, len(data))
+
+		// Special handling for rectype "03" - schedule time sync after ACK
+		if recType == "03" {
+			fmt.Printf("\t - Grottserver - Record 03 (inverter announce) - will send time sync after ACK\n")
+			// Note: The time sync scheduling will be handled by the caller
+			// after sending this ACK response, as it requires session context
+		}
+
+	case ProtocolDataloggerRead, ProtocolInverterRead, ProtocolInverterWrite, ProtocolDataloggerWrite: // Command responses - no response needed
+		return nil, fmt.Errorf("command response records do not require acknowledgment")
+
+	case ProtocolMultiRegister, "29": // Other records - no response needed
+		return nil, fmt.Errorf("records of type %s do not require acknowledgment", recType)
+
+	default:
+		// Unknown record type - return error instead of nil, nil
+		return nil, fmt.Errorf("unknown record type: %s", recType)
+	}
+
+	return response, err
+}
+
+// GetMetrics returns current response metrics.
+func (rm *ResponseManager) GetMetrics() ResponseMetrics {
+	return *rm.metrics
+}
+
+// ResetMetrics resets all response metrics.
+func (rm *ResponseManager) ResetMetrics() {
+	rm.metrics = &ResponseMetrics{}
+}
+
+// ShouldRespond determines if we should respond to incoming data based on record type.
+func (rm *ResponseManager) ShouldRespond(data []byte, clientAddr string) bool {
+	if len(data) < 8 {
+		return false
+	}
+
+	// Extract record type from bytes 7-8 (0-indexed) as hex string
+	recType := fmt.Sprintf("%02x", data[7])
+
+	// Determine if response is needed based on Python logic
+	switch recType {
+	case "16": // Ping - echo back data
+		return true
+	case "03", "04", "50", "1b", "20": // Data records - send ACK
+		return true
+	case ProtocolDataloggerRead, ProtocolInverterRead, ProtocolInverterWrite, ProtocolDataloggerWrite: // Command responses - no response
+		return false
+	case ProtocolMultiRegister, "29": // Other records - no response
+		return false
+	default:
+		return false
+	}
+}
+
+// createAckResponse creates an ACK response following Python logic.
+func (rm *ResponseManager) createAckResponse(data []byte, protocol string) (*Response, error) {
+	// Need at least 8 bytes for header
+	if len(data) < 8 {
+		return nil, fmt.Errorf("data too short: %d bytes", len(data))
+	}
+
+	// Extract header bytes (Python header is hex string representation)
+	header := data[:8]
+
+	// In Python: header[0:8] means first 8 hex chars = first 4 bytes
+	// In Python: header[12:16] means hex chars 12-15 = bytes 6-7
+	headerBytes04 := header[0:4] // Python header[0:8] (first 8 hex chars)
+	headerBytes67 := header[6:8] // Python header[12:16] (hex chars 12-15)
+
+	var responseData []byte
+
+	if protocol == ProtocolTCP {
+		// Protocol 02, unencrypted ACK
+		// Python: header[0:8] + '0003' + header[12:16] + '00'
+		// That's: 4_bytes + '0003' + 2_bytes + '00' = 4+2+2+1 = 9 bytes
+		responseData = make([]byte, 9)
+		copy(responseData[0:4], headerBytes04) // header[0:8] = first 4 bytes
+		responseData[4] = 0x00                 // '0003' high byte
+		responseData[5] = 0x03                 // '0003' low byte
+		copy(responseData[6:8], headerBytes67) // header[12:16] = bytes 6-7
+		responseData[8] = 0x00                 // '00' terminator
+	} else {
+		// Protocol 05/06, encrypted ACK with CRC
+		// Python: header[0:8] + '0003' + header[12:16] + '47'
+		// That's: 4_bytes + '0003' + 2_bytes + '47' = 4+2+2+1 = 9 bytes + CRC
+		headerAck := make([]byte, 9)
+		copy(headerAck[0:4], headerBytes04) // header[0:8] = first 4 bytes
+		headerAck[4] = 0x00                 // '0003' high byte
+		headerAck[5] = 0x03                 // '0003' low byte
+		copy(headerAck[6:8], headerBytes67) // header[12:16] = bytes 6-7
+		headerAck[8] = 0x47                 // '47' response marker
+
+		// Calculate CRC16 Modbus
+		crc := rm.calculateModbusCRC(headerAck)
+
+		// Combine header + CRC (big endian)
+		responseData = make([]byte, len(headerAck)+2)
+		copy(responseData, headerAck)
+		responseData[len(headerAck)] = byte(crc >> 8)     // CRC high byte
+		responseData[len(headerAck)+1] = byte(crc & 0xFF) // CRC low byte
+	}
+
+	return &Response{
+		Type:      ResponseTypeAck,
+		Protocol:  protocol,
+		Data:      responseData,
+		Timestamp: time.Now(),
+	}, nil
+}
+
+// calculateModbusCRC calculates CRC16 Modbus checksum matching Python libscrc.modbus().
+func (rm *ResponseManager) calculateModbusCRC(data []byte) uint16 {
+	// Manual CRC16-Modbus implementation to match Python libscrc.modbus()
+	// This matches the standard Modbus CRC algorithm used by Python
+	crc := uint16(0xFFFF)
+	for _, b := range data {
+		crc ^= uint16(b)
+		for i := 0; i < 8; i++ {
+			if crc&1 != 0 {
+				crc = (crc >> 1) ^ 0xA001
+			} else {
+				crc >>= 1
+			}
+		}
+	}
+	return crc
+}
+
+// FormatResponse returns a hex representation of response data for logging.
+func FormatResponse(response *Response) string {
+	if response == nil || len(response.Data) == 0 {
+		return ""
+	}
+	return hex.EncodeToString(response.Data)
+}
+
+// Helper function for minimum of two integers.
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}

@@ -25,7 +25,7 @@ tasks:
     desc: Build the application
     cmds:
       - mkdir -p {{.BUILD_DIR}}
-      - go build -ldflags="-s -w" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} -v {{.CMD_DIR}}
+      - go build -ldflags="-s -w -X main.Version=$(git rev-parse --short HEAD)" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} -v {{.CMD_DIR}}
     sources:
       - "**/*.go"
       - go.mod
@@ -63,10 +63,67 @@ tasks:
 
   # Testing tasks
   test:
-    desc: Run all tests
+    desc: Run all unit tests
     deps: [ mocks-clean ]
     cmds:
       - go test -v -race ./...
+    silent: false
+
+  test-unit:
+    desc: Run unit tests only (excludes integration and e2e tests)
+    deps: [ mocks-clean ]
+    cmds:
+      - go test -v -race -short ./...
+    silent: false
+
+  test-integration:
+    desc: Run integration tests
+    deps: [ mocks-clean ]
+    cmds:
+      - go test -v -race ./internal/api/...
+    silent: false
+
+  test-e2e:
+    desc: Run end-to-end tests
+    deps: [ mocks-clean, build ]
+    cmds:
+      - go test -v -race ./test/...
+    silent: false
+
+  test-e2e-hex:
+    desc: Run E2E hex data tests (excludes performance tests)
+    cmds:
+      - go test -v ./test/e2e_hex_data_test.go -run "TestE2E_RealHexData|TestE2E_CustomHexData"
+    silent: false
+
+  test-e2e-hex-performance:
+    desc: Run E2E hex data performance tests only
+    cmds:
+      - go test -v -race ./test/e2e_hex_data_test.go -run TestE2E_PerformanceWithMultipleConnections
+    silent: false
+
+  test-e2e-hex-all:
+    desc: Run all E2E hex data tests including performance
+    cmds:
+      - go test -v -race ./test/e2e_hex_data_test.go
+    silent: false
+
+  test-e2e-hex-custom:
+    desc: Run custom E2E hex data tests (add your real hex data first)
+    cmds:
+      - go test -v -race ./test/e2e_hex_data_test.go -run TestE2E_CustomHexData
+    silent: false
+
+  test-all:
+    desc: Run all tests including unit, integration, and e2e
+    deps: [ mocks-clean, build ]
+    cmds:
+      - echo "Running unit tests..."
+      - go test -v -race -short ./...
+      - echo "Running integration tests..."
+      - go test -v -race ./internal/api/...
+      - echo "Running end-to-end tests..."
+      - go test -v -race ./test/...
     silent: false
 
   test-coverage:
@@ -101,6 +158,12 @@ tasks:
       - go test -v -race ./internal/parser/...
     silent: false
 
+  test-performance:
+    desc: Run performance benchmarks
+    cmds:
+      - go test -bench=. -benchmem -benchtime=10s ./...
+    silent: false
+
   benchmark:
     desc: Run benchmarks
     cmds:
@@ -126,11 +189,51 @@ tasks:
       - golangci-lint run
     silent: false
 
+  lint-fix:
+    desc: Run golangci-lint with auto-fix for safe issues
+    cmds:
+      - golangci-lint run --fix
+    silent: false
+
+  lint-critical:
+    desc: Run golangci-lint focusing on critical issues only
+    cmds:
+      - golangci-lint run --enable-only=errcheck,gosec,nilerr,nilnil
+    silent: false
+
+  lint-complexity:
+    desc: Run golangci-lint focusing on complexity issues
+    cmds:
+      - golangci-lint run --enable-only=gocyclo,gocognit,funlen
+    silent: false
+
   check:
     desc: Run all code quality checks
     deps: [ fmt, vet, test ]
     cmds:
       - echo "All checks passed!"
+    silent: false
+
+  ci:
+    desc: Run full CI pipeline (format, lint, test, build)
+    deps: [ fmt, vet ]
+    cmds:
+      - echo "Running full CI pipeline..."
+      - task: mocks-clean
+      - task: test-unit
+      - task: test-integration
+      - task: build
+      - task: test-e2e
+      - echo "CI pipeline completed successfully!"
+    silent: false
+
+  ci-quick:
+    desc: Run quick CI checks (format, vet, unit tests)
+    deps: [ fmt, vet ]
+    cmds:
+      - echo "Running quick CI checks..."
+      - task: test-unit
+      - echo "Quick CI checks completed!"
     silent: false
 
   # Mock generation
@@ -155,17 +258,104 @@ tasks:
       - go mod verify
     silent: false
 
-  deps-update:
-    desc: Update dependencies
+  deps-check:
+    desc: Check for available dependency updates
     cmds:
-      - go get -u ./...
+      - echo "Checking for available dependency updates..."
+      - go list -m -u all
+    silent: false
+
+  deps-analyze:
+    desc: Analyze why dependencies are held back from updating
+    cmds:
+      - echo "Analyzing dependency constraints..."
+      - |
+        echo "Dependencies with available updates:"
+        go list -m -u all | grep '\[' | while read line; do
+          dep=$(echo "$line" | awk '{print $1}')
+          current=$(echo "$line" | awk '{print $2}')
+          available=$(echo "$line" | awk '{print $3}' | tr -d '[]')
+          echo "  $dep: $current → $available"
+          echo "    Required by:"
+          go mod graph | grep "$dep@" | awk '{print "      " $1}' | sort -u
+          echo ""
+        done
+    silent: false
+
+  deps-update:
+    desc: Update all dependencies to latest versions
+    cmds:
+      - echo "Updating all dependencies..."
+      - go get -u all
       - go mod tidy
+      - echo "Dependencies updated successfully!"
+    silent: false
+
+  deps-update-minor:
+    desc: Update dependencies to latest minor versions only (safer)
+    cmds:
+      - echo "Updating dependencies to latest minor versions..."
+      - go get -u=patch all
+      - go mod tidy
+      - echo "Minor dependency updates completed!"
+    silent: false
+
+  deps-update-specific:
+    desc: "Update specific dependency (usage: task deps-update-specific -- github.com/example/pkg)"
+    cmds:
+      - go get -u {{.CLI_ARGS}}
+      - go mod tidy
+      - echo "Updated {{.CLI_ARGS}}"
     silent: false
 
   deps-vendor:
     desc: Vendor dependencies
     cmds:
       - go mod vendor
+    silent: false
+
+  deps-audit:
+    desc: Audit dependencies for known vulnerabilities
+    cmds:
+      - echo "Auditing dependencies for vulnerabilities..."
+      - go list -json -deps ./... | nancy sleuth
+    silent: false
+    ignore_error: true
+
+  deps-update-safe:
+    desc: SAFE dependency update (patch versions only - recommended for production)
+    cmds:
+      - echo "🔒 Performing SAFE dependency update (patch versions only)..."
+      - echo "This only updates bug fixes, no feature changes or breaking changes"
+      - go get -u=patch all
+      - go mod tidy
+      - echo "✅ Safe updates completed!"
+      - echo "Run 'task test' to verify everything still works"
+    silent: false
+
+  deps-update-with-tests:
+    desc: Update dependencies and automatically run tests to verify compatibility
+    cmds:
+      - echo "🧪 Updating dependencies with test verification..."
+      - go get -u all
+      - go mod tidy
+      - echo "Dependencies updated, running tests..."
+      - task: test-unit
+      - echo "✅ Dependencies updated and tests passed!"
+    silent: false
+
+  deps-why-not-updated:
+    desc: Explain why specific dependencies can't be updated
+    cmds:
+      - echo "🔍 Analyzing why some dependencies aren't updating..."
+      - echo "Indirect dependencies that can't be updated:"
+      - |
+        go list -m -u all | grep '\[' | while read line; do
+          dep=$(echo "$line" | awk '{print $1}')
+          echo "❌ $dep is constrained by:"
+          go mod why "$dep" | head -3
+          echo ""
+        done
     silent: false
 
   # Cleanup tasks

@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	version = "1.0.0"
+	Version = "unknown" // Default version, can be overridden by build flags
 )
 
 func main() {
@@ -38,8 +38,8 @@ func run() int {
 
 	// Show version if requested
 	if *showVersion {
-		fmt.Printf("go-grott server %s\n", version)
-		return 1
+		fmt.Printf("go-grott server %s\n", Version)
+		return 0
 	}
 
 	// Initialize context with cancellation
@@ -56,7 +56,7 @@ func run() int {
 	// Initialize logger with the configured log level
 	initLogger(cfg.LogLevel)
 
-	log.Info().Str("version", version).Msg("Starting go-grott server")
+	log.Info().Str("version", Version).Msg("Starting go-grott server")
 
 	// Initialize parser
 	dataParser, err := parser.NewParser(cfg)

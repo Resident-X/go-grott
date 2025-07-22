@@ -122,3 +122,35 @@ func (r *DeviceRegistry) GetInverters(dataloggerID string) ([]*InverterInfo, boo
 
 	return inverters, true
 }
+
+// GetDataloggerBySerial retrieves a datalogger by its serial number.
+func (r *DeviceRegistry) GetDataloggerBySerial(serial string) *DataloggerInfo {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+
+	// In this implementation, the datalogger ID is the serial
+	datalogger, exists := r.dataloggers[serial]
+	if !exists {
+		return nil
+	}
+
+	return datalogger
+}
+
+// GetInverterBySerial retrieves an inverter by its serial number from a specific datalogger.
+func (r *DeviceRegistry) GetInverterBySerial(dataloggerID, inverterSerial string) *InverterInfo {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+
+	datalogger, exists := r.dataloggers[dataloggerID]
+	if !exists {
+		return nil
+	}
+
+	inverter, exists := datalogger.Inverters[inverterSerial]
+	if !exists {
+		return nil
+	}
+
+	return inverter
+}

@@ -90,7 +90,8 @@ func TestPythonSampleData(t *testing.T) {
 	t.Logf("PVFrequency: %.2f, PVGridVoltage: %.2f, PVGridCurrent: %.2f, PVGridPower: %.2f",
 		result.PVFrequency, result.PVGridVoltage, result.PVGridCurrent, result.PVGridPower)
 
-	// Check specific values based on the Python output
+	// Check specific values based on the Python implementation results
+	// These are the exact values the Python version produces for this test data
 	assert.Equal(t, "JPC281833B", result.DataloggerSerial, "DataloggerSerial should match Python")
 	assert.Equal(t, "QMB2823261", result.PVSerial, "PVSerial should match Python")
 	assert.Equal(t, 1, result.PVStatus, "PVStatus should match Python")
@@ -154,24 +155,24 @@ func TestValidate(t *testing.T) {
 	err = parser.Validate(validData)
 	assert.NoError(t, err, "Valid data should pass validation")
 
-	// Test validation of too short data
+	// Test validation of too short data (only check that matters now - Python compatibility)
 	shortData := []byte{0x68, 0x00, 0x00, 0x68, 0x16}
 	err = parser.Validate(shortData)
 	assert.Error(t, err, "Short data should fail validation")
 
-	// Test validation with invalid header
+	// Test validation with various packet sizes - all should pass if >= 12 bytes (Python behavior)
 	invalidHeaderData := make([]byte, len(validData))
 	copy(invalidHeaderData, validData)
-	invalidHeaderData[0] = 0x00 // Corrupt header
+	invalidHeaderData[0] = 0x00 // Different header - should still pass (Python compatibility)
 	err = parser.Validate(invalidHeaderData)
-	assert.Error(t, err, "Data with invalid header should fail validation")
+	assert.NoError(t, err, "Data with different header should pass validation (Python compatibility)")
 
-	// Test validation with invalid ETX
+	// Test validation with different ETX - should still pass (Python compatibility)
 	invalidEtxData := make([]byte, len(validData))
 	copy(invalidEtxData, validData)
-	invalidEtxData[len(invalidEtxData)-2] = 0x00 // Corrupt ETX
+	invalidEtxData[len(invalidEtxData)-2] = 0x00 // Different ETX - should still pass
 	err = parser.Validate(invalidEtxData)
-	assert.Error(t, err, "Data with invalid ETX should fail validation")
+	assert.NoError(t, err, "Data with different ETX should pass validation (Python compatibility)")
 }
 
 // TestModbusRTUWithCRC tests the parser with proper Modbus RTU format including CRC.
@@ -305,36 +306,40 @@ func TestParser_BuildFallbackLayoutKey(t *testing.T) {
 
 func TestParser_FindLayout_NotFound(t *testing.T) {
 	// Create parser struct directly without going through NewParser
-	// to avoid layout loading issues
+	// to avoid layout loading issues, but include a basic config to avoid nil panics
 	parser := &Parser{
 		layouts: make(map[string]*Layout),
 		logger:  zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}),
+		config:  &config.Config{InverterType: "default"},
 	}
 
 	// Test with empty layouts map - should return nil since no default layout exists
-	layout := parser.findLayout("nonexistent")
+	layout, key := parser.findLayout("nonexistent")
 	assert.Nil(t, layout, "Should return nil when no layouts exist")
+	assert.Equal(t, "T06NNNNXMIN", key, "Should return generic key as fallback")
 
 	// Add a layout and test with different key - should still return nil since no generic layout
 	parser.layouts = map[string]*Layout{
 		"test": {Fields: map[string]RawFieldDefinition{"test": {Value: "value"}}},
 	}
 
-	layout = parser.findLayout("other")
+	layout, key = parser.findLayout("other")
 	assert.Nil(t, layout, "Should return nil when specific layout and generic layout don't exist")
 
 	// Add the generic layout that serves as fallback
 	genericLayout := &Layout{Fields: map[string]RawFieldDefinition{"generic": {Value: "generic_value"}}}
-	parser.layouts["T06NNNNXMOD"] = genericLayout
+	parser.layouts["T06NNNNXMIN"] = genericLayout
 
 	// Now when layout is not found, it should return the generic layout
-	layout = parser.findLayout("nonexistent")
+	layout, key = parser.findLayout("nonexistent")
 	assert.NotNil(t, layout, "Should return generic layout as fallback")
 	assert.Equal(t, genericLayout, layout, "Should return the generic layout")
+	assert.Equal(t, "T06NNNNXMIN", key, "Should return generic key")
 
 	// Test with existing key - should return the specific layout
-	layout = parser.findLayout("test")
+	layout, key = parser.findLayout("test")
 	assert.NotNil(t, layout)
+	assert.Equal(t, "test", key, "Should return exact matching key")
 }
 
 // Additional targeted tests to improve coverage

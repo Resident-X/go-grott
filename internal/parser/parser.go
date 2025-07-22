@@ -15,6 +15,7 @@ import (
 
 	"github.com/resident-x/go-grott/internal/config"
 	"github.com/resident-x/go-grott/internal/domain"
+	"github.com/resident-x/go-grott/internal/validation"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/sigurn/crc16"
@@ -29,10 +30,10 @@ const (
 	crcInitial    = 0xFFFF // Initial value for CRC calculation
 
 	// Layout constants.
-	genericLayoutKey = "T06NNNNXMOD" // Generic layout as fallback
+	genericLayoutKey = "T06NNNNXMIN" // Generic layout as fallback
 
 	// Protocol constants.
-	extendedDataThreshold = 375
+	extendedDataThreshold = 750 // 375 bytes = 750 hex characters
 
 	// Common field names.
 	datalogSerial = "datalogserial" // Common field for datalogger serial number
@@ -63,6 +64,7 @@ type Parser struct {
 	rawLayouts  map[string]map[string]interface{} // Keep original layouts for backward compatibility
 	logger      zerolog.Logger                    // Logger for parser operations
 	forceLayout string                            // Force using a specific layout (used for testing)
+	validator   *validation.AdvancedValidator     // Data validation system
 }
 
 // NewParser creates a new Parser instance.
@@ -77,12 +79,25 @@ func NewParser(cfg *config.Config) (*Parser, error) {
 	})
 
 	// Initialize parser with configuration and logger.
+	logger := log.With().Str("component", "parser").Logger()
+
+	// Initialize advanced validator with appropriate level based on log level
+	validationLevel := validation.ValidationLevelStandard
+	switch cfg.LogLevel {
+	case "debug", "trace":
+		validationLevel = validation.ValidationLevelStrict
+	case "warn", "error":
+		validationLevel = validation.ValidationLevelBasic
+	}
+	validator := validation.NewAdvancedValidator(validationLevel, logger)
+
 	parser := &Parser{
 		config:     cfg,
 		crcTable:   table,
 		layouts:    make(map[string]*Layout),
 		rawLayouts: make(map[string]map[string]interface{}),
-		logger:     log.With().Str("component", "parser").Logger(),
+		logger:     logger,
+		validator:  validator,
 	}
 
 	// Load layout files.
@@ -136,7 +151,7 @@ func (p *Parser) processLayoutFile(file fs.DirEntry) error {
 	}
 
 	// Use filename (without extension) as key.
-	layoutName := strings.TrimSuffix(file.Name(), filepath.Ext(file.Name()))
+	layoutName := strings.ToLower(strings.TrimSuffix(file.Name(), filepath.Ext(file.Name())))
 	p.rawLayouts[layoutName] = rawLayout
 
 	// Parse into typed layout structure
@@ -201,7 +216,7 @@ func (p *Parser) Parse(ctx context.Context, data []byte) (*domain.InverterData, 
 	if ctx.Err() != nil {
 		return nil, fmt.Errorf("context error: %w", ctx.Err())
 	}
-
+	p.logf("Data: %s", hex.EncodeToString(data))
 	p.logf("Starting to parse data of length: %d bytes", len(data))
 
 	// Process the raw data (validation or decryption).
@@ -212,12 +227,38 @@ func (p *Parser) Parse(ctx context.Context, data []byte) (*domain.InverterData, 
 
 	// Convert to hex string and detect layout.
 	hexStr := hex.EncodeToString(processedData)
+	p.logf("Hex string: %s", hexStr)
 	layout, layoutKey, err := p.detectLayout(hexStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect layout: %w", err)
 	}
 
 	p.logf("Using layout %s with %d fields", layoutKey, len(layout.Fields))
+
+	// Perform advanced validation on the raw packet
+	protocolKey := strings.ToLower(layoutKey)
+	metadata := map[string]interface{}{
+		"layout":    layoutKey,
+		"protocol":  protocolKey,
+		"timestamp": time.Now().Unix(),
+		"data_size": len(data),
+	}
+
+	validationResult := p.validator.ValidatePacket(data, protocolKey, metadata)
+	if !validationResult.Valid {
+		p.logf("Packet validation failed: %s", validationResult.Summary())
+		// Log errors but continue parsing in standard mode
+		for _, err := range validationResult.Errors {
+			p.logf("Validation error: %s", err.Error())
+		}
+	}
+
+	// Log warnings if any
+	if validationResult.HasWarnings() {
+		for _, warning := range validationResult.Warnings {
+			p.logf("Validation warning: %s", warning.Error())
+		}
+	}
 
 	// Extract data using the layout.
 	inverterData := &domain.InverterData{
@@ -228,8 +269,23 @@ func (p *Parser) Parse(ctx context.Context, data []byte) (*domain.InverterData, 
 
 	p.extractFields(hexStr, layout, inverterData)
 
-	p.logf("Parsing complete. DatalogSerial=%s, PVSerial=%s",
-		inverterData.DataloggerSerial, inverterData.PVSerial)
+	// Perform field-level validation
+	fieldValidationResult := p.validator.ValidateFieldData(inverterData.ExtendedData, metadata)
+	if !fieldValidationResult.Valid {
+		p.logf("Field validation failed: %s", fieldValidationResult.Summary())
+		// Log but don't fail the parse
+		for _, err := range fieldValidationResult.Errors {
+			p.logf("Field validation error: %s", err.Error())
+		}
+	}
+
+	// Add validation metadata to extended data
+	inverterData.ExtendedData["validation_confidence"] = validationResult.Confidence
+	inverterData.ExtendedData["validation_errors"] = len(validationResult.Errors)
+	inverterData.ExtendedData["validation_warnings"] = len(validationResult.Warnings)
+
+	p.logf("Parsing complete. DatalogSerial=%s, PVSerial=%s, ValidationConfidence=%.2f",
+		inverterData.DataloggerSerial, inverterData.PVSerial, validationResult.Confidence)
 
 	return inverterData, nil
 }
@@ -240,9 +296,12 @@ func (p *Parser) processRawData(data []byte) ([]byte, error) {
 	p.logf("Is standard Modbus RTU format: %v", isStandardModbus)
 
 	if isStandardModbus {
+		// Use legacy CRC validation for basic checks
 		if err := p.Validate(data); err != nil {
-			return nil, fmt.Errorf("validation failed: %w", err)
+			return nil, fmt.Errorf("basic validation failed: %w", err)
 		}
+
+		// Advanced validation is performed in Parse method after layout detection
 		return data, nil
 	}
 
@@ -265,7 +324,7 @@ func (p *Parser) detectLayout(hexStr string) (*Layout, string, error) {
 	}
 
 	layoutKey := p.buildLayoutKey(hexStr)
-	layout := p.findLayout(layoutKey)
+	layout, layoutKey := p.findLayout(layoutKey)
 
 	if layout == nil {
 		return nil, "", fmt.Errorf("no layout found for key: %s", layoutKey)
@@ -289,9 +348,17 @@ func (p *Parser) buildLayoutKey(hexStr string) string {
 
 		// Add 'X' suffix for extended data.
 		isSmartMeter := deviceType[2:4] == "20" || deviceType[2:4] == "1b"
-		if len(hexStr) > extendedDataThreshold*2 && !isSmartMeter {
-			layoutKey += "X"
-			p.logf("Using extended layout for large data")
+
+		if !isSmartMeter {
+			// Compare hex length directly against threshold (375 bytes = 750 hex chars)
+			if len(hexStr) > extendedDataThreshold {
+				layoutKey += "X"
+				p.logf("Using extended layout for large data")
+			}
+			if p.config.InverterType != "default" {
+				layoutKey += p.config.InverterType
+				p.logf("Using inverter type from config: %s", p.config.InverterType)
+			}
 		}
 
 		return layoutKey
@@ -320,25 +387,56 @@ func (p *Parser) buildFallbackLayoutKey(hexStr string) string {
 }
 
 // findLayout attempts to locate a layout, trying generic versions if needed.
-func (p *Parser) findLayout(layoutKey string) *Layout {
+func (p *Parser) findLayout(layoutKey string) (*Layout, string) {
 	p.logf("Looking for layout with key: %s", layoutKey)
 
+	// Try exact match first
 	if layout, found := p.layouts[layoutKey]; found {
-		return layout
+		return layout, layoutKey
 	}
 
-	// Try generic version.
+	// Try case insensitive match - check lowercase version
+	lowerKey := strings.ToLower(layoutKey)
+	if layout, found := p.layouts[lowerKey]; found {
+		p.logf("Found layout with lowercase key: %s", lowerKey)
+		return layout, lowerKey
+	}
+
+	// Try generic inverter version.
 	if len(layoutKey) >= 6 {
 		genericKey := layoutKey[:1] + layoutKey[1:3] + "NNNN" + layoutKey[7:]
-		p.logf("Trying generic layout: %s", genericKey)
+		p.logf("Layout not found. Trying generic layout: %s", genericKey)
 		if layout, found := p.layouts[genericKey]; found {
-			return layout
+			return layout, genericKey
+		}
+
+		// Try lowercase generic version too
+		lowerGenericKey := strings.ToLower(genericKey)
+		if layout, found := p.layouts[lowerGenericKey]; found {
+			p.logf("Found generic layout with lowercase key: %s", lowerGenericKey)
+			return layout, lowerGenericKey
+		}
+	}
+
+	// Try generic default version.
+	if len(layoutKey) >= 6 {
+		genericKey := layoutKey[:1] + layoutKey[1:3] + "NNNNX"
+		p.logf("Layout not found. Trying generic layout: %s", genericKey)
+		if layout, found := p.layouts[genericKey]; found {
+			return layout, genericKey
+		}
+
+		// Try lowercase generic version too
+		lowerGenericKey := strings.ToLower(genericKey)
+		if layout, found := p.layouts[lowerGenericKey]; found {
+			p.logf("Found generic layout with lowercase key: %s", lowerGenericKey)
+			return layout, lowerGenericKey
 		}
 	}
 
 	// Use default generic layout.
 	p.logf("Using default generic layout: %s", genericLayoutKey)
-	return p.layouts[genericLayoutKey]
+	return p.layouts[genericLayoutKey], genericLayoutKey
 }
 
 // extractFields processes all fields from the layout and populates inverterData.
@@ -586,35 +684,37 @@ func (p *Parser) SetForceLayout(layoutName string) {
 	p.logf("Forcing layout to: %s", layoutName)
 }
 
+// GetValidationStatistics returns validation statistics from the advanced validator.
+func (p *Parser) GetValidationStatistics() map[string]interface{} {
+	if p.validator == nil {
+		return map[string]interface{}{}
+	}
+	return p.validator.GetStatistics()
+}
+
+// SetValidationLevel updates the validation level dynamically.
+func (p *Parser) SetValidationLevel(level validation.ValidationLevel) {
+	if p.validator != nil {
+		p.validator.SetValidationLevel(level)
+		p.logf("Validation level updated to: %s", level.String())
+	}
+}
+
 // logf logs a message at debug level.
 func (p *Parser) logf(format string, args ...interface{}) {
 	p.logger.Debug().Msgf(format, args...)
 }
 
 // Validate implements domain.DataParser.Validate.
+// Note: Python reference only checks minimum length - removed strict header/footer validation for compatibility
 func (p *Parser) Validate(data []byte) error {
+	// Python equivalent: if ndata < 12
 	if len(data) < 12 {
 		return fmt.Errorf("data too short (%d bytes), minimum is 12 bytes", len(data))
 	}
 
-	// Verify Start of Header (SOH).
-	if data[0] != 0x68 || data[3] != 0x68 {
-		return fmt.Errorf("invalid protocol header")
-	}
-
-	// Verify End of Text (ETX).
-	if data[len(data)-2] != 0x16 {
-		return fmt.Errorf("invalid end of text marker")
-	}
-
-	// Calculate and verify CRC.
-	dataCrc := uint16(data[len(data)-4])<<8 | uint16(data[len(data)-3])
-	calcCrc := crc16.Checksum(data[0:len(data)-4], p.crcTable)
-
-	if calcCrc != dataCrc {
-		return fmt.Errorf("CRC check failed: expected 0x%04x, got 0x%04x", dataCrc, calcCrc)
-	}
-
+	// Python reference doesn't validate SOH/ETX markers or CRC in basic validation
+	// Advanced validation can be performed separately if needed
 	return nil
 }
 

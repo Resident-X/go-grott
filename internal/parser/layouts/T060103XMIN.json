@@ -1,4 +1,4 @@
-{ "T06NNNNXMIN": 
+{ "T060103XMIN": 
   { 
     "decrypt": { "value": "true" },
     "datalogserial": {"value" :16, "length" : 10, "type" : "text", "incl" : "yes"},

@@ -1,7 +1,6 @@
-{ "T06NNNNXMIN": 
-  { 
+{
+  "T060150X": {
     "decrypt": { "value": "true" },
-    "datalogserial": {"value" :16, "length" : 10, "type" : "text", "incl" : "yes"},
     "pvserial": { "value": 76, "length": 10, "type": "text", "divide": 10 },
     "date": { "value": 136, "divide": 10 },
     "group1start": { "value": 150, "length": 2, "type": "num", "incl": "no" },
@@ -25,11 +24,31 @@
     "pvgridvoltage": { "value": 262, "length": 2, "type": "num", "divide": 10 },
     "pvgridcurrent": { "value": 266, "length": 2, "type": "num", "divide": 10 },
     "pvgridpower": { "value": 270, "length": 4, "type": "num", "divide": 10 },
-    "pvgridvoltage2": { "value": 278, "length": 2, "type": "num", "divide": 10 },
-    "pvgridcurrent2": { "value": 282, "length": 2, "type": "num", "divide": 10 },
+    "pvgridvoltage2": {
+      "value": 278,
+      "length": 2,
+      "type": "num",
+      "divide": 10
+    },
+    "pvgridcurrent2": {
+      "value": 282,
+      "length": 2,
+      "type": "num",
+      "divide": 10
+    },
     "pvgridpower2": { "value": 286, "length": 4, "type": "num", "divide": 10 },
-    "pvgridvoltage3": { "value": 294, "length": 2, "type": "num", "divide": 10 },
-    "pvgridcurrent3": { "value": 298, "length": 2, "type": "num", "divide": 10 },
+    "pvgridvoltage3": {
+      "value": 294,
+      "length": 2,
+      "type": "num",
+      "divide": 10
+    },
+    "pvgridcurrent3": {
+      "value": 298,
+      "length": 2,
+      "type": "num",
+      "divide": 10
+    },
     "pvgridpower3": { "value": 302, "length": 4, "type": "num", "divide": 10 },
     "vacrs": { "value": 310, "length": 2, "type": "num", "divide": 10 },
     "vacst": { "value": 314, "length": 2, "type": "num", "divide": 10 },
@@ -60,7 +79,12 @@
     "dcit": { "value": 518, "length": 2, "type": "num", "divide": 10 },
     "gfci": { "value": 522, "length": 4, "type": "num", "divide": 1 },
     "pvtemperature": { "value": 530, "length": 2, "type": "num", "divide": 10 },
-    "pvipmtemperature": { "value": 534, "length": 2, "type": "num", "divide": 10 },
+    "pvipmtemperature": {
+      "value": 534,
+      "length": 2,
+      "type": "num",
+      "divide": 10
+    },
     "temp3": { "value": 538, "length": 2, "type": "num", "divide": 10 },
     "temp4": { "value": 542, "length": 2, "type": "num", "divide": 10 },
     "temp5": { "value": 546, "length": 2, "type": "num", "divide": 10 },
@@ -72,17 +96,67 @@
     "standbyflag": { "value": 574, "length": 2, "type": "num", "divide": 1 },
     "faultcode": { "value": 578, "length": 2, "type": "num", "divide": 1 },
     "warningcode": { "value": 582, "length": 2, "type": "num", "divide": 1 },
-    "systemfaultword0": { "value": 586, "length": 2, "type": "num", "divide": 1 },
-    "systemfaultword1": { "value": 590, "length": 2, "type": "num", "divide": 1 },
-    "systemfaultword2": { "value": 594, "length": 2, "type": "num", "divide": 1 },
-    "systemfaultword3": { "value": 598, "length": 2, "type": "num", "divide": 1 },
-    "systemfaultword4": { "value": 602, "length": 2, "type": "num", "divide": 1 },
-    "systemfaultword5": { "value": 606, "length": 2, "type": "num", "divide": 1 },
-    "systemfaultword6": { "value": 610, "length": 2, "type": "num", "divide": 1 },
-    "systemfaultword7": { "value": 614, "length": 2, "type": "num", "divide": 1 },
-    "invstartdelaytime": { "value": 618, "length": 2, "type": "num", "divide": 1 },
+    "systemfaultword0": {
+      "value": 586,
+      "length": 2,
+      "type": "num",
+      "divide": 1
+    },
+    "systemfaultword1": {
+      "value": 590,
+      "length": 2,
+      "type": "num",
+      "divide": 1
+    },
+    "systemfaultword2": {
+      "value": 594,
+      "length": 2,
+      "type": "num",
+      "divide": 1
+    },
+    "systemfaultword3": {
+      "value": 598,
+      "length": 2,
+      "type": "num",
+      "divide": 1
+    },
+    "systemfaultword4": {
+      "value": 602,
+      "length": 2,
+      "type": "num",
+      "divide": 1
+    },
+    "systemfaultword5": {
+      "value": 606,
+      "length": 2,
+      "type": "num",
+      "divide": 1
+    },
+    "systemfaultword6": {
+      "value": 610,
+      "length": 2,
+      "type": "num",
+      "divide": 1
+    },
+    "systemfaultword7": {
+      "value": 614,
+      "length": 2,
+      "type": "num",
+      "divide": 1
+    },
+    "invstartdelaytime": {
+      "value": 618,
+      "length": 2,
+      "type": "num",
+      "divide": 1
+    },
     "bdconoffstate": { "value": 630, "length": 2, "type": "num", "divide": 1 },
-    "drycontactstate": { "value": 634, "length": 2, "type": "num", "divide": 1 },
+    "drycontactstate": {
+      "value": 634,
+      "length": 2,
+      "type": "num",
+      "divide": 1
+    },
     "group2start": { "value": 658, "length": 2, "type": "num", "incl": "no" },
     "group2end": { "value": 662, "length": 2, "type": "num", "incl": "no" },
     "edischrtoday": { "value": 666, "length": 4, "type": "num", "divide": 10 },
@@ -106,7 +180,12 @@
     "loadpercent": { "value": 806, "length": 2, "type": "num", "divide": 10 },
     "pf": { "value": 810, "length": 2, "type": "num", "divide": 10 },
     "dcv": { "value": 814, "length": 2, "type": "num", "divide": 1 },
-    "bdc1_sysstatemode": { "value": 830, "length": 2, "type": "num", "divide": 1 },
+    "bdc1_sysstatemode": {
+      "value": 830,
+      "length": 2,
+      "type": "num",
+      "divide": 1
+    },
     "bdc1_faultcode": { "value": 834, "length": 2, "type": "num", "divide": 1 },
     "bdc1_warncode": { "value": 838, "length": 2, "type": "num", "divide": 1 },
     "bdc1_vbat": { "value": 842, "length": 2, "type": "num", "divide": 100 },
@@ -120,10 +199,25 @@
     "bdc1_tempb": { "value": 874, "length": 2, "type": "num", "divide": 10 },
     "bdc1_pdischr": { "value": 878, "length": 4, "type": "num", "divide": 10 },
     "bdc1_pchr": { "value": 886, "length": 4, "type": "num", "divide": 10 },
-    "bdc1_edischrtotal": { "value": 894, "length": 4, "type": "num", "divide": 10 },
-    "bdc1_echrtotal": { "value": 902, "length": 4, "type": "num", "divide": 10 },
+    "bdc1_edischrtotal": {
+      "value": 894,
+      "length": 4,
+      "type": "num",
+      "divide": 10
+    },
+    "bdc1_echrtotal": {
+      "value": 902,
+      "length": 4,
+      "type": "num",
+      "divide": 10
+    },
     "bdc1_flag": { "value": 914, "length": 2, "type": "num", "divide": 1 },
-    "bdc2_sysstatemode": { "value": 922, "length": 2, "type": "num", "divide": 1 },
+    "bdc2_sysstatemode": {
+      "value": 922,
+      "length": 2,
+      "type": "num",
+      "divide": 1
+    },
     "bdc2_faultcode": { "value": 926, "length": 2, "type": "num", "divide": 1 },
     "bdc2_warncode": { "value": 930, "length": 2, "type": "num", "divide": 1 },
     "bdc2_vbat": { "value": 934, "length": 2, "type": "num", "divide": 100 },
@@ -137,26 +231,66 @@
     "bdc2_tempb": { "value": 966, "length": 2, "type": "num", "divide": 10 },
     "bdc2_pdischr": { "value": 970, "length": 4, "type": "num", "divide": 10 },
     "bdc2_pchr": { "value": 978, "length": 4, "type": "num", "divide": 10 },
-    "bdc2_edischrtotal": { "value": 986, "length": 4, "type": "num", "divide": 10 },
-    "bdc2_echrtotal": { "value": 994, "length": 4, "type": "num", "divide": 10 },
+    "bdc2_edischrtotal": {
+      "value": 986,
+      "length": 4,
+      "type": "num",
+      "divide": 10
+    },
+    "bdc2_echrtotal": {
+      "value": 994,
+      "length": 4,
+      "type": "num",
+      "divide": 10
+    },
     "bdc2_flag": { "value": 1006, "length": 4, "type": "num", "divide": 1 },
     "bms_status": { "value": 1014, "length": 2, "type": "num", "divide": 1 },
     "bms_error": { "value": 1018, "length": 2, "type": "num", "divide": 1 },
     "bms_warninfo": { "value": 1022, "length": 2, "type": "num", "divide": 1 },
     "bms_soc": { "value": 1026, "length": 2, "type": "num", "divide": 1 },
-    "bms_batteryvolt": { "value": 1030, "length": 2, "type": "num", "divide": 100 },
-    "bms_batterycurr": { "value": 1034, "length": 2, "type": "num", "divide": 100 },
-    "bms_batterytemp": { "value": 1038, "length": 2, "type": "num", "divide": 10 },
+    "bms_batteryvolt": {
+      "value": 1030,
+      "length": 2,
+      "type": "num",
+      "divide": 100
+    },
+    "bms_batterycurr": {
+      "value": 1034,
+      "length": 2,
+      "type": "num",
+      "divide": 100
+    },
+    "bms_batterytemp": {
+      "value": 1038,
+      "length": 2,
+      "type": "num",
+      "divide": 10
+    },
     "bms_maxcurr": { "value": 1042, "length": 2, "type": "num", "divide": 100 },
-    "bms_deltavolt": { "value": 1046, "length": 2, "type": "num", "divide": 100 },
+    "bms_deltavolt": {
+      "value": 1046,
+      "length": 2,
+      "type": "num",
+      "divide": 100
+    },
     "bms_cyclecnt": { "value": 1050, "length": 2, "type": "num", "divide": 1 },
     "bms_soh": { "value": 1054, "length": 2, "type": "num", "divide": 1 },
-    "bms_constantvolt": { "value": 1058, "length": 2, "type": "num", "divide": 100 },
+    "bms_constantvolt": {
+      "value": 1058,
+      "length": 2,
+      "type": "num",
+      "divide": 100
+    },
     "bms_bms_info": { "value": 1062, "length": 2, "type": "num", "divide": 1 },
     "bms_packinfo": { "value": 1066, "length": 2, "type": "num", "divide": 1 },
     "bms_usingcap": { "value": 1070, "length": 2, "type": "num", "divide": 1 },
     "bms_fw": { "value": 1074, "length": 2, "type": "num", "divide": 1 },
-    "bms_mcuversion": { "value": 1078, "length": 2, "type": "num", "divide": 1 },
+    "bms_mcuversion": {
+      "value": 1078,
+      "length": 2,
+      "type": "num",
+      "divide": 1
+    },
     "bms_commtype": { "value": 1082, "length": 2, "type": "num", "divide": 1 }
   }
 }
