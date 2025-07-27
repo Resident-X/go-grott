@@ -1,9 +1,8 @@
 # go-grott: Growatt Inverter Monitor in Go
 
 [![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat&logo=go)](https://golang.org)
-[![Test Coverage](https://img.shields.io/badge/Coverage-84%25+-green)](./coverage)
 [![Build Status](https://img.shields.io/badge/Build-Passing-green)](https://github.com/resident-x/go-grott)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Unlicense-blue.svg)](LICENSE)
 
 A high-performance, clean architecture Go implementation of the Grott (Growatt Inverter Monitor) server that receives, processes, and distributes data from Growatt solar inverters.
 
@@ -11,10 +10,11 @@ A high-performance, clean architecture Go implementation of the Grott (Growatt I
 
 - 🚀 **High Performance**: TCP server optimized for handling multiple inverter connections
 - 🔍 **Layout-Driven Parsing**: JSON-based field extraction with no hardcoded parsing logic
-- 📡 **Multiple Integrations**: MQTT publishing and PVOutput.org support
+- 📡 **Multiple Integrations**: MQTT publishing, Home Assistant auto-discovery, and PVOutput.org support  
+- 🏠 **Home Assistant Ready**: Automatic MQTT discovery with proper device classes and energy dashboard integration
 - 🌐 **HTTP API**: REST endpoints for monitoring and management
 - 🏗️ **Clean Architecture**: Interface-driven design with comprehensive testing
-- 🔧 **Developer-Friendly**: 84%+ test coverage with mock generation and modern tooling
+- 🔧 **Developer-Friendly**: Modern tooling with automated testing
 - ⚡ **Fast Tests**: Optimized test timeouts for quick development feedback
 
 ## 🚀 Quick Start
@@ -41,11 +41,20 @@ task run
 
 ### Basic Configuration
 
+By default, go-grott looks for `config.yaml` in the current working directory. You can specify a different configuration file using the `-config` flag:
+
 ```bash
-# Edit the configuration file
-cp config.yaml config.yaml.local
-# Configure your settings in config.yaml.local
-task run-with-config CONFIG=./config.yaml.local
+# Use default config.yaml in current directory
+./go-grott
+
+# Or specify a custom configuration file
+./go-grott -config /path/to/your/config.yaml
+```
+
+**Layout Files**: JSON layout files for parsing Growatt data are embedded in the binary by default. If you need to modify them, they are located in `internal/parser/layouts/`. After making changes, rebuild the binary:
+
+```bash
+task build  # Rebuilds with updated layouts
 ```
 
 ## 📋 Configuration
@@ -74,7 +83,22 @@ mqtt:
   host: localhost
   port: 1883
   topic: energy/growatt
+  include_inverter_id: false  # Add inverter serial to topic path
   retain: false
+  publish_raw: true          # Publish raw JSON data (original behavior)
+  
+  # Home Assistant Auto-Discovery
+  homeassistant_autodiscovery:
+    enabled: false           # Enable MQTT auto-discovery for Home Assistant
+    discovery_prefix: homeassistant  # MQTT discovery prefix 
+    device_name: "Growatt Inverter"  # Device name in Home Assistant
+    device_manufacturer: "Growatt"   # Device manufacturer
+    device_model: ""         # Device model (auto-detected if empty)
+    retain_discovery: true   # Whether discovery messages should be retained
+    include_diagnostic: true # Include diagnostic sensors (fault codes, etc.)
+    include_battery: true    # Include battery-related sensors
+    include_grid: true       # Include grid-related sensors  
+    include_pv: true         # Include PV panel sensors
 
 # PVOutput.org Integration
 pvoutput:
@@ -83,6 +107,32 @@ pvoutput:
   system_id: "your-system-id"
   update_limit_minutes: 5
 ```
+
+#### Home Assistant Integration
+
+When `homeassistant_autodiscovery.enabled` is `true`, go-grott automatically publishes MQTT discovery messages that allow Home Assistant to automatically create sensors for your Growatt inverter data. This includes:
+
+- **PV Sensors**: Solar panel voltage, current, power, and energy production
+- **Grid Sensors**: Grid voltage, current, frequency, and power export/import  
+- **Battery Sensors**: Battery voltage, current, state of charge, and power flow (if available)
+- **Diagnostic Sensors**: Inverter temperature, fault codes, and system status
+
+The sensors automatically appear in Home Assistant with proper device classes, units of measurement, and state classes for energy dashboard integration.
+
+**Sensor Configuration:**
+
+Sensor definitions are stored in `internal/homeassistant/layouts/homeassistant_sensors.json`, which contains:
+- Sensor names and device classes for proper Home Assistant integration
+- Units of measurement and state classes for energy dashboard compatibility  
+- Icon assignments and category classifications
+- Easy customization without modifying Go code
+
+**Configuration Options:**
+
+- `publish_raw`: Enable/disable publishing of raw JSON data (can be disabled if only using Home Assistant)
+- `include_*`: Control which categories of sensors to create
+- `device_model`: Automatically detected from inverter type if not specified
+- `retain_discovery`: Keeps discovery messages on broker for reliable sensor creation
 
 ## 🔧 Development
 
@@ -116,15 +166,16 @@ go-grott/
 │   ├── config/        # Configuration management
 │   ├── domain/        # Domain models & interfaces
 │   ├── parser/        # Growatt protocol parsing
+│   │   └── layouts/   # JSON parsing layout files
 │   ├── protocol/      # Protocol command handling
 │   ├── pubsub/        # MQTT publishing
 │   ├── service/       # Business logic services
 │   ├── session/       # Connection session management
 │   └── validation/    # Data validation
-├── layouts/           # JSON parsing layouts
 ├── test/             # End-to-end tests
 ├── mocks/            # Generated test mocks
-└── coverage/         # Coverage reports
+├── config.yaml       # Default configuration
+└── Taskfile.yml      # Task runner configuration
 ```
 
 ## 🌐 HTTP API
@@ -155,7 +206,7 @@ All endpoints support multiple data formats via `?format=` parameter:
 ### Design Principles
 - **Clean Architecture**: Clear separation of concerns with dependency inversion
 - **Interface-Driven**: All components interact through well-defined interfaces
-- **Testability**: Comprehensive mocking and 84%+ test coverage
+- **Testability**: Comprehensive mocking and testing infrastructure
 - **Performance**: Optimized for high-throughput data processing
 - **Reliability**: Graceful error handling and recovery mechanisms
 
@@ -176,15 +227,6 @@ PVOutput.org ← PVOutput Client ← Formatted Data ← API Server
 ```
 
 ## 📊 Testing & Quality
-
-### Test Coverage by Package
-- **Overall**: 84%+ (excluding generated mocks)
-- **internal/api**: 98.2%
-- **internal/domain**: 100.0%  
-- **internal/pubsub**: 100.0%
-- **internal/service**: 92.6%
-- **internal/config**: 91.5%
-- **internal/parser**: 85.4%
 
 ### Testing Commands
 ```bash
@@ -217,17 +259,10 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is released into the public domain under the Unlicense - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
 - Original [Grott project](https://github.com/johanmeijer/grott) by Johan Meijer
 - Growatt inverter community for protocol documentation
 - Contributors and testers who helped improve this implementation
-
-## 📚 Additional Resources
-
-- [Growatt Protocol Documentation](./docs/protocol.md)
-- [Configuration Examples](./docs/configuration.md)  
-- [Deployment Guide](./docs/deployment.md)
-- [Troubleshooting Guide](./docs/troubleshooting.md)

@@ -450,6 +450,7 @@ func TestMQTTPublisher_PublishInverterData_Successful(t *testing.T) {
 	cfg.MQTT.Enabled = true
 	cfg.MQTT.Topic = "energy/growatt"
 	cfg.MQTT.IncludeInverterID = true
+	cfg.MQTT.PublishRaw = true // Explicitly enable raw data publishing
 
 	mockClient := mocks.NewMockClient(t)
 	mockToken := mocks.NewMockToken(t)

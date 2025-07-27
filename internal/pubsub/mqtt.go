@@ -10,6 +10,7 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/resident-x/go-grott/internal/config"
 	"github.com/resident-x/go-grott/internal/domain"
+	"github.com/resident-x/go-grott/internal/homeassistant"
 )
 
 // NoopPublisher is a no-operation implementation of the MessagePublisher interface.
@@ -41,23 +42,27 @@ type MQTTPublisher struct {
 	client        mqtt.Client
 	connected     bool
 	clientFactory func(*config.Config) mqtt.Client
+	haDiscovery   *homeassistant.AutoDiscovery
+	discoveredSensors map[string]bool // Track which sensors have been discovered
 }
 
 // NewMQTTPublisher creates a new MQTT publisher.
 func NewMQTTPublisher(cfg *config.Config) *MQTTPublisher {
 	return &MQTTPublisher{
-		config:        cfg,
-		connected:     false,
-		clientFactory: createMQTTClient,
+		config:            cfg,
+		connected:         false,
+		clientFactory:     createMQTTClient,
+		discoveredSensors: make(map[string]bool),
 	}
 }
 
 // NewMQTTPublisherWithClient creates a new MQTT publisher with a custom client (for testing).
 func NewMQTTPublisherWithClient(cfg *config.Config, client mqtt.Client) *MQTTPublisher {
 	return &MQTTPublisher{
-		config:    cfg,
-		client:    client,
-		connected: false,
+		config:            cfg,
+		client:            client,
+		connected:         false,
+		discoveredSensors: make(map[string]bool),
 	}
 }
 
@@ -144,10 +149,90 @@ func (p *MQTTPublisher) Publish(ctx context.Context, topic string, data interfac
 	return nil
 }
 
+// setupHomeAssistantDiscovery initializes Home Assistant auto-discovery if enabled.
+func (p *MQTTPublisher) setupHomeAssistantDiscovery(deviceID string) error {
+	if !p.config.MQTT.HomeAssistantAutoDiscovery.Enabled {
+		return nil
+	}
+
+	haConfig := homeassistant.Config{
+		Enabled:              p.config.MQTT.HomeAssistantAutoDiscovery.Enabled,
+		DiscoveryPrefix:      p.config.MQTT.HomeAssistantAutoDiscovery.DiscoveryPrefix,
+		DeviceName:           p.config.MQTT.HomeAssistantAutoDiscovery.DeviceName,
+		DeviceManufacturer:   p.config.MQTT.HomeAssistantAutoDiscovery.DeviceManufacturer,
+		DeviceModel:          p.config.MQTT.HomeAssistantAutoDiscovery.DeviceModel,
+		RetainDiscovery:      p.config.MQTT.HomeAssistantAutoDiscovery.RetainDiscovery,
+		IncludeDiagnostic:    p.config.MQTT.HomeAssistantAutoDiscovery.IncludeDiagnostic,
+		IncludeBattery:       p.config.MQTT.HomeAssistantAutoDiscovery.IncludeBattery,
+		IncludeGrid:          p.config.MQTT.HomeAssistantAutoDiscovery.IncludeGrid,
+		IncludePV:            p.config.MQTT.HomeAssistantAutoDiscovery.IncludePV,
+		ValueTemplateSuffix:  p.config.MQTT.HomeAssistantAutoDiscovery.ValueTemplateSuffix,
+	}
+
+	baseTopic := p.config.MQTT.Topic
+	if p.config.MQTT.IncludeInverterID && deviceID != "" {
+		baseTopic = fmt.Sprintf("%s/%s", baseTopic, deviceID)
+	}
+
+	var err error
+	p.haDiscovery, err = homeassistant.New(haConfig, baseTopic, deviceID)
+	return err
+}
+
+// publishHomeAssistantDiscovery publishes Home Assistant auto-discovery messages.
+func (p *MQTTPublisher) publishHomeAssistantDiscovery(ctx context.Context, data map[string]interface{}) error {
+	if p.haDiscovery == nil || !p.config.MQTT.HomeAssistantAutoDiscovery.Enabled {
+		return nil
+	}
+
+	// Generate discovery messages for all sensors
+	discoveryMessages := p.haDiscovery.GenerateDiscoveryMessages(data)
+
+	// Publish each discovery message
+	for topic, message := range discoveryMessages {
+		// Only publish if we haven't already discovered this sensor
+		if !p.discoveredSensors[topic] {
+			messageJSON, err := json.Marshal(message)
+			if err != nil {
+				return fmt.Errorf("failed to marshal discovery message: %w", err)
+			}
+
+			token := p.client.Publish(topic, 0, p.config.MQTT.HomeAssistantAutoDiscovery.RetainDiscovery, messageJSON)
+			if token.Wait() && token.Error() != nil {
+				return fmt.Errorf("failed to publish discovery message to %s: %w", topic, token.Error())
+			}
+
+			p.discoveredSensors[topic] = true
+		}
+	}
+
+	// Publish availability message
+	availTopic := p.haDiscovery.GetAvailabilityTopic()
+	availMessage := p.haDiscovery.CreateAvailabilityMessage(true)
+	token := p.client.Publish(availTopic, 0, p.config.MQTT.Retain, availMessage)
+	if token.Wait() && token.Error() != nil {
+		return fmt.Errorf("failed to publish availability message: %w", token.Error())
+	}
+
+	return nil
+}
+
 // PublishInverterData publishes inverter data to the configured MQTT topic.
 func (p *MQTTPublisher) PublishInverterData(ctx context.Context, data *domain.InverterData) error {
 	if !p.config.MQTT.Enabled || !p.connected {
 		return nil
+	}
+
+	// Setup Home Assistant auto-discovery if not already done
+	deviceID := data.PVSerial
+	if deviceID == "" {
+		deviceID = "unknown_inverter"
+	}
+	
+	if p.haDiscovery == nil && p.config.MQTT.HomeAssistantAutoDiscovery.Enabled {
+		if err := p.setupHomeAssistantDiscovery(deviceID); err != nil {
+			return fmt.Errorf("failed to setup Home Assistant discovery: %w", err)
+		}
 	}
 
 	// Determine topic based on configuration
@@ -158,7 +243,31 @@ func (p *MQTTPublisher) PublishInverterData(ctx context.Context, data *domain.In
 		baseTopic = fmt.Sprintf("%s/%s", baseTopic, data.PVSerial)
 	}
 
-	return p.Publish(ctx, baseTopic, data)
+	// Convert data to map for Home Assistant processing
+	dataMap := make(map[string]interface{})
+	dataJSON, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("failed to marshal data for processing: %w", err)
+	}
+	if err := json.Unmarshal(dataJSON, &dataMap); err != nil {
+		return fmt.Errorf("failed to unmarshal data for processing: %w", err)
+	}
+
+	// Publish Home Assistant auto-discovery messages if enabled
+	if p.config.MQTT.HomeAssistantAutoDiscovery.Enabled {
+		if err := p.publishHomeAssistantDiscovery(ctx, dataMap); err != nil {
+			return fmt.Errorf("failed to publish Home Assistant discovery: %w", err)
+		}
+	}
+
+	// Publish raw data if enabled
+	if p.config.MQTT.PublishRaw {
+		if err := p.Publish(ctx, baseTopic, data); err != nil {
+			return fmt.Errorf("failed to publish raw data: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // Close terminates the connection to the MQTT broker.
