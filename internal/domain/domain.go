@@ -8,6 +8,9 @@ import (
 
 // InverterData represents parsed data from an inverter.
 type InverterData struct {
+	// Device identifier (used for MQTT device field and Home Assistant auto-discovery)
+	Device string `json:"device,omitempty"`
+
 	// Standard inverter data fields
 	DataloggerSerial string    `json:"datalogserial,omitempty"`
 	PVSerial         string    `json:"pvserial,omitempty"`

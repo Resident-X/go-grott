@@ -15,51 +15,51 @@ var homeAssistantSensorsJSON []byte
 
 // Config holds the Home Assistant auto-discovery configuration.
 type Config struct {
-	Enabled              bool
-	DiscoveryPrefix      string
-	DeviceName           string
-	DeviceManufacturer   string
-	DeviceModel          string
-	RetainDiscovery      bool
-	IncludeDiagnostic    bool
-	IncludeBattery       bool
-	IncludeGrid          bool
-	IncludePV            bool
-	ValueTemplateSuffix  string
+	Enabled             bool
+	DiscoveryPrefix     string
+	DeviceName          string
+	DeviceManufacturer  string
+	DeviceModel         string
+	RetainDiscovery     bool
+	IncludeDiagnostic   bool
+	IncludeBattery      bool
+	IncludeGrid         bool
+	IncludePV           bool
+	ValueTemplateSuffix string
 }
 
 // SensorConfig represents a sensor configuration from the layouts JSON.
 type SensorConfig struct {
-	Name               string `json:"name"`
-	DeviceClass        string `json:"device_class,omitempty"`
-	UnitOfMeasurement  string `json:"unit_of_measurement,omitempty"`
-	StateClass         string `json:"state_class,omitempty"`
-	Category           string `json:"category"`
-	Icon               string `json:"icon,omitempty"`
+	Name              string `json:"name"`
+	DeviceClass       string `json:"device_class,omitempty"`
+	UnitOfMeasurement string `json:"unit_of_measurement,omitempty"`
+	StateClass        string `json:"state_class,omitempty"`
+	Category          string `json:"category"`
+	Icon              string `json:"icon,omitempty"`
 }
 
 // LayoutConfig represents the full layout configuration for Home Assistant sensors.
 type LayoutConfig struct {
-	Version     string                   `json:"version"`
-	Description string                   `json:"description"`
-	Sensors     map[string]SensorConfig  `json:"sensors"`
+	Version     string                  `json:"version"`
+	Description string                  `json:"description"`
+	Sensors     map[string]SensorConfig `json:"sensors"`
 }
 
 // DiscoveryMessage represents a Home Assistant MQTT discovery message.
 type DiscoveryMessage struct {
-	Name                string            `json:"name"`
-	UniqueID            string            `json:"unique_id"`
-	StateTopic          string            `json:"state_topic"`
-	ValueTemplate       string            `json:"value_template"`
-	DeviceClass         string            `json:"device_class,omitempty"`
-	UnitOfMeasurement   string            `json:"unit_of_measurement,omitempty"`
-	StateClass          string            `json:"state_class,omitempty"`
-	Icon                string            `json:"icon,omitempty"`
-	EntityCategory      string            `json:"entity_category,omitempty"`
-	Device              DeviceInfo        `json:"device"`
-	AvailabilityTopic   string            `json:"availability_topic,omitempty"`
-	PayloadAvailable    string            `json:"payload_available,omitempty"`
-	PayloadNotAvailable string            `json:"payload_not_available,omitempty"`
+	Name                string     `json:"name"`
+	UniqueID            string     `json:"unique_id"`
+	StateTopic          string     `json:"state_topic"`
+	ValueTemplate       string     `json:"value_template"`
+	DeviceClass         string     `json:"device_class,omitempty"`
+	UnitOfMeasurement   string     `json:"unit_of_measurement,omitempty"`
+	StateClass          string     `json:"state_class,omitempty"`
+	Icon                string     `json:"icon,omitempty"`
+	EntityCategory      string     `json:"entity_category,omitempty"`
+	Device              DeviceInfo `json:"device"`
+	AvailabilityTopic   string     `json:"availability_topic,omitempty"`
+	PayloadAvailable    string     `json:"payload_available,omitempty"`
+	PayloadNotAvailable string     `json:"payload_not_available,omitempty"`
 }
 
 // DeviceInfo represents device information for Home Assistant.
@@ -163,10 +163,10 @@ func (ad *AutoDiscovery) shouldIncludeCategory(category string) bool {
 func (ad *AutoDiscovery) createDiscoveryMessage(fieldName string, sensorConfig SensorConfig, value interface{}, pvSerial string) *DiscoveryMessage {
 	// Create unique ID
 	uniqueID := fmt.Sprintf("%s_%s", ad.deviceID, fieldName)
-	
+
 	// Create state topic
 	stateTopic := ad.baseTopic
-	
+
 	// Create value template
 	valueTemplate := fmt.Sprintf("{{ value_json.%s%s }}", fieldName, ad.config.ValueTemplateSuffix)
 
@@ -208,7 +208,7 @@ func (ad *AutoDiscovery) getDiscoveryTopic(fieldName string) string {
 	nodeID := strings.ReplaceAll(ad.deviceID, " ", "_")
 	nodeID = strings.ToLower(nodeID)
 	objectID := fmt.Sprintf("%s_%s", nodeID, fieldName)
-	
+
 	return fmt.Sprintf("%s/sensor/%s/%s/config", ad.config.DiscoveryPrefix, nodeID, objectID)
 }
 
@@ -217,7 +217,7 @@ func (ad *AutoDiscovery) getDeviceModel() string {
 	if ad.config.DeviceModel != "" {
 		return ad.config.DeviceModel
 	}
-	
+
 	return "Growatt Inverter" // Default fallback
 }
 
@@ -226,17 +226,17 @@ func (ad *AutoDiscovery) getDeviceModelFromSerial(pvSerial string) string {
 	if ad.config.DeviceModel != "" {
 		return ad.config.DeviceModel
 	}
-	
+
 	if pvSerial == "" {
 		return ad.getDeviceModel()
 	}
-	
+
 	serial := strings.ToUpper(pvSerial)
-	
+
 	// Growatt inverter model detection from serial number patterns
 	// Serial format is typically: [MODEL][POWER][VERSION][YEAR][SERIAL]
 	// Examples: MIC600TLX230001, SPH5000TL3BH230001, MIN3600TLXE230001
-	
+
 	if strings.HasPrefix(serial, "MIC") {
 		if strings.Contains(serial, "1000TL") {
 			return "MIC 1000TL-X"
@@ -299,7 +299,7 @@ func (ad *AutoDiscovery) getDeviceModelFromSerial(pvSerial string) string {
 	} else if strings.HasPrefix(serial, "MOD") {
 		return "MOD Series"
 	}
-	
+
 	// If no specific pattern matches, return a generic model
 	return "Growatt Inverter"
 }
@@ -320,11 +320,11 @@ func (ad *AutoDiscovery) CreateAvailabilityMessage(online bool) string {
 // CleanupDiscoveryMessages generates cleanup (empty) messages to remove sensors from Home Assistant.
 func (ad *AutoDiscovery) CleanupDiscoveryMessages(fieldNames []string) map[string]string {
 	messages := make(map[string]string)
-	
+
 	for _, fieldName := range fieldNames {
 		topic := ad.getDiscoveryTopic(fieldName)
 		messages[topic] = "" // Empty payload removes the entity
 	}
-	
+
 	return messages
 }

@@ -33,29 +33,29 @@ type Config struct {
 
 	// MQTT settings
 	MQTT struct {
-		Enabled            bool   `mapstructure:"enabled"`
-		Host               string `mapstructure:"host"`
-		Port               int    `mapstructure:"port"`
-		Username           string `mapstructure:"username"`
-		Password           string `mapstructure:"password"`
-		Topic              string `mapstructure:"topic"`
-		IncludeInverterID  bool   `mapstructure:"include_inverter_id"`
-		Retain             bool   `mapstructure:"retain"`
-		PublishRaw         bool   `mapstructure:"publish_raw"`
-		
+		Enabled           bool   `mapstructure:"enabled"`
+		Host              string `mapstructure:"host"`
+		Port              int    `mapstructure:"port"`
+		Username          string `mapstructure:"username"`
+		Password          string `mapstructure:"password"`
+		Topic             string `mapstructure:"topic"`
+		IncludeInverterID bool   `mapstructure:"include_inverter_id"`
+		Retain            bool   `mapstructure:"retain"`
+		PublishRaw        bool   `mapstructure:"publish_raw"`
+
 		// Home Assistant Auto-Discovery settings
 		HomeAssistantAutoDiscovery struct {
-			Enabled              bool   `mapstructure:"enabled"`
-			DiscoveryPrefix      string `mapstructure:"discovery_prefix"`
-			DeviceName           string `mapstructure:"device_name"`
-			DeviceManufacturer   string `mapstructure:"device_manufacturer"`
-			DeviceModel          string `mapstructure:"device_model"`
-			RetainDiscovery      bool   `mapstructure:"retain_discovery"`
-			IncludeDiagnostic    bool   `mapstructure:"include_diagnostic"`
-			IncludeBattery       bool   `mapstructure:"include_battery"`
-			IncludeGrid          bool   `mapstructure:"include_grid"`
-			IncludePV            bool   `mapstructure:"include_pv"`
-			ValueTemplateSuffix  string `mapstructure:"value_template_suffix"`
+			Enabled             bool   `mapstructure:"enabled"`
+			DiscoveryPrefix     string `mapstructure:"discovery_prefix"`
+			DeviceName          string `mapstructure:"device_name"`
+			DeviceManufacturer  string `mapstructure:"device_manufacturer"`
+			DeviceModel         string `mapstructure:"device_model"`
+			RetainDiscovery     bool   `mapstructure:"retain_discovery"`
+			IncludeDiagnostic   bool   `mapstructure:"include_diagnostic"`
+			IncludeBattery      bool   `mapstructure:"include_battery"`
+			IncludeGrid         bool   `mapstructure:"include_grid"`
+			IncludePV           bool   `mapstructure:"include_pv"`
+			ValueTemplateSuffix string `mapstructure:"value_template_suffix"`
 		} `mapstructure:"homeassistant_autodiscovery"`
 	} `mapstructure:"mqtt"`
 
@@ -108,7 +108,7 @@ func DefaultConfig() *Config {
 	cfg.MQTT.IncludeInverterID = false
 	cfg.MQTT.Retain = false
 	cfg.MQTT.PublishRaw = true
-	
+
 	// Default Home Assistant Auto-Discovery settings
 	cfg.MQTT.HomeAssistantAutoDiscovery.Enabled = false
 	cfg.MQTT.HomeAssistantAutoDiscovery.DiscoveryPrefix = "homeassistant"

@@ -561,7 +561,7 @@ func TestDataCollectionServer_HandleConnection_Success(t *testing.T) {
 
 	// Setup parser and publisher expectations
 	mockParser.EXPECT().Parse(mock.Anything, testData).Return(inverterData, nil)
-	mockPublisher.EXPECT().Publish(mock.Anything, "test/topic/INV001", inverterData).Return(nil)
+	mockPublisher.EXPECT().Publish(mock.Anything, "", inverterData).Return(nil)
 	mockMonitoring.EXPECT().Send(mock.Anything, inverterData).Return(nil)
 
 	ctx := context.Background()

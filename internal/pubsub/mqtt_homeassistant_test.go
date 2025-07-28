@@ -65,9 +65,9 @@ func TestMQTTPublisher_HomeAssistantAutoDiscovery(t *testing.T) {
 		PVEnergyTotal: 1250.8,
 	}
 
-	err := publisher.PublishInverterData(ctx, testData)
+	err := publisher.Publish(ctx, "", testData)
 	assert.NoError(t, err)
-	
+
 	// Verify that the Home Assistant discovery was set up
 	assert.NotNil(t, publisher.haDiscovery)
 }
@@ -104,9 +104,9 @@ func TestMQTTPublisher_HomeAssistantAutoDiscovery_Disabled(t *testing.T) {
 		PVPowerOut:       950.0,
 	}
 
-	err := publisher.PublishInverterData(ctx, testData)
+	err := publisher.Publish(ctx, "", testData)
 	assert.NoError(t, err)
-	
+
 	// Verify that Home Assistant discovery was not set up
 	assert.Nil(t, publisher.haDiscovery)
 }
@@ -149,9 +149,9 @@ func TestMQTTPublisher_RawDataDisabled_DiscoveryEnabled(t *testing.T) {
 		PVPowerOut:       950.0,
 	}
 
-	err := publisher.PublishInverterData(ctx, testData)
+	err := publisher.Publish(ctx, "", testData)
 	assert.NoError(t, err)
-	
+
 	// Verify that Home Assistant discovery was set up
 	assert.NotNil(t, publisher.haDiscovery)
 }

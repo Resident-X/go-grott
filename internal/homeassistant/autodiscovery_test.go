@@ -6,17 +6,17 @@ import (
 
 func TestNew(t *testing.T) {
 	config := Config{
-		Enabled:              true,
-		DiscoveryPrefix:      "homeassistant",
-		DeviceName:           "Test Inverter",
-		DeviceManufacturer:   "Growatt",
-		DeviceModel:          "MIC 600TL-X",
-		RetainDiscovery:      true,
-		IncludeDiagnostic:    true,
-		IncludeBattery:       true,
-		IncludeGrid:          true,
-		IncludePV:            true,
-		ValueTemplateSuffix:  "",
+		Enabled:             true,
+		DiscoveryPrefix:     "homeassistant",
+		DeviceName:          "Test Inverter",
+		DeviceManufacturer:  "Growatt",
+		DeviceModel:         "MIC 600TL-X",
+		RetainDiscovery:     true,
+		IncludeDiagnostic:   true,
+		IncludeBattery:      true,
+		IncludeGrid:         true,
+		IncludePV:           true,
+		ValueTemplateSuffix: "",
 	}
 
 	baseTopic := "energy/growatt"
@@ -76,17 +76,17 @@ func TestShouldIncludeCategory(t *testing.T) {
 
 func TestGenerateDiscoveryMessages(t *testing.T) {
 	config := Config{
-		Enabled:              true,
-		DiscoveryPrefix:      "homeassistant",
-		DeviceName:           "Test Inverter",
-		DeviceManufacturer:   "Growatt",
-		DeviceModel:          "MIC 600TL-X",
-		RetainDiscovery:      true,
-		IncludeDiagnostic:    true,
-		IncludeBattery:       true,
-		IncludeGrid:          true,
-		IncludePV:            true,
-		ValueTemplateSuffix:  "",
+		Enabled:             true,
+		DiscoveryPrefix:     "homeassistant",
+		DeviceName:          "Test Inverter",
+		DeviceManufacturer:  "Growatt",
+		DeviceModel:         "MIC 600TL-X",
+		RetainDiscovery:     true,
+		IncludeDiagnostic:   true,
+		IncludeBattery:      true,
+		IncludeGrid:         true,
+		IncludePV:           true,
+		ValueTemplateSuffix: "",
 	}
 
 	ad, err := New(config, "energy/growatt", "ABC123456")
@@ -95,11 +95,11 @@ func TestGenerateDiscoveryMessages(t *testing.T) {
 	}
 
 	data := map[string]interface{}{
-		"pvpowerin":      1500.0,
-		"pvpowerout":     1450.0,
-		"pvtemperature":  35.5,
-		"pv1voltage":     240.5,
-		"unknown_field":  123.0, // This should be ignored
+		"pvpowerin":     1500.0,
+		"pvpowerout":    1450.0,
+		"pvtemperature": 35.5,
+		"pv1voltage":    240.5,
+		"unknown_field": 123.0, // This should be ignored
 	}
 
 	messages := ad.GenerateDiscoveryMessages(data)
@@ -153,8 +153,8 @@ func TestCreateDiscoveryMessage(t *testing.T) {
 	}
 
 	ad := &AutoDiscovery{
-		config:   config,
-		deviceID: "ABC123456",
+		config:    config,
+		deviceID:  "ABC123456",
 		baseTopic: "energy/growatt",
 	}
 
@@ -310,7 +310,7 @@ func TestGetDeviceModelFromSerial(t *testing.T) {
 		DeviceName:         "Test Inverter",
 		DeviceManufacturer: "Growatt",
 	}
-	
+
 	ad := &AutoDiscovery{
 		config: config,
 	}
@@ -413,7 +413,7 @@ func TestGetDeviceModelFromSerialWithConfiguredModel(t *testing.T) {
 		DeviceManufacturer: "Growatt",
 		DeviceModel:        "Custom Model",
 	}
-	
+
 	ad := &AutoDiscovery{
 		config: config,
 	}
@@ -421,7 +421,7 @@ func TestGetDeviceModelFromSerialWithConfiguredModel(t *testing.T) {
 	// When device model is configured, it should always return the configured model
 	result := ad.getDeviceModelFromSerial("MIC600TL230001")
 	expected := "Custom Model"
-	
+
 	if result != expected {
 		t.Errorf("getDeviceModelFromSerial with configured model = %q, want %q", result, expected)
 	}

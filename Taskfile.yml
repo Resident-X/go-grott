@@ -52,14 +52,14 @@ tasks:
     silent: false
 
   run-with-config:
-    desc: Run with custom config
+    desc: "Run with custom config (usage: task run-with-config -- ./path/to/config.yaml)"
     deps: [ build ]
     cmds:
       - "{{.BUILD_DIR}}/{{.BINARY_NAME}} -config {{.CONFIG}}"
     silent: false
     vars:
       CONFIG:
-        sh: echo "${CONFIG:-./config.yaml}"
+        sh: echo "${CLI_ARGS:-./config.yaml}"
 
   # Testing tasks
   test:
@@ -169,6 +169,55 @@ tasks:
     cmds:
       - go test -bench=. -benchmem ./...
     silent: false
+
+  # Test inverter simulator tasks
+  test-inverter-build:
+    desc: Build the test inverter simulator
+    cmds:
+      - go build -o test-inverter ./cmd/test-inverter
+    sources:
+      - "cmd/test-inverter/**/*.go"
+    generates:
+      - test-inverter
+    silent: false
+
+  test-inverter:
+    desc: Run test inverter simulator (default settings)
+    deps: [ test-inverter-build ]
+    cmds:
+      - ./test-inverter
+    silent: false
+
+  test-inverter-verbose:
+    desc: Run test inverter with verbose logging
+    deps: [ test-inverter-build ]
+    cmds:
+      - ./test-inverter -verbose
+    silent: false
+
+  test-inverter-fast:
+    desc: Run test inverter with 5 second intervals
+    deps: [ test-inverter-build ]
+    cmds:
+      - ./test-inverter -interval 5s -verbose
+    silent: false
+
+  test-inverter-sph:
+    desc: Run test inverter simulating SPH series inverter
+    deps: [ test-inverter-build ]
+    cmds:
+      - ./test-inverter -serial SPH5000TL3230001 -verbose
+    silent: false
+
+  test-inverter-custom-port:
+    desc: "Run test inverter with custom server port (usage: task test-inverter-custom-port -- 5379)"
+    deps: [ test-inverter-build ]
+    cmds:
+      - ./test-inverter -server localhost:{{.PORT}} -verbose
+    silent: false
+    vars:
+      PORT:
+        sh: echo "${CLI_ARGS:-5279}"
 
   # Code quality tasks
   fmt:

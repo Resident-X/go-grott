@@ -136,6 +136,33 @@ Sensor definitions are stored in `internal/homeassistant/layouts/homeassistant_s
 
 ## 🔧 Development
 
+### Testing with Simulated Data
+
+The project includes a test inverter simulator that sends realistic Growatt protocol data for testing:
+
+```bash
+# Build the test inverter
+go build -o test-inverter ./cmd/test-inverter
+
+# Run with default settings (sends data every 10 seconds)
+./test-inverter
+
+# Run with custom settings
+./test-inverter -server localhost:5279 -interval 30s -verbose
+
+# Test with different inverter models
+./test-inverter -serial SPH5000TL3230001 -verbose
+./test-inverter -serial MIN3600TLXE230001 -interval 5s
+```
+
+The test inverter:
+- Uses real Growatt protocol data from e2e tests
+- Varies sensor readings to simulate realistic changes
+- Supports different inverter serial patterns for device model testing
+- Perfect for testing Home Assistant auto-discovery integration
+
+### Running Tests
+
 ### Quick Commands
 
 ```bash
