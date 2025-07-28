@@ -40,6 +40,12 @@ mqtt:
     device_manufacturer: "Growatt" # Device manufacturer
     device_model: "" # Device model (auto-detected from inverter_type if empty)
     retain_discovery: true # Whether discovery messages should be retained
+    
+    # Enhanced Reliability Features
+    listen_to_birth_message: true # Listen for Home Assistant restart notifications for immediate re-discovery
+    rediscovery_interval: "1h" # Periodic rediscovery interval (e.g., "1h", "30m", "24h", "0" to disable)
+    
+    # Sensor Categories
     include_diagnostic: true # Include diagnostic sensors (fault codes, system info, etc.)
     include_battery: true # Include battery-related sensors if available
     include_grid: true # Include grid-related sensors
