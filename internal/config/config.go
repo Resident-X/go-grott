@@ -56,6 +56,8 @@ type Config struct {
 			IncludeGrid         bool   `mapstructure:"include_grid"`
 			IncludePV           bool   `mapstructure:"include_pv"`
 			ValueTemplateSuffix string `mapstructure:"value_template_suffix"`
+			ListenToBirthMessage bool  `mapstructure:"listen_to_birth_message"`
+			RediscoveryInterval int   `mapstructure:"rediscovery_interval_hours"`
 		} `mapstructure:"homeassistant_autodiscovery"`
 	} `mapstructure:"mqtt"`
 
@@ -121,6 +123,8 @@ func DefaultConfig() *Config {
 	cfg.MQTT.HomeAssistantAutoDiscovery.IncludeGrid = true
 	cfg.MQTT.HomeAssistantAutoDiscovery.IncludePV = true
 	cfg.MQTT.HomeAssistantAutoDiscovery.ValueTemplateSuffix = ""
+	cfg.MQTT.HomeAssistantAutoDiscovery.ListenToBirthMessage = true
+	cfg.MQTT.HomeAssistantAutoDiscovery.RediscoveryInterval = 24 // 24 hours
 
 	// Default PVOutput settings
 	cfg.PVOutput.Enabled = false

@@ -43,10 +43,12 @@ type MQTTPublisher struct {
 	config            *config.Config
 	client            mqtt.Client
 	connected         bool
-	clientFactory     func(*config.Config) mqtt.Client
+	logger            zerolog.Logger
+	clientFactory     func(*config.Config) mqtt.Client // Factory function for creating MQTT clients (testable)
 	haDiscovery       *homeassistant.AutoDiscovery
 	discoveredSensors map[string]bool // Track which sensors have been discovered
-	logger            zerolog.Logger
+	lastDiscoveryTime time.Time       // Track when we last sent discovery messages
+	birthSubscribed   bool            // Track if we've subscribed to birth messages
 }
 
 // NewMQTTPublisher creates a new MQTT publisher.
@@ -56,6 +58,9 @@ func NewMQTTPublisher(cfg *config.Config) *MQTTPublisher {
 		config:            cfg,
 		clientFactory:     createMQTTClient,
 		discoveredSensors: make(map[string]bool),
+		lastDiscoveryTime: time.Time{},
+		birthSubscribed:   false,
+		connected:         false,
 		logger:            logger,
 	}
 }
@@ -68,6 +73,8 @@ func NewMQTTPublisherWithClient(cfg *config.Config, client mqtt.Client) *MQTTPub
 		client:            client,
 		connected:         false,
 		discoveredSensors: make(map[string]bool),
+		lastDiscoveryTime: time.Time{},
+		birthSubscribed:   false,
 		logger:            logger,
 	}
 }
@@ -104,6 +111,9 @@ func (p *MQTTPublisher) Connect(ctx context.Context) error {
 		p.client = p.clientFactory(p.config)
 	}
 
+	// Set up connection handlers
+	p.setupConnectionHandlers()
+
 	// Connect with context for timeout
 	connectCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -121,7 +131,110 @@ func (p *MQTTPublisher) Connect(ctx context.Context) error {
 	}
 
 	p.connected = true
+
+	// Subscribe to birth message if enabled
+	if p.config.MQTT.HomeAssistantAutoDiscovery.Enabled && p.config.MQTT.HomeAssistantAutoDiscovery.ListenToBirthMessage {
+		p.subscribeToBirthMessage()
+	}
+
 	return nil
+}
+
+// setupConnectionHandlers sets up MQTT connection event handlers.
+func (p *MQTTPublisher) setupConnectionHandlers() {
+	// Skip setup if we already have a client (e.g., in tests with mocks)
+	if p.client != nil {
+		return
+	}
+
+	// Connection established handler - called when connection is made/remade
+	onConnect := func(client mqtt.Client) {
+		p.logger.Info().Msg("MQTT connection established")
+		p.connected = true
+		
+		// Clear discovered sensors on reconnect to trigger re-discovery
+		p.discoveredSensors = make(map[string]bool)
+		p.lastDiscoveryTime = time.Time{}
+		
+		p.logger.Debug().Msg("Cleared discovery cache on reconnection")
+	}
+
+	// Connection lost handler - called when connection is lost
+	onConnectionLost := func(client mqtt.Client, err error) {
+		p.connected = false
+		p.birthSubscribed = false
+		p.logger.Warn().Err(err).Msg("MQTT connection lost")
+	}
+
+	// Set the handlers on the client options
+	// We need to recreate the client with handlers since we can't modify existing options
+	newOpts := mqtt.NewClientOptions().
+		AddBroker(fmt.Sprintf("tcp://%s:%d", p.config.MQTT.Host, p.config.MQTT.Port)).
+		SetClientID(fmt.Sprintf("go-grott-%d", time.Now().Unix())).
+		SetAutoReconnect(true).
+		SetConnectTimeout(10 * time.Second).
+		SetWriteTimeout(5 * time.Second).
+		SetKeepAlive(30 * time.Second).
+		SetCleanSession(false).
+		SetOnConnectHandler(onConnect).
+		SetConnectionLostHandler(onConnectionLost)
+
+	// Set credentials if provided
+	if p.config.MQTT.Username != "" {
+		newOpts.SetUsername(p.config.MQTT.Username)
+		newOpts.SetPassword(p.config.MQTT.Password)
+	}
+
+	p.client = mqtt.NewClient(newOpts)
+}
+
+// subscribeToBirthMessage subscribes to Home Assistant birth messages.
+func (p *MQTTPublisher) subscribeToBirthMessage() {
+	if p.birthSubscribed || !p.connected {
+		return
+	}
+
+	birthTopic := fmt.Sprintf("%s/status", p.config.MQTT.HomeAssistantAutoDiscovery.DiscoveryPrefix)
+	
+	token := p.client.Subscribe(birthTopic, 0, p.handleBirthMessage)
+	if token.Wait() && token.Error() != nil {
+		p.logger.Warn().Err(token.Error()).Str("topic", birthTopic).Msg("Failed to subscribe to birth message")
+		return
+	}
+
+	p.birthSubscribed = true
+	p.logger.Info().Str("topic", birthTopic).Msg("Subscribed to Home Assistant birth messages")
+}
+
+// handleBirthMessage handles Home Assistant birth messages.
+func (p *MQTTPublisher) handleBirthMessage(client mqtt.Client, msg mqtt.Message) {
+	payload := string(msg.Payload())
+	
+	p.logger.Debug().
+		Str("topic", msg.Topic()).
+		Str("payload", payload).
+		Msg("Received Home Assistant birth message")
+
+	// If Home Assistant comes online, clear discovery cache to trigger re-discovery
+	if payload == "online" {
+		p.logger.Info().Msg("Home Assistant came online, triggering auto-discovery refresh")
+		p.discoveredSensors = make(map[string]bool)
+		p.lastDiscoveryTime = time.Time{}
+	}
+}
+
+// shouldRediscover checks if we should perform periodic rediscovery.
+func (p *MQTTPublisher) shouldRediscover() bool {
+	if p.config.MQTT.HomeAssistantAutoDiscovery.RediscoveryInterval <= 0 {
+		return false
+	}
+
+	if p.lastDiscoveryTime.IsZero() {
+		return true
+	}
+
+	interval := time.Duration(p.config.MQTT.HomeAssistantAutoDiscovery.RediscoveryInterval) * time.Hour
+	return time.Since(p.lastDiscoveryTime) >= interval
 }
 
 // Publish sends data to the specified topic.
@@ -269,13 +382,16 @@ func (p *MQTTPublisher) publishHomeAssistantDiscovery(ctx context.Context, data 
 		return nil
 	}
 
+	// Check if we should rediscover sensors (periodic or after reconnection)
+	shouldRediscover := p.shouldRediscover()
+	
 	// Generate discovery messages for all sensors
 	discoveryMessages := p.haDiscovery.GenerateDiscoveryMessages(data)
 
 	// Publish each discovery message
 	for topic, message := range discoveryMessages {
-		// Only publish if we haven't already discovered this sensor
-		if !p.discoveredSensors[topic] {
+		// Publish if we haven't discovered this sensor or if rediscovery is needed
+		if !p.discoveredSensors[topic] || shouldRediscover {
 			messageJSON, err := json.Marshal(message)
 			if err != nil {
 				return fmt.Errorf("failed to marshal discovery message: %w", err)
@@ -288,6 +404,11 @@ func (p *MQTTPublisher) publishHomeAssistantDiscovery(ctx context.Context, data 
 
 			p.discoveredSensors[topic] = true
 		}
+	}
+	
+	// Update last discovery time if we performed rediscovery
+	if shouldRediscover {
+		p.lastDiscoveryTime = time.Now()
 	}
 
 	// Publish availability message
