@@ -33,16 +33,32 @@ type Config struct {
 
 	// MQTT settings
 	MQTT struct {
-		Enabled            bool   `mapstructure:"enabled"`
-		Host               string `mapstructure:"host"`
-		Port               int    `mapstructure:"port"`
-		Username           string `mapstructure:"username"`
-		Password           string `mapstructure:"password"`
-		Topic              string `mapstructure:"topic"`
-		SmartMeterTopic    string `mapstructure:"smart_meter_topic"`
-		UseSmartMeterTopic bool   `mapstructure:"use_smart_meter_topic"`
-		IncludeInverterID  bool   `mapstructure:"include_inverter_id"`
-		Retain             bool   `mapstructure:"retain"`
+		Enabled           bool   `mapstructure:"enabled"`
+		Host              string `mapstructure:"host"`
+		Port              int    `mapstructure:"port"`
+		Username          string `mapstructure:"username"`
+		Password          string `mapstructure:"password"`
+		Topic             string `mapstructure:"topic"`
+		IncludeInverterID bool   `mapstructure:"include_inverter_id"`
+		Retain            bool   `mapstructure:"retain"`
+		PublishRaw        bool   `mapstructure:"publish_raw"`
+
+		// Home Assistant Auto-Discovery settings
+		HomeAssistantAutoDiscovery struct {
+			Enabled             bool   `mapstructure:"enabled"`
+			DiscoveryPrefix     string `mapstructure:"discovery_prefix"`
+			DeviceName          string `mapstructure:"device_name"`
+			DeviceManufacturer  string `mapstructure:"device_manufacturer"`
+			DeviceModel         string `mapstructure:"device_model"`
+			RetainDiscovery     bool   `mapstructure:"retain_discovery"`
+			IncludeDiagnostic   bool   `mapstructure:"include_diagnostic"`
+			IncludeBattery      bool   `mapstructure:"include_battery"`
+			IncludeGrid         bool   `mapstructure:"include_grid"`
+			IncludePV           bool   `mapstructure:"include_pv"`
+			ValueTemplateSuffix string `mapstructure:"value_template_suffix"`
+			ListenToBirthMessage bool  `mapstructure:"listen_to_birth_message"`
+			RediscoveryInterval int   `mapstructure:"rediscovery_interval_hours"`
+		} `mapstructure:"homeassistant_autodiscovery"`
 	} `mapstructure:"mqtt"`
 
 	// PVOutput settings
@@ -91,10 +107,24 @@ func DefaultConfig() *Config {
 	cfg.MQTT.Host = "localhost"
 	cfg.MQTT.Port = 1883
 	cfg.MQTT.Topic = "energy/growatt"
-	cfg.MQTT.SmartMeterTopic = "energy/meter"
-	cfg.MQTT.UseSmartMeterTopic = true
 	cfg.MQTT.IncludeInverterID = false
 	cfg.MQTT.Retain = false
+	cfg.MQTT.PublishRaw = true
+
+	// Default Home Assistant Auto-Discovery settings
+	cfg.MQTT.HomeAssistantAutoDiscovery.Enabled = false
+	cfg.MQTT.HomeAssistantAutoDiscovery.DiscoveryPrefix = "homeassistant"
+	cfg.MQTT.HomeAssistantAutoDiscovery.DeviceName = "Growatt Inverter"
+	cfg.MQTT.HomeAssistantAutoDiscovery.DeviceManufacturer = "Growatt"
+	cfg.MQTT.HomeAssistantAutoDiscovery.DeviceModel = ""
+	cfg.MQTT.HomeAssistantAutoDiscovery.RetainDiscovery = true
+	cfg.MQTT.HomeAssistantAutoDiscovery.IncludeDiagnostic = true
+	cfg.MQTT.HomeAssistantAutoDiscovery.IncludeBattery = true
+	cfg.MQTT.HomeAssistantAutoDiscovery.IncludeGrid = true
+	cfg.MQTT.HomeAssistantAutoDiscovery.IncludePV = true
+	cfg.MQTT.HomeAssistantAutoDiscovery.ValueTemplateSuffix = ""
+	cfg.MQTT.HomeAssistantAutoDiscovery.ListenToBirthMessage = true
+	cfg.MQTT.HomeAssistantAutoDiscovery.RediscoveryInterval = 24 // 24 hours
 
 	// Default PVOutput settings
 	cfg.PVOutput.Enabled = false
@@ -181,8 +211,9 @@ func (c *Config) Print() {
 			Str("host", c.MQTT.Host).
 			Int("port", c.MQTT.Port).
 			Str("topic", c.MQTT.Topic).
-			Str("smart_meter_topic", c.MQTT.SmartMeterTopic).
 			Bool("include_inverter_id", c.MQTT.IncludeInverterID).
+			Bool("publish_raw", c.MQTT.PublishRaw).
+			Bool("homeassistant_autodiscovery_enabled", c.MQTT.HomeAssistantAutoDiscovery.Enabled).
 			Msg("MQTT Configuration")
 	}
 

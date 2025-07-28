@@ -21,15 +21,30 @@ api:
 # MQTT settings
 mqtt:
   enabled: false # Enable/disable MQTT publishing
-  host: localhost # MQTT broker hostname or IP address
+  host: mqtt.local # MQTT broker hostname or IP address
   port: 1883 # MQTT broker port
   username: "" # MQTT broker username (empty for no authentication)
   password: "" # MQTT broker password (empty for no authentication)
   topic: energy/growatt # Base MQTT topic where inverter data will be published
-  smart_meter_topic: energy/meter # Topic for smart meter data if present
-  use_smart_meter_topic: false # Whether to publish smart meter data to a separate topic
   include_inverter_id: false # Whether to include inverter serial in topic path (e.g., energy/growatt/ABC123456)
   retain: false # Whether MQTT messages should be retained on the broker
+  
+  # Raw data publishing (original behavior)
+  publish_raw: true # Enable/disable publishing raw field values as JSON
+  
+  # Home Assistant Auto-Discovery
+  homeassistant_autodiscovery:
+    enabled: false # Enable/disable Home Assistant MQTT auto-discovery
+    discovery_prefix: homeassistant # MQTT discovery prefix (usually "homeassistant")
+    device_name: "Growatt Inverter" # Device name in Home Assistant
+    device_manufacturer: "Growatt" # Device manufacturer
+    device_model: "" # Device model (auto-detected from inverter_type if empty)
+    retain_discovery: true # Whether discovery messages should be retained
+    include_diagnostic: true # Include diagnostic sensors (fault codes, system info, etc.)
+    include_battery: true # Include battery-related sensors if available
+    include_grid: true # Include grid-related sensors
+    include_pv: true # Include PV panel sensors
+    value_template_suffix: "" # Optional suffix for value templates (for advanced users)
 
 # PVOutput settings
 pvoutput:

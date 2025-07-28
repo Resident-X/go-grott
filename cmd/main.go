@@ -58,6 +58,9 @@ func run() int {
 
 	log.Info().Str("version", Version).Msg("Starting go-grott server")
 
+	// Log service configuration for debugging
+	logServiceConfiguration(cfg)
+
 	// Initialize parser
 	dataParser, err := parser.NewParser(cfg)
 	if err != nil {
@@ -155,4 +158,92 @@ func initLogger(level string) {
 		Timestamp().
 		Caller().
 		Logger()
+}
+
+// logServiceConfiguration logs the current service configuration for debugging.
+func logServiceConfiguration(cfg *config.Config) {
+	log.Debug().Msg("=== Service Configuration ===")
+	
+	// General settings
+	log.Debug().
+		Str("log_level", cfg.LogLevel).
+		Str("inverter_type", cfg.InverterType).
+		Str("timezone", cfg.TimeZone).
+		Bool("decrypt", cfg.Decrypt).
+		Int("min_record_length", cfg.MinRecordLen).
+		Msg("General settings")
+
+	// Server settings
+	log.Debug().
+		Str("host", cfg.Server.Host).
+		Int("port", cfg.Server.Port).
+		Msg("TCP server configuration")
+
+	// API settings
+	log.Debug().
+		Bool("enabled", cfg.API.Enabled).
+		Str("host", cfg.API.Host).
+		Int("port", cfg.API.Port).
+		Msg("HTTP API configuration")
+
+	// MQTT settings
+	if cfg.MQTT.Enabled {
+		log.Debug().
+			Bool("enabled", cfg.MQTT.Enabled).
+			Str("host", cfg.MQTT.Host).
+			Int("port", cfg.MQTT.Port).
+			Str("username", cfg.MQTT.Username).
+			Str("topic", cfg.MQTT.Topic).
+			Bool("include_inverter_id", cfg.MQTT.IncludeInverterID).
+			Bool("retain", cfg.MQTT.Retain).
+			Bool("publish_raw", cfg.MQTT.PublishRaw).
+			Msg("MQTT configuration")
+
+		// Home Assistant Auto-Discovery
+		ha := cfg.MQTT.HomeAssistantAutoDiscovery
+		if ha.Enabled {
+			log.Debug().
+				Bool("enabled", ha.Enabled).
+				Str("discovery_prefix", ha.DiscoveryPrefix).
+				Str("device_name", ha.DeviceName).
+				Str("device_manufacturer", ha.DeviceManufacturer).
+				Str("device_model", ha.DeviceModel).
+				Bool("retain_discovery", ha.RetainDiscovery).
+				Bool("include_diagnostic", ha.IncludeDiagnostic).
+				Bool("include_battery", ha.IncludeBattery).
+				Bool("include_grid", ha.IncludeGrid).
+				Bool("include_pv", ha.IncludePV).
+				Msg("Home Assistant auto-discovery configuration")
+		} else {
+			log.Debug().Bool("enabled", false).Msg("Home Assistant auto-discovery disabled")
+		}
+	} else {
+		log.Debug().Bool("enabled", false).Msg("MQTT disabled")
+	}
+
+	// PVOutput settings
+	if cfg.PVOutput.Enabled {
+		log.Debug().
+			Bool("enabled", cfg.PVOutput.Enabled).
+			Str("system_id", cfg.PVOutput.SystemID).
+			Bool("use_inverter_temp", cfg.PVOutput.UseInverterTemp).
+			Bool("disable_energy_today", cfg.PVOutput.DisableEnergyToday).
+			Int("update_limit_minutes", cfg.PVOutput.UpdateLimitMinutes).
+			Bool("multiple_inverters", cfg.PVOutput.MultipleInverters).
+			Int("inverter_mappings_count", len(cfg.PVOutput.InverterMappings)).
+			Msg("PVOutput configuration")
+	} else {
+		log.Debug().Bool("enabled", false).Msg("PVOutput disabled")
+	}
+
+	// Record whitelist
+	if len(cfg.RecordWhitelist) > 0 {
+		log.Debug().
+			Strs("whitelist", cfg.RecordWhitelist).
+			Msg("Record whitelist configured")
+	} else {
+		log.Debug().Msg("No record whitelist configured (all records allowed)")
+	}
+
+	log.Debug().Msg("=== End Configuration ===")
 }

@@ -460,16 +460,10 @@ func (s *DataCollectionServer) processData(ctx context.Context, clientAddr strin
 	}
 
 	// Publish to message broker
-	topic := s.config.MQTT.Topic
-	if s.config.MQTT.IncludeInverterID && inverterData.PVSerial != "" {
-		topic = fmt.Sprintf("%s/%s", topic, inverterData.PVSerial)
-	}
-
-	if err := s.publisher.Publish(ctx, topic, inverterData); err != nil {
+	if err := s.publisher.Publish(ctx, "", inverterData); err != nil {
 		s.logger.Error().
-			Str("topic", topic).
 			Err(err).
-			Msg("Failed to publish message")
+			Msg("Failed to publish inverter data")
 	}
 
 	// Send to monitoring service

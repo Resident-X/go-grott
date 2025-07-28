@@ -61,19 +61,20 @@ func (t *TestMonitoringService) Send(ctx context.Context, data *domain.InverterD
 func (t *TestMonitoringService) Close() error {
 	return nil
 }
+
 // HexDataTestCase represents a test case with real Growatt protocol data
 type HexDataTestCase struct {
-	Name              string                 // Test case name
-	HexData           string                 // Hex encoded data string
-	Description       string                 // Description of what this data represents
-	ExpectedSerial    string                 // Expected datalogger serial (optional)
-	ExpectedPVSerial  string                 // Expected inverter serial (optional)
-	ExpectedFields    map[string]interface{} // Expected parsed field values
-	ShouldRespond     bool                   // Whether server should generate a response
-	ExpectParseError  bool                   // Whether parsing should fail
-	DeviceType        string                 // Device type description
-	ProtocolVersion   string                 // Protocol version
-	IsEncrypted       bool                   // Whether data is encrypted
+	Name             string                 // Test case name
+	HexData          string                 // Hex encoded data string
+	Description      string                 // Description of what this data represents
+	ExpectedSerial   string                 // Expected datalogger serial (optional)
+	ExpectedPVSerial string                 // Expected inverter serial (optional)
+	ExpectedFields   map[string]interface{} // Expected parsed field values
+	ShouldRespond    bool                   // Whether server should generate a response
+	ExpectParseError bool                   // Whether parsing should fail
+	DeviceType       string                 // Device type description
+	ProtocolVersion  string                 // Protocol version
+	IsEncrypted      bool                   // Whether data is encrypted
 }
 
 // E2EHexTestServer manages the test server lifecycle
@@ -142,7 +143,7 @@ func (ts *E2EHexTestServer) Start(t *testing.T) int {
 		require.NoError(t, err)
 		port := listener.Addr().(*net.TCPAddr).Port
 		listener.Close()
-		
+
 		// Update config with the available port
 		ts.config.Server.Port = port
 		ts.actualPort = port
@@ -293,43 +294,43 @@ func getRealHexDataTestCases() []HexDataTestCase {
 		// 	ExpectParseError: false,
 		// },
 		{
-			Name: "Encrypted_Growatt_Data",
-			HexData: "000e0006024101031f352b4122363e7540387761747447726f7761747447726f7761747447722c222a403705235f4224747447726f7761747447726f7761747447726f777873604e7459756174743b726e77b8747447166f77466474464aef74893539765c5f773b353606726777607474449a6f36613574e072c8776137210c462c3530444102726f7761747547166f7761745467523f21413d1a31171d0304065467726f63307675409b6f706160744e7264774c7474407a652d7328601770d37ddf662853226dcb6bca661b663f709e7d9655fc7ce06379740c72247764744647776f3c6171740c726a772a74714d666f7720393506425d47504444774a6e466174744761ce77427d144d6667ef69627453726a7e0e7c886062486746645357557f5071747447726e5b618b3a6772903941748b09526f882f547746726f7860742447736d0661747fff7e5b776137210c462c3530444102726f7761747447726f7761747447726f7761747447726e83617475d7726e7761747447726d2f61747447726f7761747451da6f7761747447726f7761741047786f7761747447726f7761747447726f7761747423720b7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f776174744772372f392c2c1f2a372f392c2c1f2a372f61747447726f7761545467526f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447ff71",
-			Description:     "Encrypted Growatt data requiring decryption",
-			DeviceType:      "Growatt Datalogger",
-			ProtocolVersion: "06",
-			IsEncrypted:     true,
-			ShouldRespond:   false,
+			Name:             "Encrypted_Growatt_Data",
+			HexData:          "000e0006024101031f352b4122363e7540387761747447726f7761747447726f7761747447722c222a403705235f4224747447726f7761747447726f7761747447726f777873604e7459756174743b726e77b8747447166f77466474464aef74893539765c5f773b353606726777607474449a6f36613574e072c8776137210c462c3530444102726f7761747547166f7761745467523f21413d1a31171d0304065467726f63307675409b6f706160744e7264774c7474407a652d7328601770d37ddf662853226dcb6bca661b663f709e7d9655fc7ce06379740c72247764744647776f3c6171740c726a772a74714d666f7720393506425d47504444774a6e466174744761ce77427d144d6667ef69627453726a7e0e7c886062486746645357557f5071747447726e5b618b3a6772903941748b09526f882f547746726f7860742447736d0661747fff7e5b776137210c462c3530444102726f7761747447726f7761747447726f7761747447726e83617475d7726e7761747447726d2f61747447726f7761747451da6f7761747447726f7761741047786f7761747447726f7761747447726f7761747423720b7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f776174744772372f392c2c1f2a372f392c2c1f2a372f61747447726f7761545467526f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447ff71",
+			Description:      "Encrypted Growatt data requiring decryption",
+			DeviceType:       "Growatt Datalogger",
+			ProtocolVersion:  "06",
+			IsEncrypted:      true,
+			ShouldRespond:    false,
 			ExpectParseError: false,
 		},
 		{
-			Name: "Encrypted_Growatt_Data",
-			HexData: "00020006002001161f352b4122363e7540387761747447726f7761747447726f7761747447722eb2",
-			Description:     "Encrypted Growatt data requiring decryption",
-			DeviceType:      "Growatt Datalogger",
-			ProtocolVersion: "06",
-			IsEncrypted:     true,
-			ShouldRespond:   false,
+			Name:             "Encrypted_Growatt_Data",
+			HexData:          "00020006002001161f352b4122363e7540387761747447726f7761747447726f7761747447722eb2",
+			Description:      "Encrypted Growatt data requiring decryption",
+			DeviceType:       "Growatt Datalogger",
+			ProtocolVersion:  "06",
+			IsEncrypted:      true,
+			ShouldRespond:    false,
 			ExpectParseError: false,
 		},
 		{
-			Name: "Encrypted_Growatt_Data",
-			HexData: "001d0006024101031f352b4122363e7540387761747447726f7761747447726f7761747447722c222a403705235f4224747447726f7761747447726f7761747447726f777873604c5f75756174743b726e77b8747447166f77466474464aef74893539765c5f773b353606726777607474449a6f36613574e072c8776137210c462c3530444102726f7761747547166f7761745467523f21413d1a31171d0304065467726f63307675409b6f706160744c7240774f7474407a652d7328601770d37ddf662853226dcb6bca661b663f709e7d9655fc7ce06379740c72247764744647776f3c6171740c726a772a74714d666f7720393506425d47504444774a6e466174744761ce77427d144d6667ef69627453726a7e0e7c886062486746645357557f5071747447726e5b618b3a6772903941748b09526f882f547746726f7860742447736d0661747fff7e5b776137210c462c3530444102726f7761747447726f7761747447726f7761747447726e83617475d7726e7761747447726d2f61747447726f7761747451da6f7761747447726f7761741047786f7761747447726f7761747447726f7761747423720b7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f776174744772372f392c2c1f2a372f392c2c1f2a372f61747447726f7761545467526f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f776174744721f6",
-			Description:     "Encrypted Growatt data requiring decryption",
-			DeviceType:      "Growatt Datalogger",
-			ProtocolVersion: "06",
-			IsEncrypted:     true,
-			ShouldRespond:   false,
+			Name:             "Encrypted_Growatt_Data",
+			HexData:          "001d0006024101031f352b4122363e7540387761747447726f7761747447726f7761747447722c222a403705235f4224747447726f7761747447726f7761747447726f777873604c5f75756174743b726e77b8747447166f77466474464aef74893539765c5f773b353606726777607474449a6f36613574e072c8776137210c462c3530444102726f7761747547166f7761745467523f21413d1a31171d0304065467726f63307675409b6f706160744c7240774f7474407a652d7328601770d37ddf662853226dcb6bca661b663f709e7d9655fc7ce06379740c72247764744647776f3c6171740c726a772a74714d666f7720393506425d47504444774a6e466174744761ce77427d144d6667ef69627453726a7e0e7c886062486746645357557f5071747447726e5b618b3a6772903941748b09526f882f547746726f7860742447736d0661747fff7e5b776137210c462c3530444102726f7761747447726f7761747447726f7761747447726e83617475d7726e7761747447726d2f61747447726f7761747451da6f7761747447726f7761741047786f7761747447726f7761747447726f7761747423720b7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f776174744772372f392c2c1f2a372f392c2c1f2a372f61747447726f7761545467526f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f776174744721f6",
+			Description:      "Encrypted Growatt data requiring decryption",
+			DeviceType:       "Growatt Datalogger",
+			ProtocolVersion:  "06",
+			IsEncrypted:      true,
+			ShouldRespond:    false,
 			ExpectParseError: false,
 		},
 		{
-			Name: "Command_Response_Type_18",
-			HexData: "00060006002001161f352b4122363e7540387761747447726f7761747447726f776174744772eec4",
-			Description:     "response type Ping - should generate response",
-			DeviceType:      "Ping Response",
-			ProtocolVersion: "06",
-			IsEncrypted:     true,
-			ShouldRespond:   true,
+			Name:             "Command_Response_Type_18",
+			HexData:          "00060006002001161f352b4122363e7540387761747447726f7761747447726f776174744772eec4",
+			Description:      "response type Ping - should generate response",
+			DeviceType:       "Ping Response",
+			ProtocolVersion:  "06",
+			IsEncrypted:      true,
+			ShouldRespond:    true,
 			ExpectParseError: false,
 		},
 		// {
@@ -378,7 +379,7 @@ func getRealHexDataTestCases() []HexDataTestCase {
 		// },
 		// {
 		// 	Name: "Large_Data_Packet_Extended",
-		// 	HexData: "68 55 02 68 04 01" + 
+		// 	HexData: "68 55 02 68 04 01" +
 		// 		strings.Repeat("41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 ", 50) +
 		// 		"AB CD 16",
 		// 	Description:     "Large data packet that should trigger extended layout",
@@ -403,7 +404,7 @@ func TestE2E_RealHexData(t *testing.T) {
 			defer testServer.Stop(t)
 
 			t.Logf("Testing: %s", tc.Description)
-			t.Logf("Device Type: %s, Protocol: %s, Encrypted: %v", 
+			t.Logf("Device Type: %s, Protocol: %s, Encrypted: %v",
 				tc.DeviceType, tc.ProtocolVersion, tc.IsEncrypted)
 			t.Logf("Hex Data: %s", tc.HexData)
 
@@ -411,7 +412,7 @@ func TestE2E_RealHexData(t *testing.T) {
 			err := testServer.SendHexData(t, tc.HexData)
 
 			if tc.ExpectParseError {
-				// For malformed data, we might not get a connection error, 
+				// For malformed data, we might not get a connection error,
 				// but the server should handle it gracefully
 				t.Logf("Expected parse error case - server handled gracefully")
 			} else {
@@ -444,7 +445,7 @@ func TestE2E_PerformanceWithMultipleConnections(t *testing.T) {
 	numConnections := 10
 	numPacketsPerConnection := 5
 
-	t.Logf("Testing performance with %d connections, %d packets each", 
+	t.Logf("Testing performance with %d connections, %d packets each",
 		numConnections, numPacketsPerConnection)
 
 	start := time.Now()
@@ -558,39 +559,39 @@ func TestE2E_CustomHexData(t *testing.T) {
 func TestE2E_PythonComparisonData(t *testing.T) {
 	// Real data captured from Python grottserver logs
 	pythonTestCases := []struct {
-		name            string
-		inputHex        string
+		name             string
+		inputHex         string
 		expectedResponse string
-		recordType      string
-		description     string
+		recordType       string
+		description      string
 	}{
 		{
-			name:            "Python_Record_03_Announce",
-			inputHex:        "00020006024101031f352b4122363e7540387761747447726f7761747447726f",
+			name:             "Python_Record_03_Announce",
+			inputHex:         "00020006024101031f352b4122363e7540387761747447726f7761747447726f",
 			expectedResponse: "000200060003010347099a", // Exact response from Python
-			recordType:      "03",
-			description:     "Record 03 (inverter announce) - should get ACK + time sync scheduling",
+			recordType:       "03",
+			description:      "Record 03 (inverter announce) - should get ACK + time sync scheduling",
 		},
 		{
-			name:            "Python_Record_04_Data",
-			inputHex:        "00020006024101041f352b4122363e7540387761747447726f7761747447726f",
+			name:             "Python_Record_04_Data",
+			inputHex:         "00020006024101041f352b4122363e7540387761747447726f7761747447726f",
 			expectedResponse: "0002000600030104473998", // Exact response from Python
-			recordType:      "04",
-			description:     "Record 04 (regular data) - should get ACK",
+			recordType:       "04",
+			description:      "Record 04 (regular data) - should get ACK",
 		},
 		{
-			name:            "Python_Record_20_Data",
-			inputHex:        "00020006010e01201f352b4122363e7540387761747447726f7761747447726f",
+			name:             "Python_Record_20_Data",
+			inputHex:         "00020006010e01201f352b4122363e7540387761747447726f7761747447726f",
 			expectedResponse: "0002000600030120473983", // Exact response from Python
-			recordType:      "20",
-			description:     "Record 20 (data) - should get ACK",
+			recordType:       "20",
+			description:      "Record 20 (data) - should get ACK",
 		},
 		{
-			name:            "Python_Record_50_Data",
-			inputHex:        "00020006024101501f352b4122363e7540387761747447726f7761747447726f",
+			name:             "Python_Record_50_Data",
+			inputHex:         "00020006024101501f352b4122363e7540387761747447726f7761747447726f",
 			expectedResponse: "000200060003015047f9a6", // Exact response from Python
-			recordType:      "50",
-			description:     "Record 50 (data) - should get ACK",
+			recordType:       "50",
+			description:      "Record 50 (data) - should get ACK",
 		},
 	}
 
@@ -610,9 +611,9 @@ func TestE2E_PythonComparisonData(t *testing.T) {
 			if len(inputBytes) >= 4 {
 				protocol := fmt.Sprintf("%02x", inputBytes[3])
 				recordType := fmt.Sprintf("%02x", inputBytes[7])
-				
+
 				t.Logf("Extracted protocol: %s, record type: %s", protocol, recordType)
-				
+
 				// Verify this matches expected
 				assert.Equal(t, tc.recordType, recordType, "Record type mismatch")
 			}

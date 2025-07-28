@@ -1,0 +1,287 @@
+{
+  "version": "1.0",
+  "description": "Home Assistant auto-discovery sensor configurations for Growatt inverters",
+  "device_class_mapping": {
+    "power": "power",
+    "energy": "energy",
+    "voltage": "voltage",
+    "current": "current",
+    "frequency": "frequency",
+    "temperature": "temperature",
+    "battery": "battery",
+    "duration": "duration"
+  },
+  "unit_mapping": {
+    "W": "W",
+    "kWh": "kWh",
+    "Wh": "Wh",
+    "V": "V", 
+    "A": "A",
+    "Hz": "Hz",
+    "°C": "°C",
+    "%": "%",
+    "min": "min",
+    "h": "h"
+  },
+  "sensors": {
+    "pvpower": {
+      "name": "PV Power",
+      "device_class": "power",
+      "unit_of_measurement": "W",
+      "state_class": "measurement",
+      "category": "pv",
+      "icon": "mdi:solar-power"
+    },
+    "pvpowerstr1": {
+      "name": "PV Power String 1",
+      "device_class": "power", 
+      "unit_of_measurement": "W",
+      "state_class": "measurement",
+      "category": "pv",
+      "icon": "mdi:solar-power"
+    },
+    "pvpowerstr2": {
+      "name": "PV Power String 2",
+      "device_class": "power",
+      "unit_of_measurement": "W", 
+      "state_class": "measurement",
+      "category": "pv",
+      "icon": "mdi:solar-power"
+    },
+    "pvvoltagestr1": {
+      "name": "PV Voltage String 1",
+      "device_class": "voltage",
+      "unit_of_measurement": "V",
+      "state_class": "measurement", 
+      "category": "pv",
+      "icon": "mdi:current-dc"
+    },
+    "pvvoltagestr2": {
+      "name": "PV Voltage String 2",
+      "device_class": "voltage",
+      "unit_of_measurement": "V",
+      "state_class": "measurement",
+      "category": "pv", 
+      "icon": "mdi:current-dc"
+    },
+    "pvcurrentstr1": {
+      "name": "PV Current String 1",
+      "device_class": "current",
+      "unit_of_measurement": "A",
+      "state_class": "measurement",
+      "category": "pv",
+      "icon": "mdi:current-dc"
+    },
+    "pvcurrentstr2": {
+      "name": "PV Current String 2", 
+      "device_class": "current",
+      "unit_of_measurement": "A",
+      "state_class": "measurement",
+      "category": "pv",
+      "icon": "mdi:current-dc"
+    },
+    "pvenergytoday": {
+      "name": "PV Energy Today",
+      "device_class": "energy",
+      "unit_of_measurement": "kWh",
+      "state_class": "total_increasing",
+      "category": "pv",
+      "icon": "mdi:solar-power"
+    },
+    "pvenergytotal": {
+      "name": "PV Energy Total",
+      "device_class": "energy", 
+      "unit_of_measurement": "kWh",
+      "state_class": "total_increasing",
+      "category": "pv",
+      "icon": "mdi:solar-power"
+    },
+    "outputpower": {
+      "name": "Output Power",
+      "device_class": "power",
+      "unit_of_measurement": "W",
+      "state_class": "measurement",
+      "category": "grid",
+      "icon": "mdi:transmission-tower"
+    },
+    "outputvoltage": {
+      "name": "Output Voltage", 
+      "device_class": "voltage",
+      "unit_of_measurement": "V",
+      "state_class": "measurement",
+      "category": "grid",
+      "icon": "mdi:current-ac"
+    },
+    "outputcurrent": {
+      "name": "Output Current",
+      "device_class": "current",
+      "unit_of_measurement": "A",
+      "state_class": "measurement",
+      "category": "grid",
+      "icon": "mdi:current-ac"
+    },
+    "outputfreq": {
+      "name": "Output Frequency",
+      "device_class": "frequency",
+      "unit_of_measurement": "Hz",
+      "state_class": "measurement", 
+      "category": "grid",
+      "icon": "mdi:sine-wave"
+    },
+    "energytoday": {
+      "name": "Energy Today",
+      "device_class": "energy",
+      "unit_of_measurement": "kWh",
+      "state_class": "total_increasing",
+      "category": "grid",
+      "icon": "mdi:transmission-tower"
+    },
+    "energytotal": {
+      "name": "Energy Total",
+      "device_class": "energy",
+      "unit_of_measurement": "kWh",
+      "state_class": "total_increasing",
+      "category": "grid",
+      "icon": "mdi:transmission-tower"
+    },
+    "totworktime": {
+      "name": "Total Work Time",
+      "unit_of_measurement": "h",
+      "state_class": "total_increasing",
+      "category": "diagnostic",
+      "icon": "mdi:clock-outline"
+    },
+    "tempinverter": {
+      "name": "Inverter Temperature",
+      "device_class": "temperature",
+      "unit_of_measurement": "°C",
+      "state_class": "measurement",
+      "category": "diagnostic",
+      "icon": "mdi:thermometer"
+    },
+    "tempipm": {
+      "name": "IPM Temperature",
+      "device_class": "temperature", 
+      "unit_of_measurement": "°C",
+      "state_class": "measurement",
+      "category": "diagnostic",
+      "icon": "mdi:thermometer"
+    },
+    "tempboost": {
+      "name": "Boost Temperature",
+      "device_class": "temperature",
+      "unit_of_measurement": "°C", 
+      "state_class": "measurement",
+      "category": "diagnostic",
+      "icon": "mdi:thermometer"
+    },
+    "invstatus": {
+      "name": "Inverter Status",
+      "category": "diagnostic",
+      "icon": "mdi:information-outline"
+    },
+    "faultcode": {
+      "name": "Fault Code",
+      "category": "diagnostic",
+      "icon": "mdi:alert-circle-outline"
+    },
+    "warningcode": {
+      "name": "Warning Code",
+      "category": "diagnostic", 
+      "icon": "mdi:alert-outline"
+    },
+    "batpower": {
+      "name": "Battery Power",
+      "device_class": "power",
+      "unit_of_measurement": "W",
+      "state_class": "measurement",
+      "category": "battery",
+      "icon": "mdi:battery"
+    },
+    "batvoltage": {
+      "name": "Battery Voltage",
+      "device_class": "voltage",
+      "unit_of_measurement": "V",
+      "state_class": "measurement",
+      "category": "battery",
+      "icon": "mdi:battery"
+    },
+    "batcurrent": {
+      "name": "Battery Current",
+      "device_class": "current",
+      "unit_of_measurement": "A", 
+      "state_class": "measurement",
+      "category": "battery",
+      "icon": "mdi:battery"
+    },
+    "batsoc": {
+      "name": "Battery State of Charge",
+      "device_class": "battery",
+      "unit_of_measurement": "%",
+      "state_class": "measurement",
+      "category": "battery",
+      "icon": "mdi:battery"
+    },
+    "batstatus": {
+      "name": "Battery Status",
+      "category": "battery",
+      "icon": "mdi:battery-outline"
+    },
+    "gridvoltage": {
+      "name": "Grid Voltage",
+      "device_class": "voltage",
+      "unit_of_measurement": "V",
+      "state_class": "measurement",
+      "category": "grid",
+      "icon": "mdi:current-ac"
+    },
+    "gridcurrent": {
+      "name": "Grid Current", 
+      "device_class": "current",
+      "unit_of_measurement": "A",
+      "state_class": "measurement",
+      "category": "grid",
+      "icon": "mdi:current-ac"
+    },
+    "gridpower": {
+      "name": "Grid Power",
+      "device_class": "power",
+      "unit_of_measurement": "W",
+      "state_class": "measurement",
+      "category": "grid",
+      "icon": "mdi:transmission-tower"
+    },
+    "gridfreq": {
+      "name": "Grid Frequency",
+      "device_class": "frequency",
+      "unit_of_measurement": "Hz",
+      "state_class": "measurement",
+      "category": "grid",
+      "icon": "mdi:sine-wave"
+    },
+    "loadpower": {
+      "name": "Load Power",
+      "device_class": "power",
+      "unit_of_measurement": "W",
+      "state_class": "measurement",
+      "category": "grid",
+      "icon": "mdi:home-lightning-bolt"
+    },
+    "loadcurrent": {
+      "name": "Load Current",
+      "device_class": "current",
+      "unit_of_measurement": "A",
+      "state_class": "measurement",
+      "category": "grid",
+      "icon": "mdi:home-lightning-bolt"
+    },
+    "loadvoltage": {
+      "name": "Load Voltage",
+      "device_class": "voltage", 
+      "unit_of_measurement": "V",
+      "state_class": "measurement",
+      "category": "grid",
+      "icon": "mdi:home-lightning-bolt"
+    }
+  }
+}

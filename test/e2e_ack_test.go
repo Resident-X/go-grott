@@ -32,7 +32,7 @@ func TestE2E_ACKResponses(t *testing.T) {
 			description:      "Record 03 with protocol 02 should get unencrypted ACK",
 		},
 		{
-			name:             "Record_04_Protocol_05_ACK", 
+			name:             "Record_04_Protocol_05_ACK",
 			hexData:          "000100050010010454455354", // Record type 04, protocol 05
 			expectResponse:   true,
 			responseContains: "000100050003010447", // Python format: header[0:4] + 0003 + header[6:8] + 47
@@ -40,7 +40,7 @@ func TestE2E_ACKResponses(t *testing.T) {
 		},
 		{
 			name:             "Record_50_Protocol_06_ACK",
-			hexData:          "000100060010015054455354", // Record type 50, protocol 06  
+			hexData:          "000100060010015054455354", // Record type 50, protocol 06
 			expectResponse:   true,
 			responseContains: "000100060003015047", // Python format: header[0:4] + 0003 + header[6:8] + 47
 			description:      "Record 50 with protocol 06 should get encrypted ACK with CRC",
@@ -49,7 +49,7 @@ func TestE2E_ACKResponses(t *testing.T) {
 			name:             "Record_1B_Protocol_05_ACK",
 			hexData:          "000100050010011b54455354", // Record type 1B, protocol 05
 			expectResponse:   true,
-			responseContains: "000100050003011b47", // Python format: header[0:4] + 0003 + header[6:8] + 47  
+			responseContains: "000100050003011b47", // Python format: header[0:4] + 0003 + header[6:8] + 47
 			description:      "Record 1B with protocol 05 should get encrypted ACK with CRC",
 		},
 		{
@@ -73,7 +73,7 @@ func TestE2E_ACKResponses(t *testing.T) {
 			description:    "Command response records should not generate responses",
 		},
 		{
-			name:           "Command_Response_18_No_Response", 
+			name:           "Command_Response_18_No_Response",
 			hexData:        "000100060010011854455354", // Record type 18, protocol 06
 			expectResponse: false,
 			description:    "Command response records should not generate responses",
@@ -82,14 +82,14 @@ func TestE2E_ACKResponses(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-		// Create test server using existing helper
-		testServer := NewE2EHexTestServer(t)
-		defer testServer.Stop(t)
+			// Create test server using existing helper
+			testServer := NewE2EHexTestServer(t)
+			defer testServer.Stop(t)
 
-		port := testServer.Start(t)
-		serverAddr := fmt.Sprintf("127.0.0.1:%d", port)
+			port := testServer.Start(t)
+			serverAddr := fmt.Sprintf("127.0.0.1:%d", port)
 
-		t.Logf("Testing %s: %s", tt.name, tt.description)
+			t.Logf("Testing %s: %s", tt.name, tt.description)
 			t.Logf("Sending hex data: %s", tt.hexData)
 
 			// Convert hex data to bytes
@@ -119,18 +119,18 @@ func TestE2E_ACKResponses(t *testing.T) {
 
 				response := respBuf[:respN]
 				responseHex := hex.EncodeToString(response)
-				
+
 				t.Logf("Received response (%d bytes): %s", respN, responseHex)
 
 				// Verify response contains expected pattern
 				if tt.responseContains != "" {
-					assert.Contains(t, responseHex, tt.responseContains, 
+					assert.Contains(t, responseHex, tt.responseContains,
 						"Response should contain expected pattern")
 				}
 
 				// Special validation for ping responses
 				if tt.responseContains == tt.hexData {
-					assert.Equal(t, tt.hexData, responseHex, 
+					assert.Equal(t, tt.hexData, responseHex,
 						"Ping should echo back exact same data")
 				}
 
@@ -141,7 +141,7 @@ func TestE2E_ACKResponses(t *testing.T) {
 
 				respBuf := make([]byte, 1024)
 				_, err := conn.Read(respBuf)
-				
+
 				// Should timeout or get EOF (no response)
 				if err != nil {
 					if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
@@ -194,28 +194,26 @@ func TestE2E_Record03_TimeSync(t *testing.T) {
 	ackBuf := make([]byte, 1024)
 	ackN, err := conn.Read(ackBuf)
 	require.NoError(t, err, "Should receive ACK response")
-	
+
 	ackResponse := hex.EncodeToString(ackBuf[:ackN])
 	t.Logf("Received ACK response: %s", ackResponse)
-	
-	// Verify ACK format (should contain 0003 and 47 for protocol 05)
-	assert.Contains(t, ackResponse, "000347", "ACK should contain expected pattern")
+
+	// Verify ACK format (should contain 0003 + header[6:8] + 47 for protocol 05)
+	assert.Contains(t, ackResponse, "0003010347", "ACK should contain expected pattern")
 
 	// Should receive time sync command after ~1 second delay
 	conn.SetReadDeadline(time.Now().Add(3 * time.Second)) // Extended timeout for 1sec delay + processing
 	timeSyncBuf := make([]byte, 1024)
 	timeSyncN, err := conn.Read(timeSyncBuf)
-	
+
 	if err != nil {
 		t.Logf("Time sync read error (may be expected): %v", err)
 	} else {
 		timeSyncResponse := hex.EncodeToString(timeSyncBuf[:timeSyncN])
 		t.Logf("Received potential time sync: %s", timeSyncResponse)
-		
+
 		// Time sync command should contain record type 18
-		assert.Contains(t, timeSyncResponse, "18", 
+		assert.Contains(t, timeSyncResponse, "18",
 			"Time sync command should contain record type 18")
 	}
 }
-
-

@@ -45,27 +45,27 @@ func TestE2E_MQTTPublishing(t *testing.T) {
 
 	// Test cases for different inverter data types
 	testCases := []struct {
-		name                string
-		hexData             string
-		expectMQTTMessage   bool
-		expectedTopic       string
-		expectedInverterID  string
+		name                 string
+		hexData              string
+		expectMQTTMessage    bool
+		expectedTopic        string
+		expectedInverterID   string
 		expectedDataloggerID string
-		description         string
+		description          string
 	}{
 		{
-			name:                "Encrypted_Growatt_Data",
-			hexData:             "00020006002001161f352b4122363e7540387761747447726f7761747447726f7761747447722eb2",
-			expectMQTTMessage:   true,
-			expectedTopic:       "energy/growatt",
-			description:         "Real encrypted Growatt data should be published to MQTT",
+			name:              "Encrypted_Growatt_Data",
+			hexData:           "00020006002001161f352b4122363e7540387761747447726f7761747447726f7761747447722eb2",
+			expectMQTTMessage: true,
+			expectedTopic:     "energy/growatt",
+			description:       "Real encrypted Growatt data should be published to MQTT",
 		},
 		{
-			name:                "Large_Encrypted_Data",
-			hexData:             "000e0006024101031f352b4122363e7540387761747447726f7761747447726f7761747447722c222a403705235f4224747447726f7761747447726f7761747447726f777873604e7459756174743b726e77b8747447166f77466474464aef74893539765c5f773b353606726777607474449a6f36613574e072c8776137210c462c3530444102726f7761747547166f7761745467523f21413d1a31171d0304065467726f63307675409b6f706160744e7264774c7474407a652d7328601770d37ddf662853226dcb6bca661b663f709e7d9655fc7ce06379740c72247764744647776f3c6171740c726a772a74714d666f7720393506425d47504444774a6e466174744761ce77427d144d6667ef69627453726a7e0e7c886062486746645357557f5071747447726e5b618b3a6772903941748b09526f882f547746726f7860742447736d0661747fff7e5b776137210c462c3530444102726f7761747447726f7761747447726f7761747447726e83617475d7726e7761747447726d2f61747447726f7761747451da6f7761747447726f7761741047786f7761747447726f7761747447726f7761747423720b7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f776174744772372f392c2c1f2a372f392c2c1f2a372f61747447726f7761545467526f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f776174744771",
-			expectMQTTMessage:   true,
-			expectedTopic:       "energy/growatt",
-			description:         "Large encrypted inverter data should be published to MQTT",
+			name:              "Large_Encrypted_Data",
+			hexData:           "000e0006024101031f352b4122363e7540387761747447726f7761747447726f7761747447722c222a403705235f4224747447726f7761747447726f7761747447726f777873604e7459756174743b726e77b8747447166f77466474464aef74893539765c5f773b353606726777607474449a6f36613574e072c8776137210c462c3530444102726f7761747547166f7761745467523f21413d1a31171d0304065467726f63307675409b6f706160744e7264774c7474407a652d7328601770d37ddf662853226dcb6bca661b663f709e7d9655fc7ce06379740c72247764744647776f3c6171740c726a772a74714d666f7720393506425d47504444774a6e466174744761ce77427d144d6667ef69627453726a7e0e7c886062486746645357557f5071747447726e5b618b3a6772903941748b09526f882f547746726f7860742447736d0661747fff7e5b776137210c462c3530444102726f7761747447726f7761747447726f7761747447726e83617475d7726e7761747447726d2f61747447726f7761747451da6f7761747447726f7761741047786f7761747447726f7761747447726f7761747423720b7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f776174744772372f392c2c1f2a372f392c2c1f2a372f61747447726f7761545467526f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f7761747447726f776174744771",
+			expectMQTTMessage: true,
+			expectedTopic:     "energy/growatt",
+			description:       "Large encrypted inverter data should be published to MQTT",
 		},
 	}
 
@@ -87,7 +87,7 @@ func TestE2E_MQTTPublishing(t *testing.T) {
 
 			// Create and start Go-Grott server with MQTT enabled
 			server, serverPort := createE2EServerWithMQTT(t, mqttPort)
-			
+
 			// Start server in background
 			serverErr := make(chan error, 1)
 			go func() {
@@ -100,7 +100,7 @@ func TestE2E_MQTTPublishing(t *testing.T) {
 
 			// Give server time to start and check for startup errors
 			time.Sleep(200 * time.Millisecond)
-			
+
 			select {
 			case err := <-serverErr:
 				t.Fatalf("Server failed to start: %v", err)
@@ -138,24 +138,24 @@ func TestE2E_MQTTPublishing(t *testing.T) {
 				case msg := <-receivedMessages:
 					t.Logf("✅ SUCCESS: Received MQTT message on topic '%s'", msg.Topic)
 					t.Logf("Message content: %s", string(msg.Payload))
-					
+
 					// Verify topic
 					assert.Contains(t, msg.Topic, "energy/growatt", "MQTT topic should contain energy/growatt")
-					
+
 					// Verify message is valid JSON
 					var parsedData map[string]interface{}
 					err := json.Unmarshal(msg.Payload, &parsedData)
 					assert.NoError(t, err, "MQTT message should be valid JSON")
-					
+
 					// Verify message contains expected fields
 					assert.Contains(t, parsedData, "timestamp", "MQTT message should contain timestamp")
 					assert.Contains(t, parsedData, "datalogserial", "MQTT message should contain datalogserial")
-					
+
 					// Check if message contains extended data
 					if extData, ok := parsedData["extended"].(map[string]interface{}); ok {
 						t.Logf("Extended data fields: %+v", extData)
 					}
-					
+
 				case <-time.After(12 * time.Second):
 					t.Fatal("❌ TIMEOUT: No MQTT message received within 12 seconds")
 				}
@@ -165,7 +165,7 @@ func TestE2E_MQTTPublishing(t *testing.T) {
 			t.Log("Stopping server...")
 			stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer stopCancel()
-			
+
 			err = server.Stop(stopCtx)
 			assert.NoError(t, err, "Failed to stop server")
 			t.Log("Server stopped successfully")
@@ -283,11 +283,11 @@ func createE2EServerWithMQTT(t *testing.T, mqttPort int) (*service.DataCollectio
 
 	// Create MQTT publisher
 	publisher := pubsub.NewMQTTPublisher(cfg)
-	
+
 	// Connect to MQTT broker with retry
 	connectCtx, connectCancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer connectCancel()
-	
+
 	t.Logf("Connecting MQTT publisher to broker at localhost:%d", mqttPort)
 	err = publisher.Connect(connectCtx)
 	require.NoError(t, err, "Failed to connect MQTT publisher")
@@ -375,10 +375,10 @@ func TestE2E_MQTTWithInverterID(t *testing.T) {
 	select {
 	case msg := <-receivedMessages:
 		t.Logf("Received MQTT message on topic '%s': %s", msg.Topic, string(msg.Payload))
-		
+
 		// Should contain energy/growatt in the topic
 		assert.Contains(t, msg.Topic, "energy/growatt")
-		
+
 		// Verify JSON structure
 		var parsedData map[string]interface{}
 		err := json.Unmarshal(msg.Payload, &parsedData)

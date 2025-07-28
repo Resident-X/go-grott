@@ -58,3 +58,4 @@ vendor/
 # Temporary files
 *.tmp
 *.temp
+python/

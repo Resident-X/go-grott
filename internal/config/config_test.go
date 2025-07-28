@@ -32,8 +32,6 @@ func TestDefaultConfig(t *testing.T) {
 	assert.Equal(t, "localhost", cfg.MQTT.Host)
 	assert.Equal(t, 1883, cfg.MQTT.Port)
 	assert.Equal(t, "energy/growatt", cfg.MQTT.Topic)
-	assert.Equal(t, "energy/meter", cfg.MQTT.SmartMeterTopic)
-	assert.Equal(t, true, cfg.MQTT.UseSmartMeterTopic)
 	assert.Equal(t, false, cfg.MQTT.IncludeInverterID)
 	assert.Equal(t, false, cfg.MQTT.Retain)
 
@@ -132,8 +130,6 @@ record_whitelist:
 	assert.Equal(t, "testuser", cfg.MQTT.Username)
 	assert.Equal(t, "testpass", cfg.MQTT.Password)
 	assert.Equal(t, "test/topic", cfg.MQTT.Topic)
-	assert.Equal(t, "test/meter", cfg.MQTT.SmartMeterTopic)
-	assert.Equal(t, false, cfg.MQTT.UseSmartMeterTopic)
 	assert.Equal(t, true, cfg.MQTT.IncludeInverterID)
 	assert.Equal(t, true, cfg.MQTT.Retain)
 

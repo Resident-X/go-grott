@@ -263,6 +263,7 @@ func (p *Parser) Parse(ctx context.Context, data []byte) (*domain.InverterData, 
 	// Extract data using the layout.
 	inverterData := &domain.InverterData{
 		Timestamp:    time.Now(),
+		Buffered:     "no", // Indicates real-time data, not buffered
 		RawHex:       hexStr,
 		ExtendedData: make(map[string]interface{}),
 	}

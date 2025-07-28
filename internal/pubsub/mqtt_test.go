@@ -178,7 +178,7 @@ func TestMQTTPublisher_PublishInverterData_NotConnected(t *testing.T) {
 	}
 
 	// Should not error when not connected but MQTT enabled (just returns nil)
-	err := publisher.PublishInverterData(ctx, testData)
+	err := publisher.Publish(ctx, "", testData)
 	assert.NoError(t, err)
 }
 
@@ -200,7 +200,7 @@ func TestMQTTPublisher_PublishInverterData_TopicGeneration(t *testing.T) {
 	}
 
 	// Should not error when MQTT disabled
-	err := publisher.PublishInverterData(ctx, testData)
+	err := publisher.Publish(ctx, "", testData)
 	assert.NoError(t, err)
 }
 
@@ -219,7 +219,7 @@ func TestMQTTPublisher_PublishInverterData_Disabled(t *testing.T) {
 	}
 
 	// Should not error when MQTT disabled
-	err := publisher.PublishInverterData(ctx, testData)
+	err := publisher.Publish(ctx, "", testData)
 	assert.NoError(t, err)
 }
 
@@ -240,7 +240,7 @@ func TestMQTTPublisher_PublishInverterData_WithoutInverterID(t *testing.T) {
 	}
 
 	// Should not error when MQTT disabled, topic should not include inverter ID
-	err := publisher.PublishInverterData(ctx, testData)
+	err := publisher.Publish(ctx, "", testData)
 	assert.NoError(t, err)
 }
 
@@ -261,7 +261,7 @@ func TestMQTTPublisher_PublishInverterData_EmptySerial(t *testing.T) {
 	}
 
 	// Should not error, topic should use base topic (no serial to append)
-	err := publisher.PublishInverterData(ctx, testData)
+	err := publisher.Publish(ctx, "", testData)
 	assert.NoError(t, err)
 }
 
@@ -450,6 +450,7 @@ func TestMQTTPublisher_PublishInverterData_Successful(t *testing.T) {
 	cfg.MQTT.Enabled = true
 	cfg.MQTT.Topic = "energy/growatt"
 	cfg.MQTT.IncludeInverterID = true
+	cfg.MQTT.PublishRaw = true // Explicitly enable raw data publishing
 
 	mockClient := mocks.NewMockClient(t)
 	mockToken := mocks.NewMockToken(t)
@@ -474,7 +475,7 @@ func TestMQTTPublisher_PublishInverterData_Successful(t *testing.T) {
 		PVPowerOut:       950.0,
 	}
 
-	err := publisher.PublishInverterData(ctx, testData)
+	err := publisher.Publish(ctx, "", testData)
 	assert.NoError(t, err)
 }
 
