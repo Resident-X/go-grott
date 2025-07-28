@@ -198,8 +198,8 @@ func TestE2E_Record03_TimeSync(t *testing.T) {
 	ackResponse := hex.EncodeToString(ackBuf[:ackN])
 	t.Logf("Received ACK response: %s", ackResponse)
 
-	// Verify ACK format (should contain 0003 and 47 for protocol 05)
-	assert.Contains(t, ackResponse, "000347", "ACK should contain expected pattern")
+	// Verify ACK format (should contain 0003 + header[6:8] + 47 for protocol 05)
+	assert.Contains(t, ackResponse, "0003010347", "ACK should contain expected pattern")
 
 	// Should receive time sync command after ~1 second delay
 	conn.SetReadDeadline(time.Now().Add(3 * time.Second)) // Extended timeout for 1sec delay + processing

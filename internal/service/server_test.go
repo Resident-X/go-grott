@@ -199,7 +199,7 @@ func TestDataCollectionServer_ProcessData(t *testing.T) {
 	}
 
 	mockParser.EXPECT().Parse(mock.Anything, testData).Return(inverterData, nil)
-	mockPublisher.EXPECT().Publish(mock.Anything, "test/topic/INV001", inverterData).Return(nil)
+	mockPublisher.EXPECT().Publish(mock.Anything, "", inverterData).Return(nil)
 	mockMonitoring.EXPECT().Send(mock.Anything, inverterData).Return(nil)
 
 	server, err := NewDataCollectionServer(cfg, mockParser, mockPublisher, mockMonitoring)
@@ -296,7 +296,7 @@ func TestDataCollectionServer_ProcessData_PublishError(t *testing.T) {
 	}
 
 	mockParser.EXPECT().Parse(mock.Anything, testData).Return(inverterData, nil)
-	mockPublisher.EXPECT().Publish(mock.Anything, "test/topic", inverterData).Return(assert.AnError)
+	mockPublisher.EXPECT().Publish(mock.Anything, "", inverterData).Return(assert.AnError)
 	mockMonitoring.EXPECT().Send(mock.Anything, inverterData).Return(nil)
 
 	server, err := NewDataCollectionServer(cfg, mockParser, mockPublisher, mockMonitoring)
@@ -328,7 +328,7 @@ func TestDataCollectionServer_ProcessData_MonitoringError(t *testing.T) {
 	}
 
 	mockParser.EXPECT().Parse(mock.Anything, testData).Return(inverterData, nil)
-	mockPublisher.EXPECT().Publish(mock.Anything, "test/topic", inverterData).Return(nil)
+	mockPublisher.EXPECT().Publish(mock.Anything, "", inverterData).Return(nil)
 	mockMonitoring.EXPECT().Send(mock.Anything, inverterData).Return(assert.AnError)
 
 	server, err := NewDataCollectionServer(cfg, mockParser, mockPublisher, mockMonitoring)
