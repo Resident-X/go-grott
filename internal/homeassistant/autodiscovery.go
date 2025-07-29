@@ -22,10 +22,6 @@ type Config struct {
 	DeviceManufacturer  string
 	DeviceModel         string
 	RetainDiscovery     bool
-	IncludeDiagnostic   bool
-	IncludeBattery      bool
-	IncludeGrid         bool
-	IncludePV           bool
 	ValueTemplateSuffix string
 }
 
@@ -243,11 +239,6 @@ func (ad *AutoDiscovery) GenerateDiscoveryMessages(data map[string]interface{}) 
 			continue
 		}
 
-		// Check category filters
-		if !ad.shouldIncludeCategory(sensorConfig.Category) {
-			continue
-		}
-
 		// Generate the discovery message
 		message := ad.createDiscoveryMessage(fieldName, sensorConfig, value, pvSerial)
 		if message != nil {
@@ -257,22 +248,6 @@ func (ad *AutoDiscovery) GenerateDiscoveryMessages(data map[string]interface{}) 
 	}
 
 	return messages
-}
-
-// shouldIncludeCategory checks if a category should be included based on configuration.
-func (ad *AutoDiscovery) shouldIncludeCategory(category string) bool {
-	switch category {
-	case "diagnostic":
-		return ad.config.IncludeDiagnostic
-	case "battery":
-		return ad.config.IncludeBattery
-	case "grid":
-		return ad.config.IncludeGrid
-	case "pv":
-		return ad.config.IncludePV
-	default:
-		return true // Include unknown categories by default
-	}
 }
 
 // createDiscoveryMessage creates a discovery message for a specific sensor.

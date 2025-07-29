@@ -666,11 +666,12 @@ var fieldSetters = map[string]fieldSetterFunc{
 func (p *Parser) setFieldValue(data *domain.InverterData, fieldName string, value float64) {
 	fieldNameLower := strings.ToLower(fieldName)
 
+	// Always store in ExtendedData for flattened MQTT output
+	data.ExtendedData[fieldName] = value
+
+	// Also populate typed fields for Go code type safety
 	if setter, ok := fieldSetters[fieldNameLower]; ok {
 		setter(data, value)
-	} else {
-		// Store in extended data for fields not in the main structure.
-		data.ExtendedData[fieldName] = value
 	}
 }
 

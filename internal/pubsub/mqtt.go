@@ -324,6 +324,16 @@ func (p *MQTTPublisher) publishInverterDataWithDiscovery(ctx context.Context, to
 		return fmt.Errorf("failed to unmarshal data for processing: %w", err)
 	}
 
+	// Flatten ExtendedData to root level (Python grott compatibility)
+	if data.ExtendedData != nil {
+		for key, value := range data.ExtendedData {
+			// Skip validation metadata to keep MQTT messages clean
+			if key != "validation_confidence" && key != "validation_errors" && key != "validation_warnings" {
+				dataMap[key] = value
+			}
+		}
+	}
+
 	// Apply calculations to convert raw values to proper units for Home Assistant
 	if p.haDiscovery != nil {
 		dataMap = p.haDiscovery.ApplyCalculations(dataMap)
@@ -367,10 +377,6 @@ func (p *MQTTPublisher) setupHomeAssistantDiscovery(deviceID string) error {
 		DeviceManufacturer:  p.config.MQTT.HomeAssistantAutoDiscovery.DeviceManufacturer,
 		DeviceModel:         p.config.MQTT.HomeAssistantAutoDiscovery.DeviceModel,
 		RetainDiscovery:     p.config.MQTT.HomeAssistantAutoDiscovery.RetainDiscovery,
-		IncludeDiagnostic:   p.config.MQTT.HomeAssistantAutoDiscovery.IncludeDiagnostic,
-		IncludeBattery:      p.config.MQTT.HomeAssistantAutoDiscovery.IncludeBattery,
-		IncludeGrid:         p.config.MQTT.HomeAssistantAutoDiscovery.IncludeGrid,
-		IncludePV:           p.config.MQTT.HomeAssistantAutoDiscovery.IncludePV,
 		ValueTemplateSuffix: p.config.MQTT.HomeAssistantAutoDiscovery.ValueTemplateSuffix,
 	}
 

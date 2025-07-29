@@ -51,10 +51,6 @@ type Config struct {
 			DeviceManufacturer  string `mapstructure:"device_manufacturer"`
 			DeviceModel         string `mapstructure:"device_model"`
 			RetainDiscovery     bool   `mapstructure:"retain_discovery"`
-			IncludeDiagnostic   bool   `mapstructure:"include_diagnostic"`
-			IncludeBattery      bool   `mapstructure:"include_battery"`
-			IncludeGrid         bool   `mapstructure:"include_grid"`
-			IncludePV           bool   `mapstructure:"include_pv"`
 			ValueTemplateSuffix string `mapstructure:"value_template_suffix"`
 			ListenToBirthMessage bool  `mapstructure:"listen_to_birth_message"`
 			RediscoveryInterval int   `mapstructure:"rediscovery_interval_hours"`
@@ -118,10 +114,6 @@ func DefaultConfig() *Config {
 	cfg.MQTT.HomeAssistantAutoDiscovery.DeviceManufacturer = "Growatt"
 	cfg.MQTT.HomeAssistantAutoDiscovery.DeviceModel = ""
 	cfg.MQTT.HomeAssistantAutoDiscovery.RetainDiscovery = true
-	cfg.MQTT.HomeAssistantAutoDiscovery.IncludeDiagnostic = true
-	cfg.MQTT.HomeAssistantAutoDiscovery.IncludeBattery = true
-	cfg.MQTT.HomeAssistantAutoDiscovery.IncludeGrid = true
-	cfg.MQTT.HomeAssistantAutoDiscovery.IncludePV = true
 	cfg.MQTT.HomeAssistantAutoDiscovery.ValueTemplateSuffix = ""
 	cfg.MQTT.HomeAssistantAutoDiscovery.ListenToBirthMessage = true
 	cfg.MQTT.HomeAssistantAutoDiscovery.RediscoveryInterval = 24 // 24 hours

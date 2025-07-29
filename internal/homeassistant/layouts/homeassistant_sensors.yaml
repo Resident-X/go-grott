@@ -266,128 +266,128 @@ sensors:
     category: "diagnostic"
     icon: "mdi:alert-outline"
 
-  # Battery Sensors
-  bdc1_vbat:
-    name: "Battery Voltage"
-    device_class: "voltage"
-    unit_of_measurement: "V"
-    state_class: "measurement"
-    category: "battery"
-    icon: "mdi:battery"
+  # # Battery Sensors
+  # bdc1_vbat:
+  #   name: "Battery Voltage"
+  #   device_class: "voltage"
+  #   unit_of_measurement: "V"
+  #   state_class: "measurement"
+  #   category: "battery"
+  #   icon: "mdi:battery"
 
-  bdc1_ibat:
-    name: "Battery Current"
-    device_class: "current"
-    unit_of_measurement: "A"
-    state_class: "measurement"
-    category: "battery"
-    icon: "mdi:battery"
+  # bdc1_ibat:
+  #   name: "Battery Current"
+  #   device_class: "current"
+  #   unit_of_measurement: "A"
+  #   state_class: "measurement"
+  #   category: "battery"
+  #   icon: "mdi:battery"
 
-  bdc1_soc:
-    name: "Battery State of Charge"
-    device_class: "battery"
-    unit_of_measurement: "%"
-    state_class: "measurement"
-    category: "battery"
-    icon: "mdi:battery"
+  # bdc1_soc:
+  #   name: "Battery State of Charge"
+  #   device_class: "battery"
+  #   unit_of_measurement: "%"
+  #   state_class: "measurement"
+  #   category: "battery"
+  #   icon: "mdi:battery"
 
-  bdc1_pchr:
-    name: "Battery Charge Power"
-    device_class: "power"
-    unit_of_measurement: "W"
-    state_class: "measurement"
-    category: "battery"
-    icon: "mdi:battery-charging"
+  # bdc1_pchr:
+  #   name: "Battery Charge Power"
+  #   device_class: "power"
+  #   unit_of_measurement: "W"
+  #   state_class: "measurement"
+  #   category: "battery"
+  #   icon: "mdi:battery-charging"
 
-  bdc1_pdischr:
-    name: "Battery Discharge Power"
-    device_class: "power"
-    unit_of_measurement: "W"
-    state_class: "measurement"
-    category: "battery"
-    icon: "mdi:battery-minus"
+  # bdc1_pdischr:
+  #   name: "Battery Discharge Power"
+  #   device_class: "power"
+  #   unit_of_measurement: "W"
+  #   state_class: "measurement"
+  #   category: "battery"
+  #   icon: "mdi:battery-minus"
 
-  bdc1_echrtotal:
-    name: "Battery Total Charge Energy"
-    device_class: "energy"
-    unit_of_measurement: "kWh"
-    state_class: "total_increasing"
-    category: "battery"
-    icon: "mdi:battery-charging"
+  # bdc1_echrtotal:
+  #   name: "Battery Total Charge Energy"
+  #   device_class: "energy"
+  #   unit_of_measurement: "kWh"
+  #   state_class: "total_increasing"
+  #   category: "battery"
+  #   icon: "mdi:battery-charging"
 
-  bdc1_edischrtotal:
-    name: "Battery Total Discharge Energy"
-    device_class: "energy"
-    unit_of_measurement: "kWh"
-    state_class: "total_increasing"
-    category: "battery"
-    icon: "mdi:battery-minus"
+  # bdc1_edischrtotal:
+  #   name: "Battery Total Discharge Energy"
+  #   device_class: "energy"
+  #   unit_of_measurement: "kWh"
+  #   state_class: "total_increasing"
+  #   category: "battery"
+  #   icon: "mdi:battery-minus"
 
-  bdc1_tempa:
-    name: "Battery Temperature A"
-    device_class: "temperature"
-    unit_of_measurement: "°C"
-    state_class: "measurement"
-    category: "battery"
-    icon: "mdi:thermometer"
+  # bdc1_tempa:
+  #   name: "Battery Temperature A"
+  #   device_class: "temperature"
+  #   unit_of_measurement: "°C"
+  #   state_class: "measurement"
+  #   category: "battery"
+  #   icon: "mdi:thermometer"
 
-  bdc1_tempb:
-    name: "Battery Temperature B"
-    device_class: "temperature"
-    unit_of_measurement: "°C"
-    state_class: "measurement"
-    category: "battery"
-    icon: "mdi:thermometer"
+  # bdc1_tempb:
+  #   name: "Battery Temperature B"
+  #   device_class: "temperature"
+  #   unit_of_measurement: "°C"
+  #   state_class: "measurement"
+  #   category: "battery"
+  #   icon: "mdi:thermometer"
 
-  bdc1_sysstatemode:
-    name: "Battery System State"
-    category: "battery"
-    icon: "mdi:battery-outline"
+  # bdc1_sysstatemode:
+  #   name: "Battery System State"
+  #   category: "battery"
+  #   icon: "mdi:battery-outline"
 
-  bms_soc:
-    name: "BMS State of Charge"
-    device_class: "battery"
-    unit_of_measurement: "%"
-    state_class: "measurement"
-    category: "battery"
-    icon: "mdi:battery"
+  # bms_soc:
+  #   name: "BMS State of Charge"
+  #   device_class: "battery"
+  #   unit_of_measurement: "%"
+  #   state_class: "measurement"
+  #   category: "battery"
+  #   icon: "mdi:battery"
 
-  bms_batteryvolt:
-    name: "BMS Battery Voltage"
-    device_class: "voltage"
-    unit_of_measurement: "V"
-    state_class: "measurement"
-    category: "battery"
-    icon: "mdi:battery"
+  # bms_batteryvolt:
+  #   name: "BMS Battery Voltage"
+  #   device_class: "voltage"
+  #   unit_of_measurement: "V"
+  #   state_class: "measurement"
+  #   category: "battery"
+  #   icon: "mdi:battery"
 
-  bms_batterycurr:
-    name: "BMS Battery Current"
-    device_class: "current"
-    unit_of_measurement: "A"
-    state_class: "measurement"
-    category: "battery"
-    icon: "mdi:battery"
+  # bms_batterycurr:
+  #   name: "BMS Battery Current"
+  #   device_class: "current"
+  #   unit_of_measurement: "A"
+  #   state_class: "measurement"
+  #   category: "battery"
+  #   icon: "mdi:battery"
 
-  bms_batterytemp:
-    name: "BMS Battery Temperature"
-    device_class: "temperature"
-    unit_of_measurement: "°C"
-    state_class: "measurement"
-    category: "battery"
-    icon: "mdi:thermometer"
+  # bms_batterytemp:
+  #   name: "BMS Battery Temperature"
+  #   device_class: "temperature"
+  #   unit_of_measurement: "°C"
+  #   state_class: "measurement"
+  #   category: "battery"
+  #   icon: "mdi:thermometer"
 
-  bms_cyclecnt:
-    name: "BMS Cycle Count"
-    state_class: "total_increasing"
-    category: "battery"
-    icon: "mdi:counter"
+  # bms_cyclecnt:
+  #   name: "BMS Cycle Count"
+  #   state_class: "total_increasing"
+  #   category: "battery"
+  #   icon: "mdi:counter"
 
-  bms_soh:
-    name: "BMS State of Health"
-    unit_of_measurement: "%"
-    state_class: "measurement"
-    category: "battery"
-    icon: "mdi:battery-heart-variant"
+  # bms_soh:
+  #   name: "BMS State of Health"
+  #   unit_of_measurement: "%"
+  #   state_class: "measurement"
+  #   category: "battery"
+  #   icon: "mdi:battery-heart-variant"
 
 # Additional sensors for device identification and timestamps
 # These follow different patterns from the main sensor data

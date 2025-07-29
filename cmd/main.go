@@ -209,10 +209,6 @@ func logServiceConfiguration(cfg *config.Config) {
 				Str("device_manufacturer", ha.DeviceManufacturer).
 				Str("device_model", ha.DeviceModel).
 				Bool("retain_discovery", ha.RetainDiscovery).
-				Bool("include_diagnostic", ha.IncludeDiagnostic).
-				Bool("include_battery", ha.IncludeBattery).
-				Bool("include_grid", ha.IncludeGrid).
-				Bool("include_pv", ha.IncludePV).
 				Msg("Home Assistant auto-discovery configuration")
 		} else {
 			log.Debug().Bool("enabled", false).Msg("Home Assistant auto-discovery disabled")
