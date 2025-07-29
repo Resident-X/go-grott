@@ -281,11 +281,14 @@ func (p *MQTTPublisher) publishGeneric(ctx context.Context, topic string, data i
 
 // publishInverterDataWithDiscovery handles InverterData with Home Assistant auto-discovery.
 func (p *MQTTPublisher) publishInverterDataWithDiscovery(ctx context.Context, topic string, data *domain.InverterData) error {
-	// Generate device ID consistently for both raw and auto-discovery
-	deviceID := data.PVSerial
-	if deviceID == "" {
-		deviceID = "unknown_inverter"
+	// Require PVSerial to be present; skip message if missing
+	if data.PVSerial == "" {
+		p.logger.Debug().Msg("Skipping publish: PVSerial is empty")
+		return nil 
 	}
+
+	// Generate device ID from PVSerial
+	deviceID := data.PVSerial
 
 	// Set the device field in the data for raw MQTT output
 	data.Device = deviceID
@@ -321,6 +324,11 @@ func (p *MQTTPublisher) publishInverterDataWithDiscovery(ctx context.Context, to
 		return fmt.Errorf("failed to unmarshal data for processing: %w", err)
 	}
 
+	// Apply calculations to convert raw values to proper units for Home Assistant
+	if p.haDiscovery != nil {
+		dataMap = p.haDiscovery.ApplyCalculations(dataMap)
+	}
+
 	// Publish Home Assistant auto-discovery messages if enabled
 	if p.config.MQTT.HomeAssistantAutoDiscovery.Enabled {
 		if err := p.publishHomeAssistantDiscovery(ctx, dataMap); err != nil {
@@ -328,18 +336,18 @@ func (p *MQTTPublisher) publishInverterDataWithDiscovery(ctx context.Context, to
 		}
 	}
 
-	// Publish raw data if enabled
+	// Publish converted data if enabled
 	if p.config.MQTT.PublishRaw {
-		// Debug: Check the data right before publishing
-		if debugJSON, err := json.Marshal(data); err == nil {
+		// Debug: Check the converted data before publishing
+		if debugJSON, err := json.Marshal(dataMap); err == nil {
 			p.logger.Debug().
 				Str("topic", baseTopic).
-				RawJSON("raw_data", debugJSON).
-				Msg("Publishing raw MQTT data")
+				RawJSON("converted_data", debugJSON).
+				Msg("Publishing calculated MQTT data")
 		}
 
-		if err := p.publishGeneric(ctx, baseTopic, data); err != nil {
-			return fmt.Errorf("failed to publish raw data: %w", err)
+		if err := p.publishGeneric(ctx, baseTopic, dataMap); err != nil {
+			return fmt.Errorf("failed to publish converted data: %w", err)
 		}
 	}
 

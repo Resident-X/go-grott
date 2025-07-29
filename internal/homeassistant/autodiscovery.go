@@ -3,15 +3,16 @@ package homeassistant
 
 import (
 	_ "embed"
-	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/rs/zerolog/log"
+	"gopkg.in/yaml.v3"
 )
 
-//go:embed layouts/homeassistant_sensors.json
-var homeAssistantSensorsJSON []byte
+//go:embed layouts/homeassistant_sensors.yaml
+var homeAssistantSensorsYAML []byte
 
 // Config holds the Home Assistant auto-discovery configuration.
 type Config struct {
@@ -28,21 +29,23 @@ type Config struct {
 	ValueTemplateSuffix string
 }
 
-// SensorConfig represents a sensor configuration from the layouts JSON.
+// SensorConfig represents a sensor configuration from the layouts YAML.
 type SensorConfig struct {
-	Name              string `json:"name"`
-	DeviceClass       string `json:"device_class,omitempty"`
-	UnitOfMeasurement string `json:"unit_of_measurement,omitempty"`
-	StateClass        string `json:"state_class,omitempty"`
-	Category          string `json:"category"`
-	Icon              string `json:"icon,omitempty"`
+	Name              string `yaml:"name"`
+	DeviceClass       string `yaml:"device_class,omitempty"`
+	UnitOfMeasurement string `yaml:"unit_of_measurement,omitempty"`
+	StateClass        string `yaml:"state_class,omitempty"`
+	Category          string `yaml:"category"`
+	Icon              string `yaml:"icon,omitempty"`
+	StatusMapping     string `yaml:"status_mapping,omitempty"`
 }
 
 // LayoutConfig represents the full layout configuration for Home Assistant sensors.
 type LayoutConfig struct {
-	Version     string                  `json:"version"`
-	Description string                  `json:"description"`
-	Sensors     map[string]SensorConfig `json:"sensors"`
+	Version        string                            `yaml:"version"`
+	Description    string                            `yaml:"description"`
+	StatusMappings map[string]map[interface{}]string `yaml:"status_mappings"`
+	Sensors        map[string]SensorConfig           `yaml:"sensors"`
 }
 
 // DiscoveryMessage represents a Home Assistant MQTT discovery message.
@@ -95,10 +98,10 @@ func New(config Config, baseTopic, deviceID string) (*AutoDiscovery, error) {
 	return ad, nil
 }
 
-// loadLayoutConfig loads the Home Assistant sensor configuration from embedded JSON.
+// loadLayoutConfig loads the Home Assistant sensor configuration from embedded YAML.
 func (ad *AutoDiscovery) loadLayoutConfig() error {
 	var config LayoutConfig
-	if err := json.Unmarshal(homeAssistantSensorsJSON, &config); err != nil {
+	if err := yaml.Unmarshal(homeAssistantSensorsYAML, &config); err != nil {
 		return fmt.Errorf("failed to unmarshal Home Assistant sensors config: %w", err)
 	}
 
@@ -106,9 +109,122 @@ func (ad *AutoDiscovery) loadLayoutConfig() error {
 	log.Info().
 		Str("version", config.Version).
 		Int("sensor_count", len(config.Sensors)).
-		Msg("Home Assistant layout configuration loaded from JSON")
+		Msg("Home Assistant layout configuration loaded from YAML")
 
 	return nil
+}
+
+// ApplyCalculations applies status mapping to the provided data.
+func (ad *AutoDiscovery) ApplyCalculations(data map[string]interface{}) map[string]interface{} {
+	if ad.layoutConfig == nil {
+		return data
+	}
+
+	processedData := make(map[string]interface{})
+	for key, value := range data {
+		processedData[key] = value
+	}
+
+	log.Debug().
+		Int("input_field_count", len(data)).
+		Int("sensor_count", len(ad.layoutConfig.Sensors)).
+		Msg("Processing data")
+
+	// Apply status mapping for configured sensors
+	for fieldName, sensorConfig := range ad.layoutConfig.Sensors {
+		if value, exists := data[fieldName]; exists && sensorConfig.StatusMapping != "" {
+			if statusMappings, exists := ad.layoutConfig.StatusMappings[sensorConfig.StatusMapping]; exists {
+				if mappedValue, found := statusMappings[value]; found {
+					processedData[fieldName] = mappedValue
+					log.Debug().
+						Str("field", fieldName).
+						Interface("original_value", value).
+						Str("mapped_value", mappedValue).
+						Msg("Status mapping successful")
+				}
+			}
+		}
+	}
+
+	return processedData
+}
+
+// applyStatusMapping converts numeric status codes to human-readable strings.
+func (ad *AutoDiscovery) applyStatusMapping(mappingKey string, rawValue interface{}) interface{} {
+	mapping, exists := ad.layoutConfig.StatusMappings[mappingKey]
+	if !exists {
+		log.Warn().Str("mapping_key", mappingKey).Msg("Status mapping not found")
+		return rawValue
+	}
+	
+	// Convert raw value to string key for lookup
+	var key interface{}
+	if numVal, ok := ad.convertToFloat(rawValue); ok {
+		key = int(numVal) // Try as integer first
+		if result, found := mapping[key]; found {
+			return result
+		}
+		key = numVal // Try as float
+		if result, found := mapping[key]; found {
+			return result
+		}
+	}
+	
+	// Try string key
+	key = fmt.Sprintf("%v", rawValue)
+	if result, found := mapping[key]; found {
+		return result
+	}
+	
+	// Return default value
+	if defaultVal, found := mapping["default"]; found {
+		return defaultVal
+	}
+	
+	return rawValue
+}
+
+// convertToFloat converts various numeric types to float64.
+func (ad *AutoDiscovery) convertToFloat(value interface{}) (float64, bool) {
+	switch v := value.(type) {
+	case float64:
+		return v, true
+	case float32:
+		return float64(v), true
+	case int:
+		return float64(v), true
+	case int32:
+		return float64(v), true
+	case int64:
+		return float64(v), true
+	case string:
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			return f, true
+		}
+	}
+	return 0, false
+}
+
+// evaluateFormula evaluates a calculation formula with the given numeric value.
+func (ad *AutoDiscovery) evaluateFormula(formula string, value float64, fieldName string) interface{} {
+	// Replace "raw_value" with the actual value in the formula
+	expression := strings.ReplaceAll(formula, "raw_value", fmt.Sprintf("%f", value))
+	
+	// For now, handle common patterns. Could be extended with a math parser.
+	if strings.Contains(expression, "/") {
+		parts := strings.Split(expression, "/")
+		if len(parts) == 2 {
+			if divisor, err := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64); err == nil {
+				return value / divisor
+			}
+		}
+	}
+	
+	log.Warn().
+		Str("field", fieldName).
+		Str("formula", formula).
+		Msg("Could not evaluate calculation formula")
+	return value
 }
 
 // GenerateDiscoveryMessages generates all discovery messages for the given data.
@@ -167,10 +283,10 @@ func (ad *AutoDiscovery) createDiscoveryMessage(fieldName string, sensorConfig S
 	// Create state topic
 	stateTopic := ad.baseTopic
 
-	// Create value template
-	valueTemplate := fmt.Sprintf("{{ value_json.%s%s }}", fieldName, ad.config.ValueTemplateSuffix)
+	// Create value template using integration settings
+	valueTemplate := ad.getValueTemplate(fieldName)
 
-	// Determine entity category
+	// Determine entity category based on sensor category
 	var entityCategory string
 	if sensorConfig.Category == "diagnostic" {
 		entityCategory = "diagnostic"
@@ -198,7 +314,36 @@ func (ad *AutoDiscovery) createDiscoveryMessage(fieldName string, sensorConfig S
 		Device:            deviceInfo,
 	}
 
+	// Add availability topic if enabled in integration settings
+	if ad.isAvailabilityEnabled() {
+		message.AvailabilityTopic = ad.GetAvailabilityTopic()
+		message.PayloadAvailable = ad.getPayloadAvailable()
+		message.PayloadNotAvailable = ad.getPayloadNotAvailable()
+	}
+
 	return message
+}
+
+// getValueTemplate creates the appropriate value template based on integration settings.
+func (ad *AutoDiscovery) getValueTemplate(fieldName string) string {
+	// Use default template format
+	templateFormat := "{{ value_json.%s }}"
+	return fmt.Sprintf(templateFormat, fieldName) + ad.config.ValueTemplateSuffix
+}
+
+// isAvailabilityEnabled checks if availability topics should be used.
+func (ad *AutoDiscovery) isAvailabilityEnabled() bool {
+	return false
+}
+
+// getPayloadAvailable returns the payload for available status.
+func (ad *AutoDiscovery) getPayloadAvailable() string {
+	return "online"
+}
+
+// getPayloadNotAvailable returns the payload for not available status.
+func (ad *AutoDiscovery) getPayloadNotAvailable() string {
+	return "offline"
 }
 
 // getDiscoveryTopic generates the MQTT discovery topic for a sensor.
@@ -306,15 +451,16 @@ func (ad *AutoDiscovery) getDeviceModelFromSerial(pvSerial string) string {
 
 // GetAvailabilityTopic returns the availability topic for the device.
 func (ad *AutoDiscovery) GetAvailabilityTopic() string {
-	return fmt.Sprintf("%s/availability", ad.baseTopic)
+	suffix := "/availability"
+	return fmt.Sprintf("%s%s", ad.baseTopic, suffix)
 }
 
-// CreateAvailabilityMessage creates availability messages.
+// CreateAvailabilityMessage creates availability messages based on configuration.
 func (ad *AutoDiscovery) CreateAvailabilityMessage(online bool) string {
 	if online {
-		return "online"
+		return ad.getPayloadAvailable()
 	}
-	return "offline"
+	return ad.getPayloadNotAvailable()
 }
 
 // CleanupDiscoveryMessages generates cleanup (empty) messages to remove sensors from Home Assistant.
