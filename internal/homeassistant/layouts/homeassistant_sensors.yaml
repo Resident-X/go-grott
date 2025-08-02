@@ -1,0 +1,685 @@
+# Home Assistant Auto-Discovery Sensor Configuration for Growatt Inverters
+# Minimal configuration with only essential fields for Home Assistant discovery
+
+version: "2.0"
+description: "Simplified Home Assistant auto-discovery sensor configurations for Growatt inverters"
+
+# Status mappings for text conversion
+status_mappings:
+  pvstatus:
+    0: "Waiting"
+    1: "Normal"
+    2: "Fault"
+    default: "Unknown"
+
+# Sensor definitions - only essential Home Assistant discovery fields
+sensors:
+  # PV String Sensors
+  pv1voltage:
+    name: "PV String 1 Voltage"
+    device_class: "voltage"
+    unit_of_measurement: "V"
+    state_class: "measurement"
+    category: "pv"
+    icon: "mdi:current-dc"
+
+  pv1current:
+    name: "PV String 1 Current"
+    device_class: "current"
+    unit_of_measurement: "A"
+    state_class: "measurement"
+    category: "pv"
+    icon: "mdi:current-dc"
+
+  pv1watt:
+    name: "PV String 1 Power"
+    device_class: "power"
+    unit_of_measurement: "W"
+    state_class: "measurement"
+    category: "pv"
+    icon: "mdi:solar-power"
+
+  pv2voltage:
+    name: "PV String 2 Voltage"
+    device_class: "voltage"
+    unit_of_measurement: "V"
+    state_class: "measurement"
+    category: "pv"
+    icon: "mdi:current-dc"
+
+  pv2current:
+    name: "PV String 2 Current"
+    device_class: "current"
+    unit_of_measurement: "A"
+    state_class: "measurement"
+    category: "pv"
+    icon: "mdi:current-dc"
+
+  pv2watt:
+    name: "PV String 2 Power"
+    device_class: "power"
+    unit_of_measurement: "W"
+    state_class: "measurement"
+    category: "pv"
+    icon: "mdi:solar-power"
+
+  pv3voltage:
+    name: "PV String 3 Voltage"
+    device_class: "voltage"
+    unit_of_measurement: "V"
+    state_class: "measurement"
+    category: "pv"
+    icon: "mdi:current-dc"
+
+  pv3current:
+    name: "PV String 3 Current"
+    device_class: "current"
+    unit_of_measurement: "A"
+    state_class: "measurement"
+    category: "pv"
+    icon: "mdi:current-dc"
+
+  pv3watt:
+    name: "PV String 3 Power"
+    device_class: "power"
+    unit_of_measurement: "W"
+    state_class: "measurement"
+    category: "pv"
+    icon: "mdi:solar-power"
+
+  pv4voltage:
+    name: "PV String 4 Voltage"
+    device_class: "voltage"
+    unit_of_measurement: "V"
+    state_class: "measurement"
+    category: "pv"
+    icon: "mdi:current-dc"
+
+  pv4current:
+    name: "PV String 4 Current"
+    device_class: "current"
+    unit_of_measurement: "A"
+    state_class: "measurement"
+    category: "pv"
+    icon: "mdi:current-dc"
+
+  pv4watt:
+    name: "PV String 4 Power"
+    device_class: "power"
+    unit_of_measurement: "W"
+    state_class: "measurement"
+    category: "pv"
+    icon: "mdi:solar-power"
+
+  # Total Power
+  pvpowerin:
+    name: "PV Input Power"
+    device_class: "power"
+    unit_of_measurement: "W"
+    state_class: "measurement"
+    category: "pv"
+    icon: "mdi:solar-power"
+
+  pvpowerout:
+    name: "Grid Output Power"
+    device_class: "power"
+    unit_of_measurement: "W"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  # Grid Measurements
+  pvfrequency:
+    name: "Grid Frequency"
+    device_class: "frequency"
+    unit_of_measurement: "Hz"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:sine-wave"
+
+  pvgridvoltage:
+    name: "Grid Voltage Phase 1"
+    device_class: "voltage"
+    unit_of_measurement: "V"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:current-ac"
+
+  pvgridcurrent:
+    name: "Grid Current Phase 1"
+    device_class: "current"
+    unit_of_measurement: "A"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:current-ac"
+
+  pvgridpower:
+    name: "Grid Power Phase 1"
+    device_class: "power"
+    unit_of_measurement: "W"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  pvgridvoltage2:
+    name: "Grid Voltage Phase 2"
+    device_class: "voltage"
+    unit_of_measurement: "V"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:current-ac"
+
+  pvgridcurrent2:
+    name: "Grid Current Phase 2"
+    device_class: "current"
+    unit_of_measurement: "A"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:current-ac"
+
+  pvgridpower2:
+    name: "Grid Power Phase 2"
+    device_class: "power"
+    unit_of_measurement: "W"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  pvgridvoltage3:
+    name: "Grid Voltage Phase 3"
+    device_class: "voltage"
+    unit_of_measurement: "V"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:current-ac"
+
+  pvgridcurrent3:
+    name: "Grid Current Phase 3"
+    device_class: "current"
+    unit_of_measurement: "A"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:current-ac"
+
+  pvgridpower3:
+    name: "Grid Power Phase 3"
+    device_class: "power"
+    unit_of_measurement: "W"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  # Energy Sensors
+  pvenergytoday:
+    name: "Energy Today"
+    device_class: "energy"
+    unit_of_measurement: "kWh"
+    state_class: "total_increasing"
+    category: "grid"
+    icon: "mdi:solar-power"
+
+  pvenergytotal:
+    name: "Energy Total"
+    device_class: "energy"
+    unit_of_measurement: "kWh"
+    state_class: "total_increasing"
+    category: "grid"
+    icon: "mdi:solar-power"
+
+  # Diagnostic Sensors
+  totworktime:
+    name: "Total Work Time"
+    unit_of_measurement: "h"
+    state_class: "total_increasing"
+    category: "diagnostic"
+    icon: "mdi:clock-outline"
+
+  pvtemperature:
+    name: "Inverter Temperature"
+    device_class: "temperature"
+    unit_of_measurement: "°C"
+    state_class: "measurement"
+    category: "diagnostic"
+    icon: "mdi:thermometer"
+
+  pvipmtemperature:
+    name: "IPM Temperature"
+    device_class: "temperature"
+    unit_of_measurement: "°C"
+    state_class: "measurement"
+    category: "diagnostic"
+    icon: "mdi:thermometer"
+
+  pvstatus:
+    name: "Inverter Status"
+    category: "diagnostic"
+    icon: "mdi:information-outline"
+    status_mapping: "pvstatus"
+
+  faultcode:
+    name: "Fault Code"
+    category: "diagnostic"
+    icon: "mdi:alert-circle-outline"
+
+  warningcode:
+    name: "Warning Code"
+    category: "diagnostic"
+    icon: "mdi:alert-outline"
+
+  # Smart Meter Sensors (T060120 layout)
+  voltage_l1:
+    name: "Voltage L1"
+    device_class: "voltage"
+    unit_of_measurement: "V"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:current-ac"
+
+  voltage_l2:
+    name: "Voltage L2"
+    device_class: "voltage"
+    unit_of_measurement: "V"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:current-ac"
+
+  voltage_l3:
+    name: "Voltage L3"
+    device_class: "voltage"
+    unit_of_measurement: "V"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:current-ac"
+
+  Current_l1:
+    name: "Current L1"
+    device_class: "current"
+    unit_of_measurement: "A"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:current-ac"
+
+  Current_l2:
+    name: "Current L2"
+    device_class: "current"
+    unit_of_measurement: "A"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:current-ac"
+
+  Current_l3:
+    name: "Current L3"
+    device_class: "current"
+    unit_of_measurement: "A"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:current-ac"
+
+  act_power_l1:
+    name: "Active Power L1"
+    device_class: "power"
+    unit_of_measurement: "W"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  act_power_l2:
+    name: "Active Power L2"
+    device_class: "power"
+    unit_of_measurement: "W"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  act_power_l3:
+    name: "Active Power L3"
+    device_class: "power"
+    unit_of_measurement: "W"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  app_power_l1:
+    name: "Apparent Power L1"
+    device_class: "apparent_power"
+    unit_of_measurement: "VA"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  app_power_l2:
+    name: "Apparent Power L2"
+    device_class: "apparent_power"
+    unit_of_measurement: "VA"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  app_power_l3:
+    name: "Apparent Power L3"
+    device_class: "apparent_power"
+    unit_of_measurement: "VA"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  react_power_l1:
+    name: "Reactive Power L1"
+    device_class: "reactive_power"
+    unit_of_measurement: "var"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  react_power_l2:
+    name: "Reactive Power L2"
+    device_class: "reactive_power"
+    unit_of_measurement: "var"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  react_power_l3:
+    name: "Reactive Power L3"
+    device_class: "reactive_power"
+    unit_of_measurement: "var"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  powerfactor_l1:
+    name: "Power Factor L1"
+    device_class: "power_factor"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:cosine-wave"
+
+  powerfactor_l2:
+    name: "Power Factor L2"
+    device_class: "power_factor"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:cosine-wave"
+
+  powerfactor_l3:
+    name: "Power Factor L3"
+    device_class: "power_factor"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:cosine-wave"
+
+  pos_rev_act_power:
+    name: "Positive/Reverse Active Power"
+    device_class: "power"
+    unit_of_measurement: "W"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  pos_act_power:
+    name: "Positive Active Power"
+    device_class: "power"
+    unit_of_measurement: "W"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  rev_act_power:
+    name: "Reverse Active Power"
+    device_class: "power"
+    unit_of_measurement: "W"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  app_power:
+    name: "Total Apparent Power"
+    device_class: "apparent_power"
+    unit_of_measurement: "VA"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  react_power:
+    name: "Total Reactive Power"
+    device_class: "reactive_power"
+    unit_of_measurement: "var"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  powerfactor:
+    name: "Total Power Factor"
+    device_class: "power_factor"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:cosine-wave"
+
+  frequency:
+    name: "Grid Frequency"
+    device_class: "frequency"
+    unit_of_measurement: "Hz"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:sine-wave"
+
+  L1-2_voltage:
+    name: "Line Voltage L1-L2"
+    device_class: "voltage"
+    unit_of_measurement: "V"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:current-ac"
+
+  L2-3_voltage:
+    name: "Line Voltage L2-L3"
+    device_class: "voltage"
+    unit_of_measurement: "V"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:current-ac"
+
+  L3-1_voltage:
+    name: "Line Voltage L3-L1"
+    device_class: "voltage"
+    unit_of_measurement: "V"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:current-ac"
+
+  pos_act_energy:
+    name: "Positive Active Energy"
+    device_class: "energy"
+    unit_of_measurement: "kWh"
+    state_class: "total_increasing"
+    category: "grid"
+    icon: "mdi:counter"
+
+  rev_act_energy:
+    name: "Reverse Active Energy"
+    device_class: "energy"
+    unit_of_measurement: "kWh"
+    state_class: "total_increasing"
+    category: "grid"
+    icon: "mdi:counter"
+
+  pos_act_energy_kvar:
+    name: "Positive Reactive Energy"
+    device_class: "energy"
+    unit_of_measurement: "kvarh"
+    state_class: "total_increasing"
+    category: "grid"
+    icon: "mdi:counter"
+
+  rev_act_energy_kvar:
+    name: "Reverse Reactive Energy"
+    device_class: "energy"
+    unit_of_measurement: "kvarh"
+    state_class: "total_increasing"
+    category: "grid"
+    icon: "mdi:counter"
+
+  app_energy_kvar:
+    name: "Apparent Energy"
+    device_class: "energy"
+    unit_of_measurement: "kVAh"
+    state_class: "total_increasing"
+    category: "grid"
+    icon: "mdi:counter"
+
+  act_energy_kwh:
+    name: "Active Energy"
+    device_class: "energy"
+    unit_of_measurement: "kWh"
+    state_class: "total_increasing"
+    category: "grid"
+    icon: "mdi:counter"
+
+  react_energy_kvar:
+    name: "Reactive Energy"
+    device_class: "energy"
+    unit_of_measurement: "kvarh"
+    state_class: "total_increasing"
+    category: "grid"
+    icon: "mdi:counter"
+
+  # # Battery Sensors
+  # bdc1_vbat:
+  #   name: "Battery Voltage"
+  #   device_class: "voltage"
+  #   unit_of_measurement: "V"
+  #   state_class: "measurement"
+  #   category: "battery"
+  #   icon: "mdi:battery"
+
+  # bdc1_ibat:
+  #   name: "Battery Current"
+  #   device_class: "current"
+  #   unit_of_measurement: "A"
+  #   state_class: "measurement"
+  #   category: "battery"
+  #   icon: "mdi:battery"
+
+  # bdc1_soc:
+  #   name: "Battery State of Charge"
+  #   device_class: "battery"
+  #   unit_of_measurement: "%"
+  #   state_class: "measurement"
+  #   category: "battery"
+  #   icon: "mdi:battery"
+
+  # bdc1_pchr:
+  #   name: "Battery Charge Power"
+  #   device_class: "power"
+  #   unit_of_measurement: "W"
+  #   state_class: "measurement"
+  #   category: "battery"
+  #   icon: "mdi:battery-charging"
+
+  # bdc1_pdischr:
+  #   name: "Battery Discharge Power"
+  #   device_class: "power"
+  #   unit_of_measurement: "W"
+  #   state_class: "measurement"
+  #   category: "battery"
+  #   icon: "mdi:battery-minus"
+
+  # bdc1_echrtotal:
+  #   name: "Battery Total Charge Energy"
+  #   device_class: "energy"
+  #   unit_of_measurement: "kWh"
+  #   state_class: "total_increasing"
+  #   category: "battery"
+  #   icon: "mdi:battery-charging"
+
+  # bdc1_edischrtotal:
+  #   name: "Battery Total Discharge Energy"
+  #   device_class: "energy"
+  #   unit_of_measurement: "kWh"
+  #   state_class: "total_increasing"
+  #   category: "battery"
+  #   icon: "mdi:battery-minus"
+
+  # bdc1_tempa:
+  #   name: "Battery Temperature A"
+  #   device_class: "temperature"
+  #   unit_of_measurement: "°C"
+  #   state_class: "measurement"
+  #   category: "battery"
+  #   icon: "mdi:thermometer"
+
+  # bdc1_tempb:
+  #   name: "Battery Temperature B"
+  #   device_class: "temperature"
+  #   unit_of_measurement: "°C"
+  #   state_class: "measurement"
+  #   category: "battery"
+  #   icon: "mdi:thermometer"
+
+  # bdc1_sysstatemode:
+  #   name: "Battery System State"
+  #   category: "battery"
+  #   icon: "mdi:battery-outline"
+
+  # bms_soc:
+  #   name: "BMS State of Charge"
+  #   device_class: "battery"
+  #   unit_of_measurement: "%"
+  #   state_class: "measurement"
+  #   category: "battery"
+  #   icon: "mdi:battery"
+
+  # bms_batteryvolt:
+  #   name: "BMS Battery Voltage"
+  #   device_class: "voltage"
+  #   unit_of_measurement: "V"
+  #   state_class: "measurement"
+  #   category: "battery"
+  #   icon: "mdi:battery"
+
+  # bms_batterycurr:
+  #   name: "BMS Battery Current"
+  #   device_class: "current"
+  #   unit_of_measurement: "A"
+  #   state_class: "measurement"
+  #   category: "battery"
+  #   icon: "mdi:battery"
+
+  # bms_batterytemp:
+  #   name: "BMS Battery Temperature"
+  #   device_class: "temperature"
+  #   unit_of_measurement: "°C"
+  #   state_class: "measurement"
+  #   category: "battery"
+  #   icon: "mdi:thermometer"
+
+  # bms_cyclecnt:
+  #   name: "BMS Cycle Count"
+  #   state_class: "total_increasing"
+  #   category: "battery"
+  #   icon: "mdi:counter"
+
+  # bms_soh:
+  #   name: "BMS State of Health"
+  #   unit_of_measurement: "%"
+  #   state_class: "measurement"
+  #   category: "battery"
+  #   icon: "mdi:battery-heart-variant"
+
+# Additional sensors for device identification and timestamps
+# These follow different patterns from the main sensor data
+additional_sensors:
+  device:
+    name: "Serial Number"
+    icon: "mdi:identifier"
+    description: "Inverter serial number identifier"
+    value_template: "{{ value_json.device }}"
+    category: "diagnostic"
+
+  timestamp:
+    name: "Last Update"
+    device_class: "timestamp"
+    icon: "mdi:clock-outline"
+    description: "Timestamp of last data update"
+    value_template: "{{ value_json.time }}"
+    category: "diagnostic"

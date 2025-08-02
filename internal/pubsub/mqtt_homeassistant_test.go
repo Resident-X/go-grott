@@ -24,10 +24,6 @@ func TestMQTTPublisher_HomeAssistantAutoDiscovery(t *testing.T) {
 	cfg.MQTT.HomeAssistantAutoDiscovery.DeviceManufacturer = "Growatt"
 	cfg.MQTT.HomeAssistantAutoDiscovery.DeviceModel = "MIC 600TL-X"
 	cfg.MQTT.HomeAssistantAutoDiscovery.RetainDiscovery = true
-	cfg.MQTT.HomeAssistantAutoDiscovery.IncludeDiagnostic = true
-	cfg.MQTT.HomeAssistantAutoDiscovery.IncludeBattery = true
-	cfg.MQTT.HomeAssistantAutoDiscovery.IncludeGrid = true
-	cfg.MQTT.HomeAssistantAutoDiscovery.IncludePV = true
 	cfg.MQTT.Retain = false
 
 	mockClient := mocks.NewMockClient(t)
@@ -123,10 +119,6 @@ func TestMQTTPublisher_RawDataDisabled_DiscoveryEnabled(t *testing.T) {
 	cfg.MQTT.HomeAssistantAutoDiscovery.DeviceName = "Test Inverter"
 	cfg.MQTT.HomeAssistantAutoDiscovery.DeviceManufacturer = "Growatt"
 	cfg.MQTT.HomeAssistantAutoDiscovery.RetainDiscovery = true
-	cfg.MQTT.HomeAssistantAutoDiscovery.IncludeDiagnostic = true
-	cfg.MQTT.HomeAssistantAutoDiscovery.IncludeBattery = true
-	cfg.MQTT.HomeAssistantAutoDiscovery.IncludeGrid = true
-	cfg.MQTT.HomeAssistantAutoDiscovery.IncludePV = true
 
 	mockClient := mocks.NewMockClient(t)
 	mockToken := mocks.NewMockToken(t)

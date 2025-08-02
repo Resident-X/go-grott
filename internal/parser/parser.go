@@ -216,6 +216,13 @@ func (p *Parser) Parse(ctx context.Context, data []byte) (*domain.InverterData, 
 	if ctx.Err() != nil {
 		return nil, fmt.Errorf("context error: %w", ctx.Err())
 	}
+	
+	// Check minimum record length from config
+	if len(data) < p.config.MinRecordLen {
+		p.logf("Skipping data parsing: too short (%d bytes), minimum configured length is %d bytes", len(data), p.config.MinRecordLen)
+		return nil, nil // Return nil without error to skip parsing but allow responses
+	}
+	
 	p.logf("Data: %s", hex.EncodeToString(data))
 	p.logf("Starting to parse data of length: %d bytes", len(data))
 
@@ -264,6 +271,8 @@ func (p *Parser) Parse(ctx context.Context, data []byte) (*domain.InverterData, 
 	inverterData := &domain.InverterData{
 		Timestamp:    time.Now(),
 		Buffered:     "no", // Indicates real-time data, not buffered
+		Layout:       layoutKey,
+		DeviceType:   p.getDeviceType(layoutKey),
 		RawHex:       hexStr,
 		ExtendedData: make(map[string]interface{}),
 	}
@@ -348,7 +357,7 @@ func (p *Parser) buildLayoutKey(hexStr string) string {
 		layoutKey := fmt.Sprintf("T%s%s", protocolByte, deviceType)
 
 		// Add 'X' suffix for extended data.
-		isSmartMeter := deviceType[2:4] == "20" || deviceType[2:4] == "1b"
+		isSmartMeter := deviceType[2:4] == domain.SmartMeterDevicePattern1 || deviceType[2:4] == domain.SmartMeterDevicePattern2
 
 		if !isSmartMeter {
 			// Compare hex length directly against threshold (375 bytes = 750 hex chars)
@@ -367,6 +376,17 @@ func (p *Parser) buildLayoutKey(hexStr string) string {
 
 	// Fallback for short headers.
 	return p.buildFallbackLayoutKey(hexStr)
+}
+
+// getDeviceType determines the device type based on the layout key.
+func (p *Parser) getDeviceType(layoutKey string) string {
+	// Check if this is a smart meter layout
+	if strings.Contains(layoutKey, domain.SmartMeterLayoutPattern) || strings.Contains(layoutKey, domain.SmartMeterDevicePattern2) {
+		return domain.DeviceTypeSmartMeter
+	}
+	
+	// Default to inverter for all other layouts
+	return domain.DeviceTypeInverter
 }
 
 // buildFallbackLayoutKey constructs layout key for short headers.
@@ -666,11 +686,12 @@ var fieldSetters = map[string]fieldSetterFunc{
 func (p *Parser) setFieldValue(data *domain.InverterData, fieldName string, value float64) {
 	fieldNameLower := strings.ToLower(fieldName)
 
+	// Always store in ExtendedData for flattened MQTT output
+	data.ExtendedData[fieldName] = value
+
+	// Also populate typed fields for Go code type safety
 	if setter, ok := fieldSetters[fieldNameLower]; ok {
 		setter(data, value)
-	} else {
-		// Store in extended data for fields not in the main structure.
-		data.ExtendedData[fieldName] = value
 	}
 }
 

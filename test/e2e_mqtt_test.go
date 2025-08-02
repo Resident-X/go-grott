@@ -54,11 +54,11 @@ func TestE2E_MQTTPublishing(t *testing.T) {
 		description          string
 	}{
 		{
-			name:              "Encrypted_Growatt_Data",
+			name:              "Ping_Response_No_MQTT",
 			hexData:           "00020006002001161f352b4122363e7540387761747447726f7761747447726f7761747447722eb2",
-			expectMQTTMessage: true,
-			expectedTopic:     "energy/growatt",
-			description:       "Real encrypted Growatt data should be published to MQTT",
+			expectMQTTMessage: false,
+			expectedTopic:     "",
+			description:       "Ping response should generate server response but not publish to MQTT",
 		},
 		{
 			name:              "Large_Encrypted_Data",
@@ -158,6 +158,15 @@ func TestE2E_MQTTPublishing(t *testing.T) {
 
 				case <-time.After(12 * time.Second):
 					t.Fatal("❌ TIMEOUT: No MQTT message received within 12 seconds")
+				}
+			} else {
+				// Should not receive MQTT message, but give a short time to ensure nothing is published
+				t.Log("Waiting briefly to confirm no MQTT message is published...")
+				select {
+				case msg := <-receivedMessages:
+					t.Fatalf("❌ UNEXPECTED: Received MQTT message when none was expected on topic '%s': %s", msg.Topic, string(msg.Payload))
+				case <-time.After(2 * time.Second):
+					t.Log("✅ SUCCESS: No MQTT message published as expected")
 				}
 			}
 

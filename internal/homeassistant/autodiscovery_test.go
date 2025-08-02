@@ -12,10 +12,6 @@ func TestNew(t *testing.T) {
 		DeviceManufacturer:  "Growatt",
 		DeviceModel:         "MIC 600TL-X",
 		RetainDiscovery:     true,
-		IncludeDiagnostic:   true,
-		IncludeBattery:      true,
-		IncludeGrid:         true,
-		IncludePV:           true,
 		ValueTemplateSuffix: "",
 	}
 
@@ -44,36 +40,6 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestShouldIncludeCategory(t *testing.T) {
-	config := Config{
-		Enabled:           true,
-		IncludeDiagnostic: true,
-		IncludeBattery:    false,
-		IncludeGrid:       true,
-		IncludePV:         true,
-	}
-
-	ad := &AutoDiscovery{config: config}
-
-	tests := []struct {
-		category string
-		expected bool
-	}{
-		{"diagnostic", true},
-		{"battery", false},
-		{"grid", true},
-		{"pv", true},
-		{"unknown", true}, // Unknown categories should be included by default
-	}
-
-	for _, test := range tests {
-		result := ad.shouldIncludeCategory(test.category)
-		if result != test.expected {
-			t.Errorf("For category %s, expected %v, got %v", test.category, test.expected, result)
-		}
-	}
-}
-
 func TestGenerateDiscoveryMessages(t *testing.T) {
 	config := Config{
 		Enabled:             true,
@@ -82,10 +48,6 @@ func TestGenerateDiscoveryMessages(t *testing.T) {
 		DeviceManufacturer:  "Growatt",
 		DeviceModel:         "MIC 600TL-X",
 		RetainDiscovery:     true,
-		IncludeDiagnostic:   true,
-		IncludeBattery:      true,
-		IncludeGrid:         true,
-		IncludePV:           true,
 		ValueTemplateSuffix: "",
 	}
 

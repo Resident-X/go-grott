@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -281,11 +282,20 @@ func (p *MQTTPublisher) publishGeneric(ctx context.Context, topic string, data i
 
 // publishInverterDataWithDiscovery handles InverterData with Home Assistant auto-discovery.
 func (p *MQTTPublisher) publishInverterDataWithDiscovery(ctx context.Context, topic string, data *domain.InverterData) error {
-	// Generate device ID consistently for both raw and auto-discovery
-	deviceID := data.PVSerial
-	if deviceID == "" {
-		deviceID = "unknown_inverter"
+	// Require PVSerial to be present; skip message if missing
+	if data.PVSerial == "" {
+		p.logger.Debug().Msg("Skipping publish: PVSerial is empty")
+		return nil 
 	}
+
+	// Ensure DeviceType is set with a sensible default
+	if data.DeviceType == "" {
+		data.DeviceType = domain.DeviceTypeInverter
+		p.logger.Debug().Msg("DeviceType was empty, defaulting to inverter")
+	}
+
+	// Generate device ID from PVSerial and device type to avoid conflicts
+	deviceID := fmt.Sprintf("%s_%s", data.PVSerial, data.DeviceType)
 
 	// Set the device field in the data for raw MQTT output
 	data.Device = deviceID
@@ -295,6 +305,7 @@ func (p *MQTTPublisher) publishInverterDataWithDiscovery(ctx context.Context, to
 		Str("device_id", deviceID).
 		Str("data_device", data.Device).
 		Str("pv_serial", data.PVSerial).
+		Str("device_type", data.DeviceType).
 		Msg("Publishing inverter data with Home Assistant support")
 
 	if p.haDiscovery == nil && p.config.MQTT.HomeAssistantAutoDiscovery.Enabled {
@@ -306,7 +317,7 @@ func (p *MQTTPublisher) publishInverterDataWithDiscovery(ctx context.Context, to
 	// Determine topic based on configuration (override the provided topic for InverterData)
 	baseTopic := p.config.MQTT.Topic
 
-	// Add inverter ID to topic if configured
+	// Add inverter ID to topic if configured (keep original format for backward compatibility)
 	if p.config.MQTT.IncludeInverterID && data.PVSerial != "" {
 		baseTopic = fmt.Sprintf("%s/%s", baseTopic, data.PVSerial)
 	}
@@ -321,6 +332,21 @@ func (p *MQTTPublisher) publishInverterDataWithDiscovery(ctx context.Context, to
 		return fmt.Errorf("failed to unmarshal data for processing: %w", err)
 	}
 
+	// Flatten ExtendedData to root level (Python grott compatibility)
+	if data.ExtendedData != nil {
+		for key, value := range data.ExtendedData {
+			// Skip validation metadata to keep MQTT messages clean
+			if key != "validation_confidence" && key != "validation_errors" && key != "validation_warnings" {
+				dataMap[key] = value
+			}
+		}
+	}
+
+	// Apply calculations to convert raw values to proper units for Home Assistant
+	if p.haDiscovery != nil {
+		dataMap = p.haDiscovery.ApplyCalculations(dataMap)
+	}
+
 	// Publish Home Assistant auto-discovery messages if enabled
 	if p.config.MQTT.HomeAssistantAutoDiscovery.Enabled {
 		if err := p.publishHomeAssistantDiscovery(ctx, dataMap); err != nil {
@@ -328,18 +354,18 @@ func (p *MQTTPublisher) publishInverterDataWithDiscovery(ctx context.Context, to
 		}
 	}
 
-	// Publish raw data if enabled
+	// Publish converted data if enabled
 	if p.config.MQTT.PublishRaw {
-		// Debug: Check the data right before publishing
-		if debugJSON, err := json.Marshal(data); err == nil {
+		// Debug: Check the converted data before publishing
+		if debugJSON, err := json.Marshal(dataMap); err == nil {
 			p.logger.Debug().
 				Str("topic", baseTopic).
-				RawJSON("raw_data", debugJSON).
-				Msg("Publishing raw MQTT data")
+				RawJSON("converted_data", debugJSON).
+				Msg("Publishing calculated MQTT data")
 		}
 
-		if err := p.publishGeneric(ctx, baseTopic, data); err != nil {
-			return fmt.Errorf("failed to publish raw data: %w", err)
+		if err := p.publishGeneric(ctx, baseTopic, dataMap); err != nil {
+			return fmt.Errorf("failed to publish converted data: %w", err)
 		}
 	}
 
@@ -359,16 +385,20 @@ func (p *MQTTPublisher) setupHomeAssistantDiscovery(deviceID string) error {
 		DeviceManufacturer:  p.config.MQTT.HomeAssistantAutoDiscovery.DeviceManufacturer,
 		DeviceModel:         p.config.MQTT.HomeAssistantAutoDiscovery.DeviceModel,
 		RetainDiscovery:     p.config.MQTT.HomeAssistantAutoDiscovery.RetainDiscovery,
-		IncludeDiagnostic:   p.config.MQTT.HomeAssistantAutoDiscovery.IncludeDiagnostic,
-		IncludeBattery:      p.config.MQTT.HomeAssistantAutoDiscovery.IncludeBattery,
-		IncludeGrid:         p.config.MQTT.HomeAssistantAutoDiscovery.IncludeGrid,
-		IncludePV:           p.config.MQTT.HomeAssistantAutoDiscovery.IncludePV,
 		ValueTemplateSuffix: p.config.MQTT.HomeAssistantAutoDiscovery.ValueTemplateSuffix,
 	}
 
+	// Use the same baseTopic format as the actual MQTT messages for consistency
 	baseTopic := p.config.MQTT.Topic
-	if p.config.MQTT.IncludeInverterID && deviceID != "" {
-		baseTopic = fmt.Sprintf("%s/%s", baseTopic, deviceID)
+	// For auto-discovery baseTopic, we need to extract the PVSerial from the deviceID
+	// deviceID format is {pvSerial}_{deviceType}, so extract just the PVSerial part
+	pvSerial := deviceID
+	if idx := strings.LastIndex(deviceID, "_"); idx != -1 {
+		pvSerial = deviceID[:idx]
+	}
+	
+	if p.config.MQTT.IncludeInverterID && pvSerial != "" {
+		baseTopic = fmt.Sprintf("%s/%s", baseTopic, pvSerial)
 	}
 
 	var err error
