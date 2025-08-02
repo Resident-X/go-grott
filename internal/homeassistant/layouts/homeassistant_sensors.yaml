@@ -266,6 +266,283 @@ sensors:
     category: "diagnostic"
     icon: "mdi:alert-outline"
 
+  # Smart Meter Sensors (T060120 layout)
+  voltage_l1:
+    name: "Voltage L1"
+    device_class: "voltage"
+    unit_of_measurement: "V"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:current-ac"
+
+  voltage_l2:
+    name: "Voltage L2"
+    device_class: "voltage"
+    unit_of_measurement: "V"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:current-ac"
+
+  voltage_l3:
+    name: "Voltage L3"
+    device_class: "voltage"
+    unit_of_measurement: "V"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:current-ac"
+
+  Current_l1:
+    name: "Current L1"
+    device_class: "current"
+    unit_of_measurement: "A"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:current-ac"
+
+  Current_l2:
+    name: "Current L2"
+    device_class: "current"
+    unit_of_measurement: "A"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:current-ac"
+
+  Current_l3:
+    name: "Current L3"
+    device_class: "current"
+    unit_of_measurement: "A"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:current-ac"
+
+  act_power_l1:
+    name: "Active Power L1"
+    device_class: "power"
+    unit_of_measurement: "W"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  act_power_l2:
+    name: "Active Power L2"
+    device_class: "power"
+    unit_of_measurement: "W"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  act_power_l3:
+    name: "Active Power L3"
+    device_class: "power"
+    unit_of_measurement: "W"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  app_power_l1:
+    name: "Apparent Power L1"
+    device_class: "apparent_power"
+    unit_of_measurement: "VA"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  app_power_l2:
+    name: "Apparent Power L2"
+    device_class: "apparent_power"
+    unit_of_measurement: "VA"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  app_power_l3:
+    name: "Apparent Power L3"
+    device_class: "apparent_power"
+    unit_of_measurement: "VA"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  react_power_l1:
+    name: "Reactive Power L1"
+    device_class: "reactive_power"
+    unit_of_measurement: "var"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  react_power_l2:
+    name: "Reactive Power L2"
+    device_class: "reactive_power"
+    unit_of_measurement: "var"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  react_power_l3:
+    name: "Reactive Power L3"
+    device_class: "reactive_power"
+    unit_of_measurement: "var"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  powerfactor_l1:
+    name: "Power Factor L1"
+    device_class: "power_factor"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:cosine-wave"
+
+  powerfactor_l2:
+    name: "Power Factor L2"
+    device_class: "power_factor"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:cosine-wave"
+
+  powerfactor_l3:
+    name: "Power Factor L3"
+    device_class: "power_factor"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:cosine-wave"
+
+  pos_rev_act_power:
+    name: "Positive/Reverse Active Power"
+    device_class: "power"
+    unit_of_measurement: "W"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  pos_act_power:
+    name: "Positive Active Power"
+    device_class: "power"
+    unit_of_measurement: "W"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  rev_act_power:
+    name: "Reverse Active Power"
+    device_class: "power"
+    unit_of_measurement: "W"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  app_power:
+    name: "Total Apparent Power"
+    device_class: "apparent_power"
+    unit_of_measurement: "VA"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  react_power:
+    name: "Total Reactive Power"
+    device_class: "reactive_power"
+    unit_of_measurement: "var"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:transmission-tower"
+
+  powerfactor:
+    name: "Total Power Factor"
+    device_class: "power_factor"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:cosine-wave"
+
+  frequency:
+    name: "Grid Frequency"
+    device_class: "frequency"
+    unit_of_measurement: "Hz"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:sine-wave"
+
+  L1-2_voltage:
+    name: "Line Voltage L1-L2"
+    device_class: "voltage"
+    unit_of_measurement: "V"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:current-ac"
+
+  L2-3_voltage:
+    name: "Line Voltage L2-L3"
+    device_class: "voltage"
+    unit_of_measurement: "V"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:current-ac"
+
+  L3-1_voltage:
+    name: "Line Voltage L3-L1"
+    device_class: "voltage"
+    unit_of_measurement: "V"
+    state_class: "measurement"
+    category: "grid"
+    icon: "mdi:current-ac"
+
+  pos_act_energy:
+    name: "Positive Active Energy"
+    device_class: "energy"
+    unit_of_measurement: "kWh"
+    state_class: "total_increasing"
+    category: "grid"
+    icon: "mdi:counter"
+
+  rev_act_energy:
+    name: "Reverse Active Energy"
+    device_class: "energy"
+    unit_of_measurement: "kWh"
+    state_class: "total_increasing"
+    category: "grid"
+    icon: "mdi:counter"
+
+  pos_act_energy_kvar:
+    name: "Positive Reactive Energy"
+    device_class: "energy"
+    unit_of_measurement: "kvarh"
+    state_class: "total_increasing"
+    category: "grid"
+    icon: "mdi:counter"
+
+  rev_act_energy_kvar:
+    name: "Reverse Reactive Energy"
+    device_class: "energy"
+    unit_of_measurement: "kvarh"
+    state_class: "total_increasing"
+    category: "grid"
+    icon: "mdi:counter"
+
+  app_energy_kvar:
+    name: "Apparent Energy"
+    device_class: "energy"
+    unit_of_measurement: "kVAh"
+    state_class: "total_increasing"
+    category: "grid"
+    icon: "mdi:counter"
+
+  act_energy_kwh:
+    name: "Active Energy"
+    device_class: "energy"
+    unit_of_measurement: "kWh"
+    state_class: "total_increasing"
+    category: "grid"
+    icon: "mdi:counter"
+
+  react_energy_kvar:
+    name: "Reactive Energy"
+    device_class: "energy"
+    unit_of_measurement: "kvarh"
+    state_class: "total_increasing"
+    category: "grid"
+    icon: "mdi:counter"
+
   # # Battery Sensors
   # bdc1_vbat:
   #   name: "Battery Voltage"

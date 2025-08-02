@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -287,8 +288,14 @@ func (p *MQTTPublisher) publishInverterDataWithDiscovery(ctx context.Context, to
 		return nil 
 	}
 
-	// Generate device ID from PVSerial
-	deviceID := data.PVSerial
+	// Ensure DeviceType is set with a sensible default
+	if data.DeviceType == "" {
+		data.DeviceType = domain.DeviceTypeInverter
+		p.logger.Debug().Msg("DeviceType was empty, defaulting to inverter")
+	}
+
+	// Generate device ID from PVSerial and device type to avoid conflicts
+	deviceID := fmt.Sprintf("%s_%s", data.PVSerial, data.DeviceType)
 
 	// Set the device field in the data for raw MQTT output
 	data.Device = deviceID
@@ -298,6 +305,7 @@ func (p *MQTTPublisher) publishInverterDataWithDiscovery(ctx context.Context, to
 		Str("device_id", deviceID).
 		Str("data_device", data.Device).
 		Str("pv_serial", data.PVSerial).
+		Str("device_type", data.DeviceType).
 		Msg("Publishing inverter data with Home Assistant support")
 
 	if p.haDiscovery == nil && p.config.MQTT.HomeAssistantAutoDiscovery.Enabled {
@@ -309,7 +317,7 @@ func (p *MQTTPublisher) publishInverterDataWithDiscovery(ctx context.Context, to
 	// Determine topic based on configuration (override the provided topic for InverterData)
 	baseTopic := p.config.MQTT.Topic
 
-	// Add inverter ID to topic if configured
+	// Add inverter ID to topic if configured (keep original format for backward compatibility)
 	if p.config.MQTT.IncludeInverterID && data.PVSerial != "" {
 		baseTopic = fmt.Sprintf("%s/%s", baseTopic, data.PVSerial)
 	}
@@ -380,9 +388,17 @@ func (p *MQTTPublisher) setupHomeAssistantDiscovery(deviceID string) error {
 		ValueTemplateSuffix: p.config.MQTT.HomeAssistantAutoDiscovery.ValueTemplateSuffix,
 	}
 
+	// Use the same baseTopic format as the actual MQTT messages for consistency
 	baseTopic := p.config.MQTT.Topic
-	if p.config.MQTT.IncludeInverterID && deviceID != "" {
-		baseTopic = fmt.Sprintf("%s/%s", baseTopic, deviceID)
+	// For auto-discovery baseTopic, we need to extract the PVSerial from the deviceID
+	// deviceID format is {pvSerial}_{deviceType}, so extract just the PVSerial part
+	pvSerial := deviceID
+	if idx := strings.LastIndex(deviceID, "_"); idx != -1 {
+		pvSerial = deviceID[:idx]
+	}
+	
+	if p.config.MQTT.IncludeInverterID && pvSerial != "" {
+		baseTopic = fmt.Sprintf("%s/%s", baseTopic, pvSerial)
 	}
 
 	var err error

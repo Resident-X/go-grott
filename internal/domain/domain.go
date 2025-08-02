@@ -6,6 +6,19 @@ import (
 	"time"
 )
 
+// Device type constants for consistent usage across the application.
+const (
+	DeviceTypeInverter   = "inverter"
+	DeviceTypeSmartMeter = "smart_meter"
+)
+
+// Smart meter detection patterns for layout identification.
+const (
+	SmartMeterDevicePattern1 = "20" // Standard smart meter device type pattern
+	SmartMeterDevicePattern2 = "1b" // Alternative smart meter device type pattern
+	SmartMeterLayoutPattern  = "120" // Smart meter layout pattern in layout keys
+)
+
 // InverterData represents parsed data from an inverter.
 type InverterData struct {
 	// Device identifier (used for MQTT device field and Home Assistant auto-discovery)
@@ -13,6 +26,10 @@ type InverterData struct {
 
 	// Buffered indicates if this is buffered data (for Home Assistant compatibility)
 	Buffered string `json:"buffered,omitempty"`
+
+	// Layout information for differentiating data streams
+	Layout     string `json:"layout,omitempty"`     // Layout key used for parsing (e.g., "T060104XMIN", "T060120")
+	DeviceType string `json:"device_type,omitempty"` // Device type: "inverter" or "smart_meter"
 
 	// Core fields that are always serialized directly
 	DataloggerSerial string    `json:"datalogserial,omitempty"`

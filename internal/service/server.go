@@ -435,6 +435,11 @@ func (s *DataCollectionServer) processData(ctx context.Context, clientAddr strin
 		return fmt.Errorf("parse error: %w", err)
 	}
 
+	// If no data was parsed (e.g., too short), skip processing but don't error
+	if inverterData == nil {
+		return nil
+	}
+
 	// Extract client IP and port
 	host, _, err := net.SplitHostPort(clientAddr)
 	if err != nil {
