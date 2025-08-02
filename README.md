@@ -103,12 +103,6 @@ mqtt:
     # NEW: Enhanced Reliability Features
     listen_to_birth_message: true     # Listen for HA restart notifications
     rediscovery_interval: "1h"        # Periodic rediscovery (e.g., "1h", "30m", "0" to disable)
-    
-    # Sensor Categories
-    include_diagnostic: true # Include diagnostic sensors (fault codes, etc.)
-    include_battery: true    # Include battery-related sensors
-    include_grid: true       # Include grid-related sensors  
-    include_pv: true         # Include PV panel sensors
 ```
 
 ### PVOutput.org Integration
@@ -131,9 +125,20 @@ When `home_assistant_auto_discovery.enabled` is `true`, go-grott automatically c
 - **Battery Sensors**: Battery voltage, current, state of charge, and power flow
 - **Diagnostic Sensors**: Inverter temperature, fault codes, and system status
 
+### Device Type Differentiation
+
+The system automatically differentiates between inverter and smart meter data streams:
+
+- **Separate Devices**: Creates distinct Home Assistant devices for inverter vs smart meter data
+- **Non-overlapping Topics**: Ensures MQTT topics don't conflict between device types
+- **Auto-detection**: Uses layout patterns to automatically identify device types
+- **Proper Naming**: Smart meter sensors are clearly labeled and categorized
+
 ### Enhanced Reliability Features
 
 The enhanced auto-discovery includes several reliability improvements:
+
+**Device Type Separation**: Automatically creates separate Home Assistant devices for inverter and smart meter data, preventing sensor conflicts and ensuring proper categorization.
 
 **Connection Recovery**: When MQTT connection is restored, discovery cache is cleared to trigger immediate sensor re-discovery.
 
@@ -145,11 +150,12 @@ The enhanced auto-discovery includes several reliability improvements:
 
 ### Sensor Configuration
 
-Sensor definitions are stored in `internal/homeassistant/layouts/homeassistant_sensors.json`:
+Sensor definitions are stored in `internal/homeassistant/layouts/homeassistant_sensors.yaml`:
 - Device classes and units for proper Home Assistant integration
 - State classes for energy dashboard compatibility  
 - Icon assignments and category classifications
-- Easy customization without modifying Go code
+- YAML-based configuration for easy customization without Go code changes
+- Supports both inverter and smart meter sensor definitions
 
 ## Development
 
@@ -227,7 +233,7 @@ All endpoints support multiple data formats via `?format=` parameter:
 1. **DataCollectionServer**: Handles TCP connections from Growatt dataloggers
 2. **APIServer**: Provides HTTP API for monitoring and device interaction
 3. **SessionManager**: Tracks device connections and state
-4. **MessagePublisher**: Distributes data to MQTT and external services with enhanced HA discovery
+4. **MessagePublisher**: Distributes data to MQTT and external services with enhanced HA discovery and device type differentiation
 
 ### Data Flow
 ```
