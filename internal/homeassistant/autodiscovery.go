@@ -249,7 +249,7 @@ func (ad *AutoDiscovery) GenerateDiscoveryMessages(data map[string]interface{}) 
 		// Generate the discovery message
 		message := ad.createDiscoveryMessage(fieldName, sensorConfig, value, pvSerial, deviceType)
 		if message != nil {
-			topic := ad.getDiscoveryTopic(fieldName)
+			topic := ad.getDiscoveryTopic(fieldName, deviceType)
 			messages[topic] = *message
 		}
 	}
@@ -348,10 +348,23 @@ func (ad *AutoDiscovery) getPayloadNotAvailable() string {
 }
 
 // getDiscoveryTopic generates the MQTT discovery topic for a sensor.
-func (ad *AutoDiscovery) getDiscoveryTopic(fieldName string) string {
+func (ad *AutoDiscovery) getDiscoveryTopic(fieldName, deviceType string) string {
 	// Home Assistant discovery topic format:
 	// <discovery_prefix>/sensor/<node_id>/<object_id>/config
-	nodeID := strings.ReplaceAll(ad.deviceID, " ", "_")
+	
+	// Extract base device ID (remove device type suffix if present) to avoid double device type
+	baseDeviceID := ad.deviceID
+	if strings.Contains(ad.deviceID, "_") {
+		// If deviceID is like "CUK4CBQ05E_smart_meter", extract just "CUK4CBQ05E"
+		parts := strings.Split(ad.deviceID, "_")
+		if len(parts) >= 2 {
+			baseDeviceID = parts[0]
+		}
+	}
+
+	// Create node ID with device type for proper separation
+	nodeID := fmt.Sprintf("%s_%s", baseDeviceID, deviceType)
+	nodeID = strings.ReplaceAll(nodeID, " ", "_")
 	nodeID = strings.ToLower(nodeID)
 	objectID := fmt.Sprintf("%s_%s", nodeID, fieldName)
 
@@ -484,11 +497,11 @@ func (ad *AutoDiscovery) CreateAvailabilityMessage(online bool) string {
 }
 
 // CleanupDiscoveryMessages generates cleanup (empty) messages to remove sensors from Home Assistant.
-func (ad *AutoDiscovery) CleanupDiscoveryMessages(fieldNames []string) map[string]string {
+func (ad *AutoDiscovery) CleanupDiscoveryMessages(fieldNames []string, deviceType string) map[string]string {
 	messages := make(map[string]string)
 
 	for _, fieldName := range fieldNames {
-		topic := ad.getDiscoveryTopic(fieldName)
+		topic := ad.getDiscoveryTopic(fieldName, deviceType)
 		messages[topic] = "" // Empty payload removes the entity
 	}
 
