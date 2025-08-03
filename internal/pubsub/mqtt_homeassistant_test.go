@@ -57,8 +57,8 @@ func TestMQTTPublisher_HomeAssistantAutoDiscovery(t *testing.T) {
 		PVPowerIn:        1000.0,
 		PVPowerOut:       950.0,
 		// Add some fields that should trigger discovery messages
-		PVEnergyToday: 5.5,
-		PVEnergyTotal: 1250.8,
+		EACToday: 5.5,
+		EACTotal: 1250.8,
 	}
 
 	err := publisher.Publish(ctx, "", testData)

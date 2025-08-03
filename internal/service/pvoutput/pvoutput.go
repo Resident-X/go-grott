@@ -97,9 +97,9 @@ func (c *Client) Send(ctx context.Context, data *domain.InverterData) error {
 	params.Set("t", now.Format("15:04"))
 
 	// Set energy production values
-	if !c.config.PVOutput.DisableEnergyToday && data.PVEnergyToday > 0 {
+	if !c.config.PVOutput.DisableEnergyToday && data.EACToday > 0 {
 		// Convert to watt hours
-		energyWh := data.PVEnergyToday * 1000
+		energyWh := data.EACToday * 1000
 		params.Set("v1", strconv.FormatFloat(energyWh, 'f', 0, 64))
 	}
 

@@ -22,8 +22,8 @@ func TestNoopClient_Send(t *testing.T) {
 	ctx := context.Background()
 
 	data := &domain.InverterData{
-		PVPowerOut:    1500.0,
-		PVEnergyToday: 25.5,
+		PVPowerOut: 1500.0,
+		EACToday:   25.5,
 	}
 
 	err := client.Send(ctx, data)
@@ -258,7 +258,7 @@ func TestPVOutputClient_Send_Successful(t *testing.T) {
 	data := &domain.InverterData{
 		PVSerial:      "test-serial",
 		PVPowerOut:    1500.0,
-		PVEnergyToday: 25.5,
+		EACToday:      25.5,
 		PVTemperature: 26.9,
 		PVGridVoltage: 237.3,
 	}
@@ -301,9 +301,9 @@ func TestPVOutputClient_Send_DisabledEnergyToday(t *testing.T) {
 
 	ctx := context.Background()
 	data := &domain.InverterData{
-		PVSerial:      "test-serial",
-		PVPowerOut:    1500.0,
-		PVEnergyToday: 25.5, // Should be ignored due to DisableEnergyToday
+		PVSerial:   "test-serial",
+		PVPowerOut: 1500.0,
+		EACToday:   25.5, // Should be ignored due to DisableEnergyToday
 	}
 
 	// This will attempt a real HTTP request and likely fail
@@ -324,7 +324,7 @@ func TestPVOutputClient_Send_ZeroValues(t *testing.T) {
 	data := &domain.InverterData{
 		PVSerial:      "test-serial",
 		PVPowerOut:    0,
-		PVEnergyToday: 0,
+		EACToday:      0,
 		PVTemperature: 0,
 		PVGridVoltage: 0,
 	}

@@ -14,8 +14,8 @@ const (
 
 // Smart meter detection patterns for layout identification.
 const (
-	SmartMeterDevicePattern1 = "20" // Standard smart meter device type pattern
-	SmartMeterDevicePattern2 = "1b" // Alternative smart meter device type pattern
+	SmartMeterDevicePattern1 = "20"  // Standard smart meter device type pattern
+	SmartMeterDevicePattern2 = "1b"  // Alternative smart meter device type pattern
 	SmartMeterLayoutPattern  = "120" // Smart meter layout pattern in layout keys
 )
 
@@ -28,34 +28,34 @@ type InverterData struct {
 	Buffered string `json:"buffered,omitempty"`
 
 	// Layout information for differentiating data streams
-	Layout     string `json:"layout,omitempty"`     // Layout key used for parsing (e.g., "T060104XMIN", "T060120")
+	Layout     string `json:"layout,omitempty"`      // Layout key used for parsing (e.g., "T060104XMIN", "T060120")
 	DeviceType string `json:"device_type,omitempty"` // Device type: "inverter" or "smart_meter"
 
 	// Core fields that are always serialized directly
 	DataloggerSerial string    `json:"datalogserial,omitempty"`
 	PVSerial         string    `json:"pvserial,omitempty"`
 	Timestamp        time.Time `json:"timestamp"`
-	
+
 	// Typed fields for Go code - values come from ExtendedData when flattened
-	PVStatus         int     `json:"-"` // Available in ExtendedData as "pvstatus"
-	PVPowerIn        float64 `json:"-"` // Available in ExtendedData as "pvpowerin"
-	PVPowerOut       float64 `json:"-"` // Available in ExtendedData as "pvpowerout"
-	PVEnergyToday    float64 `json:"-"` // Available in ExtendedData as "pvenergytoday"
-	PVEnergyTotal    float64 `json:"-"` // Available in ExtendedData as "pvenergytotal"
-	PV1Voltage       float64 `json:"-"` // Available in ExtendedData as "pv1voltage"
-	PV1Current       float64 `json:"-"` // Available in ExtendedData as "pv1current"
-	PV1Watt          float64 `json:"-"` // Available in ExtendedData as "pv1watt"
-	PV2Voltage       float64 `json:"-"` // Available in ExtendedData as "pv2voltage"
-	PV2Current       float64 `json:"-"` // Available in ExtendedData as "pv2current"
-	PV2Watt          float64 `json:"-"` // Available in ExtendedData as "pv2watt"
-	PV3Voltage       float64 `json:"-"` // Available in ExtendedData as "pv3voltage"
-	PV3Current       float64 `json:"-"` // Available in ExtendedData as "pv3current"
-	PV3Watt          float64 `json:"-"` // Available in ExtendedData as "pv3watt"
-	PVFrequency      float64 `json:"-"` // Available in ExtendedData as "pvfrequency"
-	PVGridVoltage    float64 `json:"-"` // Available in ExtendedData as "pvgridvoltage"
-	PVGridCurrent    float64 `json:"-"` // Available in ExtendedData as "pvgridcurrent"
-	PVGridPower      float64 `json:"-"` // Available in ExtendedData as "pvgridpower"
-	PVTemperature    float64 `json:"-"` // Available in ExtendedData as "pvtemperature"
+	PVStatus      int     `json:"-"` // Available in ExtendedData as "pvstatus"
+	PVPowerIn     float64 `json:"-"` // Available in ExtendedData as "pvpowerin"
+	PVPowerOut    float64 `json:"-"` // Available in ExtendedData as "pvpowerout"
+	EACToday      float64 `json:"-"` // Available in ExtendedData as "eactoday"
+	EACTotal      float64 `json:"-"` // Available in ExtendedData as "eactotal"
+	PV1Voltage    float64 `json:"-"` // Available in ExtendedData as "pv1voltage"
+	PV1Current    float64 `json:"-"` // Available in ExtendedData as "pv1current"
+	PV1Watt       float64 `json:"-"` // Available in ExtendedData as "pv1watt"
+	PV2Voltage    float64 `json:"-"` // Available in ExtendedData as "pv2voltage"
+	PV2Current    float64 `json:"-"` // Available in ExtendedData as "pv2current"
+	PV2Watt       float64 `json:"-"` // Available in ExtendedData as "pv2watt"
+	PV3Voltage    float64 `json:"-"` // Available in ExtendedData as "pv3voltage"
+	PV3Current    float64 `json:"-"` // Available in ExtendedData as "pv3current"
+	PV3Watt       float64 `json:"-"` // Available in ExtendedData as "pv3watt"
+	PVFrequency   float64 `json:"-"` // Available in ExtendedData as "pvfrequency"
+	PVGridVoltage float64 `json:"-"` // Available in ExtendedData as "pvgridvoltage"
+	PVGridCurrent float64 `json:"-"` // Available in ExtendedData as "pvgridcurrent"
+	PVGridPower   float64 `json:"-"` // Available in ExtendedData as "pvgridpower"
+	PVTemperature float64 `json:"-"` // Available in ExtendedData as "pvtemperature"
 
 	// Extended data fields - flattened to root level like Python grott
 	ExtendedData map[string]interface{} `json:"-"` // Don't serialize as nested object

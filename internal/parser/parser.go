@@ -222,13 +222,13 @@ func (p *Parser) Parse(ctx context.Context, data []byte) (*domain.InverterData, 
 	if ctx.Err() != nil {
 		return nil, fmt.Errorf("context error: %w", ctx.Err())
 	}
-	
+
 	// Check minimum record length from config
 	if len(data) < p.config.MinRecordLen {
 		p.logf("Skipping data parsing: too short (%d bytes), minimum configured length is %d bytes", len(data), p.config.MinRecordLen)
 		return nil, nil // Return nil without error to skip parsing but allow responses
 	}
-	
+
 	p.logf("Data: %s", hex.EncodeToString(data))
 	p.logf("Starting to parse data of length: %d bytes", len(data))
 
@@ -390,7 +390,7 @@ func (p *Parser) getDeviceType(layoutKey string) string {
 	if strings.Contains(layoutKey, domain.SmartMeterLayoutPattern) || strings.Contains(layoutKey, domain.SmartMeterDevicePattern2) {
 		return domain.DeviceTypeSmartMeter
 	}
-	
+
 	// Default to inverter for all other layouts
 	return domain.DeviceTypeInverter
 }
@@ -677,7 +677,7 @@ func (p *Parser) extractSignedNumericValue(hexStr string, pos, length int, divid
 	}
 
 	hexValue := hexStr[pos : pos+length*2]
-	
+
 	// Decode hex string to bytes
 	bytes, err := hex.DecodeString(hexValue)
 	if err != nil {
@@ -724,8 +724,8 @@ var fieldSetters = map[string]fieldSetterFunc{
 	"pvstatus":      func(d *domain.InverterData, v float64) { d.PVStatus = int(v) },
 	"pvpowerin":     func(d *domain.InverterData, v float64) { d.PVPowerIn = v },
 	"pvpowerout":    func(d *domain.InverterData, v float64) { d.PVPowerOut = v },
-	"pvenergytoday": func(d *domain.InverterData, v float64) { d.PVEnergyToday = v },
-	"pvenergytotal": func(d *domain.InverterData, v float64) { d.PVEnergyTotal = v },
+	"eactoday":      func(d *domain.InverterData, v float64) { d.EACToday = v },
+	"eactotal":      func(d *domain.InverterData, v float64) { d.EACTotal = v },
 	"pv1voltage":    func(d *domain.InverterData, v float64) { d.PV1Voltage = v },
 	"pv1current":    func(d *domain.InverterData, v float64) { d.PV1Current = v },
 	"pv1watt":       func(d *domain.InverterData, v float64) { d.PV1Watt = v },
