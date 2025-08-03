@@ -121,11 +121,11 @@ sensors:
     icon: "mdi:solar-power"
 
   pvpowerout:
-    name: "Grid Output Power"
+    name: "PV Output Power"
     device_class: "power"
     unit_of_measurement: "W"
     state_class: "measurement"
-    category: "grid"
+    category: "pv"
     icon: "mdi:transmission-tower"
 
   # Grid Measurements
@@ -138,7 +138,7 @@ sensors:
     icon: "mdi:sine-wave"
 
   pvgridvoltage:
-    name: "Grid Voltage Phase 1"
+    name: "Grid Voltage"
     device_class: "voltage"
     unit_of_measurement: "V"
     state_class: "measurement"
@@ -146,7 +146,7 @@ sensors:
     icon: "mdi:current-ac"
 
   pvgridcurrent:
-    name: "Grid Current Phase 1"
+    name: "Grid Current"
     device_class: "current"
     unit_of_measurement: "A"
     state_class: "measurement"
@@ -154,55 +154,7 @@ sensors:
     icon: "mdi:current-ac"
 
   pvgridpower:
-    name: "Grid Power Phase 1"
-    device_class: "power"
-    unit_of_measurement: "W"
-    state_class: "measurement"
-    category: "grid"
-    icon: "mdi:transmission-tower"
-
-  pvgridvoltage2:
-    name: "Grid Voltage Phase 2"
-    device_class: "voltage"
-    unit_of_measurement: "V"
-    state_class: "measurement"
-    category: "grid"
-    icon: "mdi:current-ac"
-
-  pvgridcurrent2:
-    name: "Grid Current Phase 2"
-    device_class: "current"
-    unit_of_measurement: "A"
-    state_class: "measurement"
-    category: "grid"
-    icon: "mdi:current-ac"
-
-  pvgridpower2:
-    name: "Grid Power Phase 2"
-    device_class: "power"
-    unit_of_measurement: "W"
-    state_class: "measurement"
-    category: "grid"
-    icon: "mdi:transmission-tower"
-
-  pvgridvoltage3:
-    name: "Grid Voltage Phase 3"
-    device_class: "voltage"
-    unit_of_measurement: "V"
-    state_class: "measurement"
-    category: "grid"
-    icon: "mdi:current-ac"
-
-  pvgridcurrent3:
-    name: "Grid Current Phase 3"
-    device_class: "current"
-    unit_of_measurement: "A"
-    state_class: "measurement"
-    category: "grid"
-    icon: "mdi:current-ac"
-
-  pvgridpower3:
-    name: "Grid Power Phase 3"
+    name: "Grid Power"
     device_class: "power"
     unit_of_measurement: "W"
     state_class: "measurement"
