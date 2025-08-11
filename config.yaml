@@ -42,7 +42,7 @@ mqtt:
   homeassistant_autodiscovery:
     enabled: false # Enable/disable Home Assistant MQTT auto-discovery
     discovery_prefix: homeassistant # MQTT discovery prefix (usually "homeassistant")
-    device_name: "Growatt Inverter" # Device name in Home Assistant
+    device_name: "Growatt" # Device name in Home Assistant
     device_manufacturer: "Growatt" # Device manufacturer
     device_model: "" # Device model (auto-detected from inverter_type if empty)
     retain_discovery: true # Whether discovery messages should be retained

@@ -109,7 +109,7 @@ mqtt:
     
     # NEW: Enhanced Reliability Features
     listen_to_birth_message: true     # Listen for HA restart notifications
-    rediscovery_interval: "1h"        # Periodic rediscovery (e.g., "1h", "30m", "0" to disable)
+    rediscovery_interval_hours: 1      # Periodic rediscovery in hours (0 to disable)
 ```
 
 ### PVOutput.org Integration
