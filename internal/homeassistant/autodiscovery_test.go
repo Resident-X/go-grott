@@ -61,6 +61,7 @@ func TestGenerateDiscoveryMessages(t *testing.T) {
 		"pvpowerout":    1450.0,
 		"pvtemperature": 35.5,
 		"pv1voltage":    240.5,
+		"device_type":   "inverter",
 		"unknown_field": 123.0, // This should be ignored
 	}
 
@@ -81,7 +82,7 @@ func TestGenerateDiscoveryMessages(t *testing.T) {
 
 	// Check that discovery topics are properly formatted
 	for topic := range messages {
-		if !containsString(topic, "homeassistant/sensor/abc123456/") {
+		if !containsString(topic, "homeassistant/sensor/abc123456_inverter/") {
 			t.Errorf("Discovery topic should contain expected prefix, got: %s", topic)
 		}
 	}
@@ -98,8 +99,9 @@ func TestGetDiscoveryTopic(t *testing.T) {
 	}
 
 	fieldName := "pvpower"
-	topic := ad.getDiscoveryTopic(fieldName)
-	expected := "homeassistant/sensor/abc123456/abc123456_pvpower/config"
+	deviceType := "inverter"
+	topic := ad.getDiscoveryTopic(fieldName, deviceType)
+	expected := "homeassistant/sensor/abc123456_inverter/abc123456_inverter_pvpower/config"
 
 	if topic != expected {
 		t.Errorf("Expected topic %s, got %s", expected, topic)
@@ -135,7 +137,7 @@ func TestCreateDiscoveryMessage(t *testing.T) {
 		Icon:              "mdi:solar-power",
 	}
 
-	message := ad.createDiscoveryMessage("pvpower", sensorConfig, 1500.0, "MIC123456")
+	message := ad.createDiscoveryMessage("pvpower", sensorConfig, 1500.0, "MIC123456", "inverter")
 
 	if message == nil {
 		t.Fatal("Expected discovery message, got nil")
@@ -145,8 +147,8 @@ func TestCreateDiscoveryMessage(t *testing.T) {
 		t.Errorf("Expected name 'PV Power', got %s", message.Name)
 	}
 
-	if message.UniqueID != "ABC123456_pvpower" {
-		t.Errorf("Expected unique ID 'ABC123456_pvpower', got %s", message.UniqueID)
+	if message.UniqueID != "ABC123456_inverter_pvpower" {
+		t.Errorf("Expected unique ID 'ABC123456_inverter_pvpower', got %s", message.UniqueID)
 	}
 
 	if message.StateTopic != "energy/growatt" {
@@ -165,12 +167,12 @@ func TestCreateDiscoveryMessage(t *testing.T) {
 		t.Errorf("Expected unit 'W', got %s", message.UnitOfMeasurement)
 	}
 
-	if message.Device.Name != "Test Inverter" {
-		t.Errorf("Expected device name 'Test Inverter', got %s", message.Device.Name)
+	if message.Device.Name != "Test Inverter (Inverter)" {
+		t.Errorf("Expected device name 'Test Inverter (Inverter)', got %s", message.Device.Name)
 	}
 
-	if len(message.Device.Identifiers) != 1 || message.Device.Identifiers[0] != "ABC123456" {
-		t.Errorf("Expected device identifier ['ABC123456'], got %v", message.Device.Identifiers)
+	if len(message.Device.Identifiers) != 1 || message.Device.Identifiers[0] != "ABC123456_inverter" {
+		t.Errorf("Expected device identifier ['ABC123456_inverter'], got %v", message.Device.Identifiers)
 	}
 }
 
@@ -236,7 +238,8 @@ func TestCleanupDiscoveryMessages(t *testing.T) {
 	}
 
 	fieldNames := []string{"pvpower", "outputpower"}
-	messages := ad.CleanupDiscoveryMessages(fieldNames)
+	deviceType := "inverter"
+	messages := ad.CleanupDiscoveryMessages(fieldNames, deviceType)
 
 	if len(messages) != 2 {
 		t.Errorf("Expected 2 cleanup messages, got %d", len(messages))
@@ -246,8 +249,8 @@ func TestCleanupDiscoveryMessages(t *testing.T) {
 		if payload != "" {
 			t.Errorf("Expected empty payload for cleanup, got %s", payload)
 		}
-		if !containsString(topic, "homeassistant/sensor/abc123456/") {
-			t.Errorf("Cleanup topic should contain expected prefix, got: %s", topic)
+		if !containsString(topic, "homeassistant/sensor/abc123456_inverter/") {
+			t.Errorf("Cleanup topic should contain expected prefix with device type, got: %s", topic)
 		}
 	}
 }
@@ -387,4 +390,98 @@ func TestGetDeviceModelFromSerialWithConfiguredModel(t *testing.T) {
 	if result != expected {
 		t.Errorf("getDeviceModelFromSerial with configured model = %q, want %q", result, expected)
 	}
+}
+
+func TestGenerateDiscoveryMessagesWithDifferentDeviceTypes(t *testing.T) {
+	config := Config{
+		Enabled:             true,
+		DiscoveryPrefix:     "homeassistant",
+		DeviceName:          "Test Device",
+		DeviceManufacturer:  "Growatt",
+		DeviceModel:         "MIC 600TL-X",
+		RetainDiscovery:     true,
+		ValueTemplateSuffix: "",
+	}
+
+	// Test with inverter device type
+	adInverter, err := New(config, "energy/growatt", "CUK4CBQ05E_inverter")
+	if err != nil {
+		t.Fatalf("Failed to create AutoDiscovery for inverter: %v", err)
+	}
+
+	inverterData := map[string]interface{}{
+		"pvpowerin":   1500.0,
+		"pvpowerout":  1450.0,
+		"device_type": "inverter",
+		"pvserial":    "CUK4CBQ05E",
+	}
+
+	inverterMessages := adInverter.GenerateDiscoveryMessages(inverterData)
+
+	// Test with smart meter device type
+	adSmartMeter, err := New(config, "energy/growatt", "CUK4CBQ05E_smart_meter")
+	if err != nil {
+		t.Fatalf("Failed to create AutoDiscovery for smart meter: %v", err)
+	}
+
+	smartMeterData := map[string]interface{}{
+		"pvpowerin":   1200.0,
+		"pvpowerout":  1180.0,
+		"device_type": "smart_meter",
+		"pvserial":    "CUK4CBQ05E",
+	}
+
+	smartMeterMessages := adSmartMeter.GenerateDiscoveryMessages(smartMeterData)
+
+	// Verify that topics are different between inverter and smart meter
+	inverterTopics := make([]string, 0, len(inverterMessages))
+	smartMeterTopics := make([]string, 0, len(smartMeterMessages))
+
+	for topic := range inverterMessages {
+		inverterTopics = append(inverterTopics, topic)
+		// Should contain inverter device type in topic
+		if !containsString(topic, "cuk4cbq05e_inverter") {
+			t.Errorf("Inverter discovery topic should contain device type, got: %s", topic)
+		}
+	}
+
+	for topic := range smartMeterMessages {
+		smartMeterTopics = append(smartMeterTopics, topic)
+		// Should contain smart_meter device type in topic
+		if !containsString(topic, "cuk4cbq05e_smart_meter") {
+			t.Errorf("Smart meter discovery topic should contain device type, got: %s", topic)
+		}
+	}
+
+	// Verify no topic overlap (they should be completely separate)
+	for _, inverterTopic := range inverterTopics {
+		for _, smartMeterTopic := range smartMeterTopics {
+			if inverterTopic == smartMeterTopic {
+				t.Errorf("Discovery topics should not overlap between device types. Found duplicate: %s", inverterTopic)
+			}
+		}
+	}
+
+	// Verify device identifiers are different
+	for _, inverterMsg := range inverterMessages {
+		for _, smartMeterMsg := range smartMeterMessages {
+			if len(inverterMsg.Device.Identifiers) > 0 && len(smartMeterMsg.Device.Identifiers) > 0 {
+				if inverterMsg.Device.Identifiers[0] == smartMeterMsg.Device.Identifiers[0] {
+					t.Errorf("Device identifiers should be different between device types. Both use: %s", inverterMsg.Device.Identifiers[0])
+				}
+			}
+		}
+	}
+
+	// Verify unique IDs are different
+	for _, inverterMsg := range inverterMessages {
+		for _, smartMeterMsg := range smartMeterMessages {
+			if inverterMsg.UniqueID == smartMeterMsg.UniqueID {
+				t.Errorf("Unique IDs should be different between device types. Both use: %s", inverterMsg.UniqueID)
+			}
+		}
+	}
+
+	t.Logf("Generated %d inverter discovery topics and %d smart meter discovery topics",
+		len(inverterMessages), len(smartMeterMessages))
 }

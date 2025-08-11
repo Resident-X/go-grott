@@ -32,23 +32,31 @@ mqtt:
   # Raw data publishing (original behavior)
   publish_raw: true # Enable/disable publishing raw field values as JSON
   
+  # Startup Data Filtering (prevents rollover artifacts on startup)
+  startup_data_filter:
+    enabled: true # Enable/disable filtering of problematic startup data
+    grace_period_seconds: 10 # Drop data received within first N seconds after startup
+    data_gap_threshold_hours: 1 # Consider N+ hour gap as inverter restart (triggers filtering)
+  
   # Home Assistant Auto-Discovery
   homeassistant_autodiscovery:
     enabled: false # Enable/disable Home Assistant MQTT auto-discovery
     discovery_prefix: homeassistant # MQTT discovery prefix (usually "homeassistant")
-    device_name: "Growatt Inverter" # Device name in Home Assistant
+    device_name: "Growatt" # Device name in Home Assistant
     device_manufacturer: "Growatt" # Device manufacturer
     device_model: "" # Device model (auto-detected from inverter_type if empty)
     retain_discovery: true # Whether discovery messages should be retained
     
     # Enhanced Reliability Features
     listen_to_birth_message: true # Listen for Home Assistant restart notifications for immediate re-discovery
-    rediscovery_interval: "1h" # Periodic rediscovery interval (e.g., "1h", "30m", "24h", "0" to disable)
+    rediscovery_interval_hours: 24 # Periodic rediscovery interval in hours (0 to disable)
     
+    # Sensor Categories
+    include_diagnostic: true # Include diagnostic sensors (fault codes, system info, etc.)
+    include_battery: true # Include battery-related sensors if available
+    include_grid: true # Include grid-related sensors
+    include_pv: true # Include PV panel sensors
     value_template_suffix: "" # Optional suffix for value templates (for advanced users)
-    
-    # Note: Sensor selection is now controlled by editing homeassistant_sensors.yaml
-    # Remove unwanted sensors from that file instead of using include flags
 
 # PVOutput settings
 pvoutput:

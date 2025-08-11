@@ -4,6 +4,7 @@ package parser
 import (
 	"context"
 	"embed"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -34,6 +35,11 @@ const (
 
 	// Protocol constants.
 	extendedDataThreshold = 750 // 375 bytes = 750 hex characters
+
+	// Field type constants.
+	fieldTypeText = "text" // Text field type
+	fieldTypeNum  = "num"  // Unsigned numeric field type
+	fieldTypeNumx = "numx" // Signed numeric field type
 
 	// Common field names.
 	datalogSerial = "datalogserial" // Common field for datalogger serial number
@@ -216,13 +222,13 @@ func (p *Parser) Parse(ctx context.Context, data []byte) (*domain.InverterData, 
 	if ctx.Err() != nil {
 		return nil, fmt.Errorf("context error: %w", ctx.Err())
 	}
-	
+
 	// Check minimum record length from config
 	if len(data) < p.config.MinRecordLen {
 		p.logf("Skipping data parsing: too short (%d bytes), minimum configured length is %d bytes", len(data), p.config.MinRecordLen)
 		return nil, nil // Return nil without error to skip parsing but allow responses
 	}
-	
+
 	p.logf("Data: %s", hex.EncodeToString(data))
 	p.logf("Starting to parse data of length: %d bytes", len(data))
 
@@ -384,7 +390,7 @@ func (p *Parser) getDeviceType(layoutKey string) string {
 	if strings.Contains(layoutKey, domain.SmartMeterLayoutPattern) || strings.Contains(layoutKey, domain.SmartMeterDevicePattern2) {
 		return domain.DeviceTypeSmartMeter
 	}
-	
+
 	// Default to inverter for all other layouts
 	return domain.DeviceTypeInverter
 }
@@ -527,7 +533,7 @@ func (p *Parser) extractDataFields(hexStr string, fields map[string]RawFieldDefi
 		}
 
 		// Handle text fields.
-		if fieldDef.Type == "text" {
+		if fieldDef.Type == fieldTypeText {
 			if p.isValidPosition(hexStr, pos, length) {
 				if textValue, err := p.extractTextValue(hexStr, pos, length); err == nil {
 					inverterData.ExtendedData[fieldName] = textValue
@@ -537,10 +543,21 @@ func (p *Parser) extractDataFields(hexStr string, fields map[string]RawFieldDefi
 			continue
 		}
 
-		// Handle numeric fields.
+		// Handle numeric fields (both signed and unsigned).
 		divider := p.parseDivider(&fieldDefCopy)
-		value, err := p.extractNumericValue(hexStr, pos, length, divider)
+		var value float64
+		var err error
+
+		if fieldDef.Type == fieldTypeNumx {
+			// Handle signed integers (numx type)
+			value, err = p.extractSignedNumericValue(hexStr, pos, length, divider)
+		} else {
+			// Handle unsigned integers (num type or default)
+			value, err = p.extractNumericValue(hexStr, pos, length, divider)
+		}
+
 		if err != nil {
+			p.logf("Error extracting field %s: %v", fieldName, err)
 			continue // Skip fields that can't be extracted
 		}
 
@@ -650,6 +667,46 @@ func (p *Parser) extractNumericValue(hexStr string, pos, length int, divider flo
 	return value, nil
 }
 
+// extractSignedNumericValue extracts a signed numeric value from hex string.
+// This implements the Python equivalent of numx type processing:
+// keybytes = bytes.fromhex(result_string[...])
+// definedkey[keyword] = int.from_bytes(keybytes, byteorder='big', signed=True)
+func (p *Parser) extractSignedNumericValue(hexStr string, pos, length int, divider float64) (float64, error) {
+	if !p.isValidPosition(hexStr, pos, length) {
+		return 0, fmt.Errorf("position out of bounds")
+	}
+
+	hexValue := hexStr[pos : pos+length*2]
+
+	// Decode hex string to bytes
+	bytes, err := hex.DecodeString(hexValue)
+	if err != nil {
+		return 0, fmt.Errorf("failed to decode hex value: %w", err)
+	}
+
+	// Convert bytes to signed integer using big-endian byte order
+	var intValue int64
+	switch length {
+	case 1:
+		intValue = int64(int8(bytes[0]))
+	case 2:
+		intValue = int64(int16(binary.BigEndian.Uint16(bytes)))
+	case 4:
+		intValue = int64(int32(binary.BigEndian.Uint32(bytes)))
+	case 8:
+		intValue = int64(binary.BigEndian.Uint64(bytes))
+	default:
+		return 0, fmt.Errorf("unsupported length for signed integer: %d bytes", length)
+	}
+
+	value := float64(intValue)
+	if divider > 0 {
+		value /= divider
+	}
+
+	return value, nil
+}
+
 // applyFieldTransformations applies field-specific transformations.
 func (p *Parser) applyFieldTransformations(fieldName string, value float64) float64 {
 	// Apply Python-like transformations
@@ -667,8 +724,8 @@ var fieldSetters = map[string]fieldSetterFunc{
 	"pvstatus":      func(d *domain.InverterData, v float64) { d.PVStatus = int(v) },
 	"pvpowerin":     func(d *domain.InverterData, v float64) { d.PVPowerIn = v },
 	"pvpowerout":    func(d *domain.InverterData, v float64) { d.PVPowerOut = v },
-	"pvenergytoday": func(d *domain.InverterData, v float64) { d.PVEnergyToday = v },
-	"pvenergytotal": func(d *domain.InverterData, v float64) { d.PVEnergyTotal = v },
+	"eactoday":      func(d *domain.InverterData, v float64) { d.EACToday = v },
+	"eactotal":      func(d *domain.InverterData, v float64) { d.EACTotal = v },
 	"pv1voltage":    func(d *domain.InverterData, v float64) { d.PV1Voltage = v },
 	"pv1current":    func(d *domain.InverterData, v float64) { d.PV1Current = v },
 	"pv1watt":       func(d *domain.InverterData, v float64) { d.PV1Watt = v },

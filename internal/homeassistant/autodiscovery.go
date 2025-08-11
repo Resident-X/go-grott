@@ -153,7 +153,7 @@ func (ad *AutoDiscovery) applyStatusMapping(mappingKey string, rawValue interfac
 		log.Warn().Str("mapping_key", mappingKey).Msg("Status mapping not found")
 		return rawValue
 	}
-	
+
 	// Convert raw value to string key for lookup
 	var key interface{}
 	if numVal, ok := ad.convertToFloat(rawValue); ok {
@@ -166,18 +166,18 @@ func (ad *AutoDiscovery) applyStatusMapping(mappingKey string, rawValue interfac
 			return result
 		}
 	}
-	
+
 	// Try string key
 	key = fmt.Sprintf("%v", rawValue)
 	if result, found := mapping[key]; found {
 		return result
 	}
-	
+
 	// Return default value
 	if defaultVal, found := mapping["default"]; found {
 		return defaultVal
 	}
-	
+
 	return rawValue
 }
 
@@ -206,7 +206,7 @@ func (ad *AutoDiscovery) convertToFloat(value interface{}) (float64, bool) {
 func (ad *AutoDiscovery) evaluateFormula(formula string, value float64, fieldName string) interface{} {
 	// Replace "raw_value" with the actual value in the formula
 	expression := strings.ReplaceAll(formula, "raw_value", fmt.Sprintf("%f", value))
-	
+
 	// For now, handle common patterns. Could be extended with a math parser.
 	if strings.Contains(expression, "/") {
 		parts := strings.Split(expression, "/")
@@ -216,7 +216,7 @@ func (ad *AutoDiscovery) evaluateFormula(formula string, value float64, fieldNam
 			}
 		}
 	}
-	
+
 	log.Warn().
 		Str("field", fieldName).
 		Str("formula", formula).
@@ -249,7 +249,7 @@ func (ad *AutoDiscovery) GenerateDiscoveryMessages(data map[string]interface{}) 
 		// Generate the discovery message
 		message := ad.createDiscoveryMessage(fieldName, sensorConfig, value, pvSerial, deviceType)
 		if message != nil {
-			topic := ad.getDiscoveryTopic(fieldName)
+			topic := ad.getDiscoveryTopic(fieldName, deviceType)
 			messages[topic] = *message
 		}
 	}
@@ -268,7 +268,7 @@ func (ad *AutoDiscovery) createDiscoveryMessage(fieldName string, sensorConfig S
 			baseDeviceID = parts[0]
 		}
 	}
-	
+
 	// Create unique ID with device type to avoid conflicts between smart meter and inverter sensors
 	uniqueID := fmt.Sprintf("%s_%s_%s", baseDeviceID, deviceType, fieldName)
 
@@ -292,7 +292,7 @@ func (ad *AutoDiscovery) createDiscoveryMessage(fieldName string, sensorConfig S
 
 	// Create device identifier with device type for proper separation
 	deviceIdentifier := fmt.Sprintf("%s_%s", baseDeviceID, deviceType)
-	
+
 	// Create device info with model detection from PV serial and device type differentiation
 	deviceInfo := DeviceInfo{
 		Identifiers:  []string{deviceIdentifier},
@@ -348,10 +348,23 @@ func (ad *AutoDiscovery) getPayloadNotAvailable() string {
 }
 
 // getDiscoveryTopic generates the MQTT discovery topic for a sensor.
-func (ad *AutoDiscovery) getDiscoveryTopic(fieldName string) string {
+func (ad *AutoDiscovery) getDiscoveryTopic(fieldName, deviceType string) string {
 	// Home Assistant discovery topic format:
 	// <discovery_prefix>/sensor/<node_id>/<object_id>/config
-	nodeID := strings.ReplaceAll(ad.deviceID, " ", "_")
+
+	// Extract base device ID (remove device type suffix if present) to avoid double device type
+	baseDeviceID := ad.deviceID
+	if strings.Contains(ad.deviceID, "_") {
+		// If deviceID is like "CUK4CBQ05E_smart_meter", extract just "CUK4CBQ05E"
+		parts := strings.Split(ad.deviceID, "_")
+		if len(parts) >= 2 {
+			baseDeviceID = parts[0]
+		}
+	}
+
+	// Create node ID with device type for proper separation
+	nodeID := fmt.Sprintf("%s_%s", baseDeviceID, deviceType)
+	nodeID = strings.ReplaceAll(nodeID, " ", "_")
 	nodeID = strings.ToLower(nodeID)
 	objectID := fmt.Sprintf("%s_%s", nodeID, fieldName)
 
@@ -484,11 +497,11 @@ func (ad *AutoDiscovery) CreateAvailabilityMessage(online bool) string {
 }
 
 // CleanupDiscoveryMessages generates cleanup (empty) messages to remove sensors from Home Assistant.
-func (ad *AutoDiscovery) CleanupDiscoveryMessages(fieldNames []string) map[string]string {
+func (ad *AutoDiscovery) CleanupDiscoveryMessages(fieldNames []string, deviceType string) map[string]string {
 	messages := make(map[string]string)
 
 	for _, fieldName := range fieldNames {
-		topic := ad.getDiscoveryTopic(fieldName)
+		topic := ad.getDiscoveryTopic(fieldName, deviceType)
 		messages[topic] = "" // Empty payload removes the entity
 	}
 

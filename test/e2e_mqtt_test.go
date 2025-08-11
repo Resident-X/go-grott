@@ -282,6 +282,8 @@ func createE2EServerWithMQTT(t *testing.T, mqttPort int) (*service.DataCollectio
 	cfg.MQTT.Topic = "energy/growatt"
 	cfg.MQTT.IncludeInverterID = false
 	cfg.API.Enabled = false // Disable API for simpler test
+	// Disable startup data filtering for E2E tests to allow immediate testing
+	cfg.MQTT.StartupDataFilter.Enabled = false
 
 	t.Logf("MQTT Config: Host=%s, Port=%d, Topic=%s", cfg.MQTT.Host, cfg.MQTT.Port, cfg.MQTT.Topic)
 	t.Logf("Server Config: Host=%s, Port=%d", cfg.Server.Host, cfg.Server.Port)
@@ -343,6 +345,8 @@ func TestE2E_MQTTWithInverterID(t *testing.T) {
 	cfg.MQTT.Topic = "energy/growatt"
 	cfg.MQTT.IncludeInverterID = true // Enable inverter ID in topic
 	cfg.API.Enabled = false
+	// Disable startup data filtering for E2E tests to allow immediate testing
+	cfg.MQTT.StartupDataFilter.Enabled = false
 
 	// Create components
 	parser, err := parser.NewParser(cfg)
