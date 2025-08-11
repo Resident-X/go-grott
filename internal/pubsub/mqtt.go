@@ -50,11 +50,18 @@ type MQTTPublisher struct {
 	discoveredSensors map[string]bool // Track which sensors have been discovered
 	lastDiscoveryTime time.Time       // Track when we last sent discovery messages
 	birthSubscribed   bool            // Track if we've subscribed to birth messages
+	
+	// Startup data filtering fields
+	startupTime         time.Time // When the publisher was created
+	lastDataTime        time.Time // When we last received data
+	inGracePeriod       bool      // Whether we're currently in a grace period
+	gracePeriodStart    time.Time // When the current grace period started
 }
 
 // NewMQTTPublisher creates a new MQTT publisher.
 func NewMQTTPublisher(cfg *config.Config) *MQTTPublisher {
 	logger := log.With().Str("component", "mqtt").Logger()
+	now := time.Now()
 	return &MQTTPublisher{
 		config:            cfg,
 		clientFactory:     createMQTTClient,
@@ -63,12 +70,18 @@ func NewMQTTPublisher(cfg *config.Config) *MQTTPublisher {
 		birthSubscribed:   false,
 		connected:         false,
 		logger:            logger,
+		// Initialize startup data filtering
+		startupTime:      now,
+		lastDataTime:     now,
+		inGracePeriod:    true,
+		gracePeriodStart: now,
 	}
 }
 
 // NewMQTTPublisherWithClient creates a new MQTT publisher with a custom client (for testing).
 func NewMQTTPublisherWithClient(cfg *config.Config, client mqtt.Client) *MQTTPublisher {
 	logger := log.With().Str("component", "mqtt").Logger()
+	now := time.Now()
 	return &MQTTPublisher{
 		config:            cfg,
 		client:            client,
@@ -77,6 +90,11 @@ func NewMQTTPublisherWithClient(cfg *config.Config, client mqtt.Client) *MQTTPub
 		lastDiscoveryTime: time.Time{},
 		birthSubscribed:   false,
 		logger:            logger,
+		// Initialize startup data filtering
+		startupTime:      now,
+		lastDataTime:     now,
+		inGracePeriod:    true,
+		gracePeriodStart: now,
 	}
 }
 
@@ -280,12 +298,62 @@ func (p *MQTTPublisher) publishGeneric(ctx context.Context, topic string, data i
 	return nil
 }
 
+// shouldFilterStartupData checks if data should be filtered due to startup data filtering rules.
+func (p *MQTTPublisher) shouldFilterStartupData() bool {
+	if !p.config.MQTT.StartupDataFilter.Enabled {
+		return false
+	}
+
+	now := time.Now()
+	
+	// Update last data time
+	timeSinceLastData := now.Sub(p.lastDataTime)
+	p.lastDataTime = now
+	
+	// Check if we should start a new grace period due to data gap
+	dataGapThreshold := time.Duration(p.config.MQTT.StartupDataFilter.DataGapThresholdHours) * time.Hour
+	if timeSinceLastData > dataGapThreshold {
+		p.logger.Info().
+			Dur("gap_duration", timeSinceLastData).
+			Dur("threshold", dataGapThreshold).
+			Msg("Data gap detected, starting grace period")
+		p.inGracePeriod = true
+		p.gracePeriodStart = now
+	}
+	
+	// Check if we're still in grace period
+	if p.inGracePeriod {
+		gracePeriodDuration := time.Duration(p.config.MQTT.StartupDataFilter.GracePeriodSeconds) * time.Second
+		if now.Sub(p.gracePeriodStart) >= gracePeriodDuration {
+			p.logger.Info().
+				Dur("grace_period", gracePeriodDuration).
+				Msg("Grace period ended, resuming data publishing")
+			p.inGracePeriod = false
+		}
+	}
+	
+	// Return true if we should filter (still in grace period)
+	if p.inGracePeriod {
+		p.logger.Debug().
+			Dur("remaining", time.Duration(p.config.MQTT.StartupDataFilter.GracePeriodSeconds)*time.Second-now.Sub(p.gracePeriodStart)).
+			Msg("Filtering startup data - still in grace period")
+		return true
+	}
+	
+	return false
+}
+
 // publishInverterDataWithDiscovery handles InverterData with Home Assistant auto-discovery.
 func (p *MQTTPublisher) publishInverterDataWithDiscovery(ctx context.Context, topic string, data *domain.InverterData) error {
 	// Require PVSerial to be present; skip message if missing
 	if data.PVSerial == "" {
 		p.logger.Debug().Msg("Skipping publish: PVSerial is empty")
 		return nil 
+	}
+
+	// Check startup data filtering
+	if p.shouldFilterStartupData() {
+		return nil // Skip publishing during grace period
 	}
 
 	// Ensure DeviceType is set with a sensible default

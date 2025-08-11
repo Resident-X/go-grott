@@ -418,7 +418,7 @@ func TestGenerateDiscoveryMessagesWithDifferentDeviceTypes(t *testing.T) {
 
 	inverterMessages := adInverter.GenerateDiscoveryMessages(inverterData)
 
-	// Test with smart meter device type  
+	// Test with smart meter device type
 	adSmartMeter, err := New(config, "energy/growatt", "CUK4CBQ05E_smart_meter")
 	if err != nil {
 		t.Fatalf("Failed to create AutoDiscovery for smart meter: %v", err)
@@ -482,6 +482,6 @@ func TestGenerateDiscoveryMessagesWithDifferentDeviceTypes(t *testing.T) {
 		}
 	}
 
-	t.Logf("Generated %d inverter discovery topics and %d smart meter discovery topics", 
+	t.Logf("Generated %d inverter discovery topics and %d smart meter discovery topics",
 		len(inverterMessages), len(smartMeterMessages))
 }

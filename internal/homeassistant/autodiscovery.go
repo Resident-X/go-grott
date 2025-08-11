@@ -153,7 +153,7 @@ func (ad *AutoDiscovery) applyStatusMapping(mappingKey string, rawValue interfac
 		log.Warn().Str("mapping_key", mappingKey).Msg("Status mapping not found")
 		return rawValue
 	}
-	
+
 	// Convert raw value to string key for lookup
 	var key interface{}
 	if numVal, ok := ad.convertToFloat(rawValue); ok {
@@ -166,18 +166,18 @@ func (ad *AutoDiscovery) applyStatusMapping(mappingKey string, rawValue interfac
 			return result
 		}
 	}
-	
+
 	// Try string key
 	key = fmt.Sprintf("%v", rawValue)
 	if result, found := mapping[key]; found {
 		return result
 	}
-	
+
 	// Return default value
 	if defaultVal, found := mapping["default"]; found {
 		return defaultVal
 	}
-	
+
 	return rawValue
 }
 
@@ -206,7 +206,7 @@ func (ad *AutoDiscovery) convertToFloat(value interface{}) (float64, bool) {
 func (ad *AutoDiscovery) evaluateFormula(formula string, value float64, fieldName string) interface{} {
 	// Replace "raw_value" with the actual value in the formula
 	expression := strings.ReplaceAll(formula, "raw_value", fmt.Sprintf("%f", value))
-	
+
 	// For now, handle common patterns. Could be extended with a math parser.
 	if strings.Contains(expression, "/") {
 		parts := strings.Split(expression, "/")
@@ -216,7 +216,7 @@ func (ad *AutoDiscovery) evaluateFormula(formula string, value float64, fieldNam
 			}
 		}
 	}
-	
+
 	log.Warn().
 		Str("field", fieldName).
 		Str("formula", formula).
@@ -268,7 +268,7 @@ func (ad *AutoDiscovery) createDiscoveryMessage(fieldName string, sensorConfig S
 			baseDeviceID = parts[0]
 		}
 	}
-	
+
 	// Create unique ID with device type to avoid conflicts between smart meter and inverter sensors
 	uniqueID := fmt.Sprintf("%s_%s_%s", baseDeviceID, deviceType, fieldName)
 
@@ -292,7 +292,7 @@ func (ad *AutoDiscovery) createDiscoveryMessage(fieldName string, sensorConfig S
 
 	// Create device identifier with device type for proper separation
 	deviceIdentifier := fmt.Sprintf("%s_%s", baseDeviceID, deviceType)
-	
+
 	// Create device info with model detection from PV serial and device type differentiation
 	deviceInfo := DeviceInfo{
 		Identifiers:  []string{deviceIdentifier},
@@ -351,7 +351,7 @@ func (ad *AutoDiscovery) getPayloadNotAvailable() string {
 func (ad *AutoDiscovery) getDiscoveryTopic(fieldName, deviceType string) string {
 	// Home Assistant discovery topic format:
 	// <discovery_prefix>/sensor/<node_id>/<object_id>/config
-	
+
 	// Extract base device ID (remove device type suffix if present) to avoid double device type
 	baseDeviceID := ad.deviceID
 	if strings.Contains(ad.deviceID, "_") {

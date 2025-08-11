@@ -13,6 +13,7 @@ A modern, clean architecture Go implementation of the Grott (Growatt Inverter Mo
 - **High Performance**: Optimized TCP server handling multiple inverter connections
 - **Layout-Driven Parsing**: JSON-based field extraction with no hardcoded parsing logic
 - **Enhanced Home Assistant Integration**: Robust MQTT auto-discovery with reconnection handling
+- **Startup Data Filtering**: Prevents sensor rollover artifacts (e.g., 32775 kWh) during inverter startup/reset
 - **Multiple Integrations**: MQTT publishing, PVOutput.org support, and HTTP API
 - **Clean Architecture**: Interface-driven design with comprehensive testing
 - **Developer-Friendly**: Modern tooling with fast test feedback
@@ -91,6 +92,12 @@ mqtt:
   retain: false
   publish_raw: true          # Publish raw JSON data
   
+  # Startup Data Filtering - Prevents rollover artifacts during inverter startup/reset
+  startup_data_filter:
+    enabled: true            # Enable filtering of startup data
+    grace_period_seconds: 10 # Filter data for first N seconds after startup/restart
+    data_gap_threshold_hours: 1  # Consider gaps >N hours as inverter restart
+  
   # Enhanced Home Assistant Auto-Discovery
   home_assistant_auto_discovery:
     enabled: false           # Enable MQTT auto-discovery for Home Assistant
@@ -156,6 +163,33 @@ Sensor definitions are stored in `internal/homeassistant/layouts/homeassistant_s
 - Icon assignments and category classifications
 - YAML-based configuration for easy customization without Go code changes
 - Supports both inverter and smart meter sensor definitions
+
+## Startup Data Filtering
+
+Go-grott includes intelligent startup data filtering to prevent sensor rollover artifacts that commonly occur when inverters start up or reset. These artifacts appear as extremely large values (e.g., 32775 kWh) in Home Assistant dashboards due to 16-bit integer overflow during inverter initialization.
+
+### How It Works
+
+- **Grace Period**: Filters data for a configurable period (default 10 seconds) after startup or restart
+- **Data Gap Detection**: Automatically detects when the inverter has been offline (default 1+ hour gap) and triggers a new grace period
+- **Transparent Operation**: No impact on normal operation - only filters problematic startup data
+
+### Configuration
+
+```yaml
+mqtt:
+  startup_data_filter:
+    enabled: true              # Enable/disable the filtering feature
+    grace_period_seconds: 10   # Duration to filter data after startup
+    data_gap_threshold_hours: 1 # Minimum gap to consider as restart
+```
+
+### Benefits
+
+- **Clean Dashboards**: Eliminates spurious energy spikes in Home Assistant
+- **Accurate Reporting**: Prevents false high energy readings from affecting monthly/yearly totals
+- **Automatic Operation**: Works transparently without manual intervention
+- **Configurable**: Adjust timing parameters to match your inverter's behavior
 
 ## Development
 

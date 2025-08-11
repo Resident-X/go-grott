@@ -43,6 +43,13 @@ type Config struct {
 		Retain            bool   `mapstructure:"retain"`
 		PublishRaw        bool   `mapstructure:"publish_raw"`
 
+		// Startup Data Filtering settings
+		StartupDataFilter struct {
+			Enabled               bool `mapstructure:"enabled"`
+			GracePeriodSeconds    int  `mapstructure:"grace_period_seconds"`
+			DataGapThresholdHours int  `mapstructure:"data_gap_threshold_hours"`
+		} `mapstructure:"startup_data_filter"`
+
 		// Home Assistant Auto-Discovery settings
 		HomeAssistantAutoDiscovery struct {
 			Enabled             bool   `mapstructure:"enabled"`
@@ -106,6 +113,11 @@ func DefaultConfig() *Config {
 	cfg.MQTT.IncludeInverterID = false
 	cfg.MQTT.Retain = false
 	cfg.MQTT.PublishRaw = true
+
+	// Default Startup Data Filter settings
+	cfg.MQTT.StartupDataFilter.Enabled = true
+	cfg.MQTT.StartupDataFilter.GracePeriodSeconds = 10    // Drop first 10 seconds of data
+	cfg.MQTT.StartupDataFilter.DataGapThresholdHours = 1  // Consider 1+ hour gap as restart
 
 	// Default Home Assistant Auto-Discovery settings
 	cfg.MQTT.HomeAssistantAutoDiscovery.Enabled = false

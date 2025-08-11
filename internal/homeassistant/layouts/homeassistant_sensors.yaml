@@ -16,7 +16,7 @@ status_mappings:
 sensors:
   # PV String Sensors
   pv1voltage:
-    name: "PV String 1 Voltage"
+    name: "PV String North Voltage"
     device_class: "voltage"
     unit_of_measurement: "V"
     state_class: "measurement"
@@ -24,7 +24,7 @@ sensors:
     icon: "mdi:current-dc"
 
   pv1current:
-    name: "PV String 1 Current"
+    name: "PV String North Current"
     device_class: "current"
     unit_of_measurement: "A"
     state_class: "measurement"
@@ -32,7 +32,7 @@ sensors:
     icon: "mdi:current-dc"
 
   pv1watt:
-    name: "PV String 1 Power"
+    name: "PV String North Power"
     device_class: "power"
     unit_of_measurement: "W"
     state_class: "measurement"
@@ -40,7 +40,7 @@ sensors:
     icon: "mdi:solar-power"
 
   pv2voltage:
-    name: "PV String 2 Voltage"
+    name: "PV String East Voltage"
     device_class: "voltage"
     unit_of_measurement: "V"
     state_class: "measurement"
@@ -48,7 +48,7 @@ sensors:
     icon: "mdi:current-dc"
 
   pv2current:
-    name: "PV String 2 Current"
+    name: "PV String East Current"
     device_class: "current"
     unit_of_measurement: "A"
     state_class: "measurement"
@@ -56,7 +56,7 @@ sensors:
     icon: "mdi:current-dc"
 
   pv2watt:
-    name: "PV String 2 Power"
+    name: "PV String East Power"
     device_class: "power"
     unit_of_measurement: "W"
     state_class: "measurement"
@@ -64,7 +64,7 @@ sensors:
     icon: "mdi:solar-power"
 
   pv3voltage:
-    name: "PV String 3 Voltage"
+    name: "PV String West Voltage"
     device_class: "voltage"
     unit_of_measurement: "V"
     state_class: "measurement"
@@ -72,7 +72,7 @@ sensors:
     icon: "mdi:current-dc"
 
   pv3current:
-    name: "PV String 3 Current"
+    name: "PV String West Current"
     device_class: "current"
     unit_of_measurement: "A"
     state_class: "measurement"
@@ -80,36 +80,36 @@ sensors:
     icon: "mdi:current-dc"
 
   pv3watt:
-    name: "PV String 3 Power"
+    name: "PV String West Power"
     device_class: "power"
     unit_of_measurement: "W"
     state_class: "measurement"
     category: "pv"
     icon: "mdi:solar-power"
 
-  pv4voltage:
-    name: "PV String 4 Voltage"
-    device_class: "voltage"
-    unit_of_measurement: "V"
-    state_class: "measurement"
-    category: "pv"
-    icon: "mdi:current-dc"
+  # pv4voltage:
+  #   name: "PV String 4 Voltage"
+  #   device_class: "voltage"
+  #   unit_of_measurement: "V"
+  #   state_class: "measurement"
+  #   category: "pv"
+  #   icon: "mdi:current-dc"
 
-  pv4current:
-    name: "PV String 4 Current"
-    device_class: "current"
-    unit_of_measurement: "A"
-    state_class: "measurement"
-    category: "pv"
-    icon: "mdi:current-dc"
+  # pv4current:
+  #   name: "PV String 4 Current"
+  #   device_class: "current"
+  #   unit_of_measurement: "A"
+  #   state_class: "measurement"
+  #   category: "pv"
+  #   icon: "mdi:current-dc"
 
-  pv4watt:
-    name: "PV String 4 Power"
-    device_class: "power"
-    unit_of_measurement: "W"
-    state_class: "measurement"
-    category: "pv"
-    icon: "mdi:solar-power"
+  # pv4watt:
+  #   name: "PV String 4 Power"
+  #   device_class: "power"
+  #   unit_of_measurement: "W"
+  #   state_class: "measurement"
+  #   category: "pv"
+  #   icon: "mdi:solar-power"
 
   # Total Power
   pvpowerin:
@@ -205,7 +205,7 @@ sensors:
     icon: "mdi:solar-power"
 
   epv1today:
-    name: "PV String 1 Energy Today"
+    name: "PV String North Energy Today"
     device_class: "energy"
     unit_of_measurement: "kWh"
     state_class: "total_increasing"
@@ -213,7 +213,7 @@ sensors:
     icon: "mdi:solar-power"
 
   epv1total:
-    name: "PV String 1 Energy Total"
+    name: "PV String North Energy Total"
     device_class: "energy"
     unit_of_measurement: "kWh"
     state_class: "total_increasing"
@@ -221,7 +221,7 @@ sensors:
     icon: "mdi:solar-power"
 
   epv2today:
-    name: "PV String 2 Energy Today"
+    name: "PV String East Energy Today"
     device_class: "energy"
     unit_of_measurement: "kWh"
     state_class: "total_increasing"
@@ -229,7 +229,7 @@ sensors:
     icon: "mdi:solar-power"
 
   epv2total:
-    name: "PV String 2 Energy Total"
+    name: "PV String East Energy Total"
     device_class: "energy"
     unit_of_measurement: "kWh"
     state_class: "total_increasing"
@@ -237,7 +237,7 @@ sensors:
     icon: "mdi:solar-power"
 
   epv3today:
-    name: "PV String 3 Energy Today"
+    name: "PV String West Energy Today"
     device_class: "energy"
     unit_of_measurement: "kWh"
     state_class: "total_increasing"
@@ -245,7 +245,7 @@ sensors:
     icon: "mdi:solar-power"
 
   epv3total:
-    name: "PV String 3 Energy Total"
+    name: "PV String West Energy Total"
     device_class: "energy"
     unit_of_measurement: "kWh"
     state_class: "total_increasing"
@@ -424,7 +424,7 @@ sensors:
     icon: "mdi:transmission-tower"
 
   epvtoday:
-    name: "PV Energy Today (Total)"
+    name: "PV Energy Today"
     device_class: "energy"
     unit_of_measurement: "kWh"
     state_class: "total_increasing"
