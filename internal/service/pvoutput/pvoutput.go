@@ -86,6 +86,18 @@ func (c *Client) Send(ctx context.Context, data *domain.InverterData) error {
 		return fmt.Errorf("no system ID configured for inverter %s", data.PVSerial)
 	}
 
+	// Check if this is smart meter data with consumption values
+	if c.hasSmartMeterData(data) {
+		// Send smart meter data with dual-post (v3/v4 parameters)
+		return c.sendSmartMeterData(ctx, data, systemID)
+	}
+
+	// Send standard inverter data (v1/v2 parameters)
+	return c.sendInverterData(ctx, data, systemID)
+}
+
+// sendInverterData sends standard inverter generation data to PVOutput (v1, v2, v5, v6).
+func (c *Client) sendInverterData(ctx context.Context, data *domain.InverterData, systemID string) error {
 	// Build the PVOutput update parameters
 	params := url.Values{}
 	params.Set("key", c.config.PVOutput.APIKey)
@@ -120,7 +132,80 @@ func (c *Client) Send(ctx context.Context, data *domain.InverterData) error {
 		params.Set("v6", strconv.FormatFloat(data.PVGridVoltage, 'f', 1, 64))
 	}
 
-	// Make the API request with context
+	// Make the API request
+	if err := c.makeRequest(ctx, params); err != nil {
+		return err
+	}
+
+	// Update rate limit timestamp
+	c.updateTimestamp(data.PVSerial)
+	return nil
+}
+
+// sendSmartMeterData sends smart meter consumption data to PVOutput using dual-post method.
+// First POST: v3 (lifetime consumption energy) with c1=3 flag
+// Second POST: v4 (net power) with n=1 flag
+func (c *Client) sendSmartMeterData(ctx context.Context, data *domain.InverterData, systemID string) error {
+	now := time.Now()
+	dateStr := now.Format("20060102")
+	timeStr := now.Format("15:04")
+
+	// Extract smart meter values from ExtendedData
+	posActEnergy := c.getFloat64(data.ExtendedData, "pos_act_energy")
+	posRevActPower := c.getFloat64(data.ExtendedData, "pos_rev_act_power")
+	voltageL1 := c.getFloat64(data.ExtendedData, "voltage_l1")
+
+	// First POST: lifetime consumption energy (v3)
+	params1 := url.Values{}
+	params1.Set("key", c.config.PVOutput.APIKey)
+	params1.Set("sid", systemID)
+	params1.Set("d", dateStr)
+	params1.Set("t", timeStr)
+
+	if posActEnergy > 0 {
+		// v3: Consumption energy in Wh (multiply by 100 for lifetime value)
+		params1.Set("v3", strconv.FormatFloat(posActEnergy*100, 'f', 0, 64))
+		params1.Set("c1", "3") // Flag indicating v3 is lifetime cumulative
+	}
+
+	if voltageL1 > 0 {
+		params1.Set("v6", strconv.FormatFloat(voltageL1, 'f', 1, 64))
+	}
+
+	// Make first request
+	if err := c.makeRequest(ctx, params1); err != nil {
+		return fmt.Errorf("smart meter first POST (v3) failed: %w", err)
+	}
+
+	// Second POST: net power (v4)
+	params2 := url.Values{}
+	params2.Set("key", c.config.PVOutput.APIKey)
+	params2.Set("sid", systemID)
+	params2.Set("d", dateStr)
+	params2.Set("t", timeStr)
+
+	if posRevActPower != 0 {
+		// v4: Net power in W (positive = consuming, negative = exporting)
+		params2.Set("v4", strconv.FormatFloat(posRevActPower, 'f', 0, 64))
+		params2.Set("n", "1") // Flag indicating net data
+	}
+
+	if voltageL1 > 0 {
+		params2.Set("v6", strconv.FormatFloat(voltageL1, 'f', 1, 64))
+	}
+
+	// Make second request
+	if err := c.makeRequest(ctx, params2); err != nil {
+		return fmt.Errorf("smart meter second POST (v4) failed: %w", err)
+	}
+
+	// Update rate limit timestamp
+	c.updateTimestamp(data.PVSerial)
+	return nil
+}
+
+// makeRequest makes an HTTP POST request to PVOutput API.
+func (c *Client) makeRequest(ctx context.Context, params url.Values) error {
 	req, err := http.NewRequestWithContext(
 		ctx,
 		"POST",
@@ -146,9 +231,45 @@ func (c *Client) Send(ctx context.Context, data *domain.InverterData) error {
 		return fmt.Errorf("PVOutput returned status code %d", resp.StatusCode)
 	}
 
-	// Update rate limit timestamp
-	c.updateTimestamp(data.PVSerial)
 	return nil
+}
+
+// hasSmartMeterData checks if the inverter data contains smart meter consumption values.
+func (c *Client) hasSmartMeterData(data *domain.InverterData) bool {
+	if data.ExtendedData == nil {
+		return false
+	}
+
+	// Check for presence of smart meter fields
+	_, hasPosActEnergy := data.ExtendedData["pos_act_energy"]
+	_, hasPosRevActPower := data.ExtendedData["pos_rev_act_power"]
+
+	return hasPosActEnergy || hasPosRevActPower
+}
+
+// getFloat64 safely extracts a float64 value from ExtendedData map.
+func (c *Client) getFloat64(extendedData map[string]interface{}, key string) float64 {
+	if extendedData == nil {
+		return 0
+	}
+
+	val, ok := extendedData[key]
+	if !ok {
+		return 0
+	}
+
+	switch v := val.(type) {
+	case float64:
+		return v
+	case float32:
+		return float64(v)
+	case int:
+		return float64(v)
+	case int64:
+		return float64(v)
+	default:
+		return 0
+	}
 }
 
 // Close terminates the connection to the service.
