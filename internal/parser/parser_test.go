@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/resident-x/go-grott/internal/config"
+	"github.com/resident-x/go-grott/internal/domain"
 	"github.com/rs/zerolog"
 	"github.com/sigurn/crc16"
 	"github.com/stretchr/testify/assert"
@@ -611,4 +612,194 @@ func TestParser_Min(t *testing.T) {
 	assert.Equal(t, 5, min(5, 5))
 	assert.Equal(t, -1, min(-1, 0))
 	assert.Equal(t, 0, min(0, 10))
+}
+
+// TestParser_PVFrequencyTransformation tests that pvfrequency=0 is transformed to 50.0
+func TestParser_PVFrequencyTransformation(t *testing.T) {
+	cfg := &config.Config{}
+	parser, err := NewParser(cfg)
+	require.NoError(t, err)
+
+	// Test the transformation function directly
+	result := parser.applyFieldTransformations("pvfrequency", 0.0)
+	assert.Equal(t, 50.0, result, "pvfrequency=0 should be transformed to 50.0")
+
+	// Test that non-zero values are not transformed
+	result = parser.applyFieldTransformations("pvfrequency", 60.0)
+	assert.Equal(t, 60.0, result, "pvfrequency=60.0 should not be transformed")
+
+	// Test that other fields are not affected
+	result = parser.applyFieldTransformations("pvpowerin", 0.0)
+	assert.Equal(t, 0.0, result, "other fields should not be transformed")
+}
+
+// TestParser_ParseWithEmptyLayout tests parsing with a layout that has no fields
+func TestParser_ParseWithEmptyLayout(t *testing.T) {
+	cfg := &config.Config{}
+	parser, err := NewParser(cfg)
+	require.NoError(t, err)
+
+	// Create minimal valid data that passes validation but would have empty fields
+	testData := make([]byte, 20)
+	testData[0] = 0x00 // Length high
+	testData[1] = 0x14 // Length low (20 bytes)
+
+	// Force a layout that might not have fields or doesn't match
+	parser.SetForceLayout("nonexistent")
+
+	result, err := parser.Parse(context.Background(), testData)
+
+	// The parser should handle this gracefully
+	// Either by returning an error or by using a fallback layout
+	if err == nil {
+		assert.NotNil(t, result)
+	}
+}
+
+// TestParser_ParseVeryShortData tests parsing with very short data
+func TestParser_ParseVeryShortData(t *testing.T) {
+	cfg := &config.Config{}
+	parser, err := NewParser(cfg)
+	require.NoError(t, err)
+
+	// Data shorter than typical, but parser is lenient and will process what it can
+	shortData := []byte{0x00, 0x01, 0x02}
+
+	result, err := parser.Parse(context.Background(), shortData)
+
+	// Parser handles short data gracefully by extracting what it can
+	// This is intentional behavior for real-world robustness
+	assert.NoError(t, err, "Parser should handle short data gracefully")
+	if result != nil {
+		// Should have empty serials due to out-of-bounds positions
+		assert.Empty(t, result.DataloggerSerial)
+		assert.Empty(t, result.PVSerial)
+	}
+}
+
+// TestParser_ParseModbusRTUWithInvalidCRC tests parsing with malformed data
+func TestParser_ParseModbusRTUWithInvalidCRC(t *testing.T) {
+	cfg := &config.Config{}
+	parser, err := NewParser(cfg)
+	require.NoError(t, err)
+
+	// Create a Modbus RTU-like frame with invalid CRC
+	// This will fail validation (end of text marker check)
+	invalidCRCData := []byte{
+		0x68,                   // Slave ID
+		0x00, 0x20,             // Length
+		0x68,                   // Function code
+		0x06, 0x01, 0x01, 0x01, // Some data
+		0x04,                                           // Device type
+		0x4a, 0x50, 0x43, 0x32, 0x38, 0x31, 0x38, 0x33, // More data
+		0x33, 0x42, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // More data
+		0x00, 0x00, 0x51, 0x4d, // More data
+		0xFF, 0xFF, // Invalid CRC
+		0x00, // Terminator (should be 0x16)
+	}
+
+	result, err := parser.Parse(context.Background(), invalidCRCData)
+
+	// Parser will catch validation errors (end marker, CRC, etc.)
+	assert.Error(t, err, "Should error on malformed data")
+	assert.Nil(t, result, "Result should be nil for invalid data")
+}
+
+// TestParser_ExtractFieldsWithMissingFields tests field extraction with missing/invalid field definitions
+func TestParser_ExtractFieldsWithMissingFields(t *testing.T) {
+	cfg := &config.Config{}
+	parser, err := NewParser(cfg)
+	require.NoError(t, err)
+
+	// This test verifies the parser handles layouts gracefully when fields are missing or malformed
+	// We test this through a full parse with data that should trigger various edge cases
+
+	// Create test data with a minimal structure
+	testData := []byte{
+		0x00, 0x20, // Length
+		0x00, 0x06, 0x01, 0x01, 0x01, 0x04, // Header
+		// Rest filled with zeros (fields might be out of bounds)
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	}
+
+	// The parser should handle this without panicking
+	result, err := parser.Parse(context.Background(), testData)
+
+	// We expect either a result or an error, but no panic
+	if err != nil {
+		t.Logf("Parse returned error (acceptable): %v", err)
+	} else {
+		assert.NotNil(t, result, "If no error, result should exist")
+	}
+}
+
+// TestParser_SetFieldValueExtendedData tests that unknown fields go to ExtendedData
+func TestParser_SetFieldValueExtendedData(t *testing.T) {
+	cfg := &config.Config{}
+	parser, err := NewParser(cfg)
+	require.NoError(t, err)
+
+	// Create a test InverterData
+	data := &domain.InverterData{
+		ExtendedData: make(map[string]interface{}),
+	}
+
+	// Set a known field
+	parser.setFieldValue(data, "pvpowerin", 1234.5)
+	assert.Equal(t, 1234.5, data.PVPowerIn, "Known field should be set directly")
+
+	// Set an unknown field (should go to ExtendedData)
+	parser.setFieldValue(data, "unknown_field", 999.9)
+	assert.Equal(t, 999.9, data.ExtendedData["unknown_field"], "Unknown field should go to ExtendedData")
+
+	// Test case insensitivity for known fields
+	parser.setFieldValue(data, "PVPOWERIN", 5678.9)
+	assert.Equal(t, 5678.9, data.PVPowerIn, "Field names should be case-insensitive")
+}
+
+// TestParser_ValidateEdgeCases tests validation length checks
+func TestParser_ValidateEdgeCases(t *testing.T) {
+	cfg := &config.Config{}
+	parser, err := NewParser(cfg)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name      string
+		data      []byte
+		expectErr bool
+		errMsg    string
+	}{
+		{
+			name:      "one byte short (11 bytes)",
+			data:      make([]byte, 11),
+			expectErr: true,
+			errMsg:    "too short",
+		},
+		{
+			name:      "zero bytes",
+			data:      []byte{},
+			expectErr: true,
+			errMsg:    "too short",
+		},
+		{
+			name:      "minimum length but invalid format",
+			data:      make([]byte, 12),
+			expectErr: true,
+			errMsg:    "protocol header", // Will fail header check
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := parser.Validate(tt.data)
+			if tt.expectErr {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errMsg)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
 }

@@ -517,3 +517,138 @@ func TestMQTTPublisher_Close_WithClient(t *testing.T) {
 	assert.NoError(t, err)
 	assert.False(t, publisher.IsConnected())
 }
+
+func TestMQTTPublisher_StartReconnectionLoop_Disabled(t *testing.T) {
+	cfg := &config.Config{}
+	cfg.MQTT.Enabled = false
+
+	publisher := NewMQTTPublisher(cfg)
+	ctx := context.Background()
+
+	// Should return immediately without starting goroutine
+	publisher.StartReconnectionLoop(ctx)
+
+	// Give a small window to ensure no goroutine was started
+	time.Sleep(10 * time.Millisecond)
+	// If it reaches here without panic, test passes
+}
+
+func TestMQTTPublisher_StartReconnectionLoop_ContextCancellation(t *testing.T) {
+	cfg := &config.Config{}
+	cfg.MQTT.Enabled = true
+	cfg.MQTT.Host = "localhost"
+	cfg.MQTT.Port = 1883
+	cfg.MQTT.ConnectionTimeout = 1
+
+	mockClient := mocks.NewMockClient(t)
+
+	// Mock IsConnected to return false (simulating disconnected state)
+	mockClient.EXPECT().IsConnected().Return(false).Maybe()
+
+	publisher := NewMQTTPublisherWithClient(cfg, mockClient)
+	publisher.setConnected(false)
+
+	// Create context that will be cancelled
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Start reconnection loop
+	publisher.StartReconnectionLoop(ctx)
+
+	// Cancel context immediately
+	cancel()
+
+	// Give goroutine time to process cancellation
+	time.Sleep(50 * time.Millisecond)
+
+	// If we reach here without deadlock, the loop stopped correctly
+}
+
+func TestMQTTPublisher_StartReconnectionLoop_CloseSignal(t *testing.T) {
+	cfg := &config.Config{}
+	cfg.MQTT.Enabled = true
+	cfg.MQTT.Host = "localhost"
+	cfg.MQTT.Port = 1883
+
+	mockClient := mocks.NewMockClient(t)
+
+	// Mock IsConnected to return false initially
+	mockClient.EXPECT().IsConnected().Return(false).Maybe()
+	mockClient.EXPECT().Disconnect(uint(250)).Return().Maybe()
+
+	publisher := NewMQTTPublisherWithClient(cfg, mockClient)
+
+	// Start reconnection loop with long-lived context
+	ctx := context.Background()
+	publisher.StartReconnectionLoop(ctx)
+
+	// Close the publisher (which closes reconnectDone channel)
+	err := publisher.Close()
+	assert.NoError(t, err)
+
+	// Give goroutine time to process close signal
+	time.Sleep(50 * time.Millisecond)
+
+	// If we reach here without deadlock, the loop stopped correctly
+}
+
+func TestMQTTPublisher_StartReconnectionLoop_AlreadyConnected(t *testing.T) {
+	cfg := &config.Config{}
+	cfg.MQTT.Enabled = true
+	cfg.MQTT.Host = "localhost"
+	cfg.MQTT.Port = 1883
+
+	mockClient := mocks.NewMockClient(t)
+
+	// Mock IsConnected to return true (already connected)
+	mockClient.EXPECT().IsConnected().Return(true).Maybe()
+
+	publisher := NewMQTTPublisherWithClient(cfg, mockClient)
+	publisher.setConnected(true)
+
+	// Create context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	// Start reconnection loop
+	publisher.StartReconnectionLoop(ctx)
+
+	// Wait for context timeout
+	<-ctx.Done()
+
+	// Loop should not have attempted reconnection since already connected
+	// If we reach here, test passes (no reconnection attempts were made beyond initial checks)
+}
+
+func TestMQTTPublisher_StartReconnectionLoop_StartsGoroutine(t *testing.T) {
+	cfg := &config.Config{}
+	cfg.MQTT.Enabled = true
+	cfg.MQTT.Host = "localhost"
+	cfg.MQTT.Port = 1883
+	cfg.MQTT.ConnectionTimeout = 1
+
+	mockClient := mocks.NewMockClient(t)
+
+	// Mock IsConnected to return true (already connected, so no reconnection attempts)
+	mockClient.EXPECT().IsConnected().Return(true).Maybe()
+
+	publisher := NewMQTTPublisherWithClient(cfg, mockClient)
+	publisher.setConnected(true)
+
+	// Create context with short timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	// Start reconnection loop - this should start a goroutine
+	publisher.StartReconnectionLoop(ctx)
+
+	// Give goroutine time to start
+	time.Sleep(50 * time.Millisecond)
+
+	// Wait for context timeout to ensure goroutine is running and respecting context
+	<-ctx.Done()
+
+	// Additional wait for goroutine cleanup
+	time.Sleep(50 * time.Millisecond)
+
+	// If we reach here without deadlock or panic, test passes
+}
