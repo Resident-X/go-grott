@@ -128,8 +128,11 @@ tasks:
 
   check:
     desc: Run all code quality checks
-    deps: [ fmt, vet, test ]
     cmds:
+      - task: mocks-clean
+      - task: fmt
+      - task: vet
+      - task: test
       - echo "All checks passed!"
     silent: false
 

@@ -33,19 +33,19 @@ type Config struct {
 
 	// MQTT settings
 	MQTT struct {
-		Enabled                 bool   `mapstructure:"enabled"`
-		Host                    string `mapstructure:"host"`
-		Port                    int    `mapstructure:"port"`
-		Username                string `mapstructure:"username"`
-		Password                string `mapstructure:"password"`
-		Topic                   string `mapstructure:"topic"`
-		SmartMeterTopic         string `mapstructure:"smart_meter_topic"`
-		UseSmartMeterTopic      bool   `mapstructure:"use_smart_meter_topic"`
-		IncludeInverterID       bool   `mapstructure:"include_inverter_id"`
-		Retain                  bool   `mapstructure:"retain"`
-		ConnectionRetryAttempts int    `mapstructure:"connection_retry_attempts"`
-		ConnectionRetryBaseDelay int   `mapstructure:"connection_retry_base_delay_seconds"`
-		ConnectionTimeout       int    `mapstructure:"connection_timeout_seconds"`
+		Enabled                  bool   `mapstructure:"enabled"`
+		Host                     string `mapstructure:"host"`
+		Port                     int    `mapstructure:"port"`
+		Username                 string `mapstructure:"username"`
+		Password                 string `mapstructure:"password"`
+		Topic                    string `mapstructure:"topic"`
+		SmartMeterTopic          string `mapstructure:"smart_meter_topic"`
+		UseSmartMeterTopic       bool   `mapstructure:"use_smart_meter_topic"`
+		IncludeInverterID        bool   `mapstructure:"include_inverter_id"`
+		Retain                   bool   `mapstructure:"retain"`
+		ConnectionRetryAttempts  int    `mapstructure:"connection_retry_attempts"`
+		ConnectionRetryBaseDelay int    `mapstructure:"connection_retry_base_delay_seconds"`
+		ConnectionTimeout        int    `mapstructure:"connection_timeout_seconds"`
 	} `mapstructure:"mqtt"`
 
 	// PVOutput settings
@@ -98,9 +98,9 @@ func DefaultConfig() *Config {
 	cfg.MQTT.UseSmartMeterTopic = true
 	cfg.MQTT.IncludeInverterID = false
 	cfg.MQTT.Retain = false
-	cfg.MQTT.ConnectionRetryAttempts = 5    // Retry up to 5 times on startup
-	cfg.MQTT.ConnectionRetryBaseDelay = 2   // Start with 2 second delay
-	cfg.MQTT.ConnectionTimeout = 10         // 10 second timeout per attempt
+	cfg.MQTT.ConnectionRetryAttempts = 5  // Retry up to 5 times on startup
+	cfg.MQTT.ConnectionRetryBaseDelay = 2 // Start with 2 second delay
+	cfg.MQTT.ConnectionTimeout = 10       // 10 second timeout per attempt
 
 	// Default PVOutput settings
 	cfg.PVOutput.Enabled = false

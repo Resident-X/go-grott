@@ -43,7 +43,7 @@ type MQTTPublisher struct {
 	client        mqtt.Client
 	connected     bool
 	clientFactory func(*config.Config) mqtt.Client
-	mu            sync.RWMutex // Protects connected flag
+	mu            sync.RWMutex  // Protects connected flag
 	reconnectDone chan struct{} // Signals reconnection loop to stop
 }
 
