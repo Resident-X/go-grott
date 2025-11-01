@@ -65,17 +65,67 @@ func run() int {
 		return 1
 	}
 
-	// Initialize MQTT publisher
+	// Initialize MQTT publisher with retry logic and continuous reconnection
 	var publisher domain.MessagePublisher
 	if cfg.MQTT.Enabled {
 		mqttPublisher := pubsub.NewMQTTPublisher(cfg)
-		if err := mqttPublisher.Connect(ctx); err != nil {
-			log.Warn().Err(err).Msg("Failed to connect to MQTT broker, using noop publisher")
-			publisher = pubsub.NewNoopPublisher()
-		} else {
-			publisher = mqttPublisher
-			log.Info().Msg("MQTT publisher connected successfully")
+
+		// Retry connection with exponential backoff
+		maxRetries := cfg.MQTT.ConnectionRetryAttempts
+		baseDelay := time.Duration(cfg.MQTT.ConnectionRetryBaseDelay) * time.Second
+		var connectionErr error
+
+		for attempt := 0; attempt < maxRetries; attempt++ {
+			// Apply exponential backoff delay for retry attempts (not first attempt)
+			if attempt > 0 {
+				// Exponential backoff: baseDelay * 2^(attempt-1)
+				// e.g., with baseDelay=2s: 2s, 4s, 8s, 16s
+				delay := baseDelay * time.Duration(1<<uint(attempt-1))
+				log.Info().
+					Int("attempt", attempt+1).
+					Int("max_attempts", maxRetries).
+					Dur("delay", delay).
+					Msg("Retrying MQTT connection after delay")
+				time.Sleep(delay)
+			}
+
+			log.Info().
+				Int("attempt", attempt+1).
+				Int("max_attempts", maxRetries).
+				Str("broker", fmt.Sprintf("%s:%d", cfg.MQTT.Host, cfg.MQTT.Port)).
+				Msg("Attempting MQTT connection")
+
+			connectionErr = mqttPublisher.Connect(ctx)
+			if connectionErr == nil {
+				// Connection successful
+				log.Info().
+					Int("attempt", attempt+1).
+					Msg("MQTT publisher connected successfully")
+				break
+			}
+
+			// Log the failure
+			log.Warn().
+				Err(connectionErr).
+				Int("attempt", attempt+1).
+				Int("max_attempts", maxRetries).
+				Msg("Failed to connect to MQTT broker")
 		}
+
+		// Even if initial connection failed, use MQTT publisher and start reconnection loop
+		// The background loop will keep trying to connect indefinitely
+		publisher = mqttPublisher
+
+		if connectionErr != nil {
+			log.Warn().
+				Err(connectionErr).
+				Int("total_attempts", maxRetries).
+				Msg("Initial MQTT connection failed, but reconnection loop will continue trying")
+		}
+
+		// Start background reconnection loop - this runs forever and will heal from any outage
+		mqttPublisher.StartReconnectionLoop(ctx)
+		log.Info().Msg("MQTT reconnection loop started (will automatically reconnect if connection lost)")
 	} else {
 		log.Info().Msg("MQTT disabled, using noop publisher")
 		publisher = pubsub.NewNoopPublisher()

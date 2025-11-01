@@ -148,8 +148,13 @@ func TestMQTTPublisher_Publish_InvalidData(t *testing.T) {
 	cfg.MQTT.Port = 1883
 	cfg.MQTT.Topic = "test/topic"
 
-	publisher := NewMQTTPublisher(cfg)
-	publisher.connected = true // Set as connected for this test
+	mockClient := mocks.NewMockClient(t)
+
+	// Mock IsConnected to return true
+	mockClient.EXPECT().IsConnected().Return(true)
+
+	publisher := NewMQTTPublisherWithClient(cfg, mockClient)
+	publisher.setConnected(true) // Set as connected for this test
 	ctx := context.Background()
 
 	// Test with data that cannot be JSON marshaled
@@ -308,6 +313,7 @@ func TestMQTTPublisher_Connect_Successful(t *testing.T) {
 	cfg.MQTT.Host = "localhost"
 	cfg.MQTT.Port = 1883
 	cfg.MQTT.Topic = "test/topic"
+	cfg.MQTT.ConnectionTimeout = 10 // Set timeout for test
 
 	mockClient := mocks.NewMockClient(t)
 	mockToken := mocks.NewMockToken(t)
@@ -321,12 +327,15 @@ func TestMQTTPublisher_Connect_Successful(t *testing.T) {
 	mockToken.EXPECT().Done().Return(doneChan)
 	mockToken.EXPECT().Error().Return(nil)
 
+	// Mock IsConnected for assertion at end
+	mockClient.EXPECT().IsConnected().Return(true)
+
 	publisher := NewMQTTPublisherWithClient(cfg, mockClient)
 	ctx := context.Background()
 
 	err := publisher.Connect(ctx)
 	assert.NoError(t, err)
-	assert.True(t, publisher.connected)
+	assert.True(t, publisher.IsConnected())
 }
 
 func TestMQTTPublisher_Connect_Error(t *testing.T) {
@@ -334,6 +343,7 @@ func TestMQTTPublisher_Connect_Error(t *testing.T) {
 	cfg.MQTT.Enabled = true
 	cfg.MQTT.Host = "localhost"
 	cfg.MQTT.Port = 1883
+	cfg.MQTT.ConnectionTimeout = 10 // Set timeout for test
 
 	mockClient := mocks.NewMockClient(t)
 	mockToken := mocks.NewMockToken(t)
@@ -353,7 +363,7 @@ func TestMQTTPublisher_Connect_Error(t *testing.T) {
 	err := publisher.Connect(ctx)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to connect to MQTT broker")
-	assert.False(t, publisher.connected)
+	assert.False(t, publisher.IsConnected())
 }
 
 func TestMQTTPublisher_Publish_Successful(t *testing.T) {
@@ -370,6 +380,9 @@ func TestMQTTPublisher_Publish_Successful(t *testing.T) {
 	expectedRetain := true
 	expectedPayload := []byte(`{"test":"data"}`)
 
+	// Mock IsConnected to return true
+	mockClient.EXPECT().IsConnected().Return(true)
+
 	mockClient.EXPECT().Publish(expectedTopic, expectedQoS, expectedRetain, mock.MatchedBy(func(payload []byte) bool {
 		return bytes.Equal(payload, expectedPayload)
 	})).Return(mockToken)
@@ -381,7 +394,7 @@ func TestMQTTPublisher_Publish_Successful(t *testing.T) {
 	mockToken.EXPECT().Error().Return(nil)
 
 	publisher := NewMQTTPublisherWithClient(cfg, mockClient)
-	publisher.connected = true // Simulate connected state
+	publisher.setConnected(true) // Simulate connected state
 
 	ctx := context.Background()
 	testData := map[string]string{"test": "data"}
@@ -397,6 +410,9 @@ func TestMQTTPublisher_Publish_Error(t *testing.T) {
 	mockClient := mocks.NewMockClient(t)
 	mockToken := mocks.NewMockToken(t)
 
+	// Mock IsConnected to return true
+	mockClient.EXPECT().IsConnected().Return(true)
+
 	// Setup expectations for publish error
 	mockClient.EXPECT().Publish(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(mockToken)
 
@@ -407,7 +423,7 @@ func TestMQTTPublisher_Publish_Error(t *testing.T) {
 	mockToken.EXPECT().Error().Return(assert.AnError)
 
 	publisher := NewMQTTPublisherWithClient(cfg, mockClient)
-	publisher.connected = true
+	publisher.setConnected(true)
 
 	ctx := context.Background()
 	testData := map[string]string{"test": "data"}
@@ -424,6 +440,9 @@ func TestMQTTPublisher_Publish_Timeout(t *testing.T) {
 	mockClient := mocks.NewMockClient(t)
 	mockToken := mocks.NewMockToken(t)
 
+	// Mock IsConnected to return true
+	mockClient.EXPECT().IsConnected().Return(true)
+
 	// Setup expectations for publish timeout
 	mockClient.EXPECT().Publish(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(mockToken)
 
@@ -432,7 +451,7 @@ func TestMQTTPublisher_Publish_Timeout(t *testing.T) {
 	mockToken.EXPECT().Done().Return(doneChan)
 
 	publisher := NewMQTTPublisherWithClient(cfg, mockClient)
-	publisher.connected = true
+	publisher.setConnected(true)
 
 	// Use a very short timeout to trigger timeout quickly
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
@@ -454,6 +473,9 @@ func TestMQTTPublisher_PublishInverterData_Successful(t *testing.T) {
 	mockClient := mocks.NewMockClient(t)
 	mockToken := mocks.NewMockToken(t)
 
+	// Mock IsConnected to return true
+	mockClient.EXPECT().IsConnected().Return(true)
+
 	// Setup expectations
 	expectedTopic := "energy/growatt/INV001"
 	mockClient.EXPECT().Publish(expectedTopic, mock.Anything, mock.Anything, mock.Anything).Return(mockToken)
@@ -464,7 +486,7 @@ func TestMQTTPublisher_PublishInverterData_Successful(t *testing.T) {
 	mockToken.EXPECT().Error().Return(nil)
 
 	publisher := NewMQTTPublisherWithClient(cfg, mockClient)
-	publisher.connected = true
+	publisher.setConnected(true)
 
 	ctx := context.Background()
 	testData := &domain.InverterData{
@@ -482,13 +504,16 @@ func TestMQTTPublisher_Close_WithClient(t *testing.T) {
 	cfg := &config.Config{}
 	mockClient := mocks.NewMockClient(t)
 
+	// Mock IsConnected to return true
+	mockClient.EXPECT().IsConnected().Return(true)
+
 	// Setup expectations
 	mockClient.EXPECT().Disconnect(uint(250)).Return()
 
 	publisher := NewMQTTPublisherWithClient(cfg, mockClient)
-	publisher.connected = true
+	publisher.setConnected(true)
 
 	err := publisher.Close()
 	assert.NoError(t, err)
-	assert.False(t, publisher.connected)
+	assert.False(t, publisher.IsConnected())
 }

@@ -36,6 +36,9 @@ func TestDefaultConfig(t *testing.T) {
 	assert.Equal(t, true, cfg.MQTT.UseSmartMeterTopic)
 	assert.Equal(t, false, cfg.MQTT.IncludeInverterID)
 	assert.Equal(t, false, cfg.MQTT.Retain)
+	assert.Equal(t, 5, cfg.MQTT.ConnectionRetryAttempts)
+	assert.Equal(t, 2, cfg.MQTT.ConnectionRetryBaseDelay)
+	assert.Equal(t, 10, cfg.MQTT.ConnectionTimeout)
 
 	// PVOutput defaults
 	assert.Equal(t, false, cfg.PVOutput.Enabled)
@@ -84,6 +87,9 @@ mqtt:
   use_smart_meter_topic: false
   include_inverter_id: true
   retain: true
+  connection_retry_attempts: 3
+  connection_retry_base_delay_seconds: 5
+  connection_timeout_seconds: 15
 pvoutput:
   enabled: true
   api_key: test_api_key
@@ -136,6 +142,9 @@ record_whitelist:
 	assert.Equal(t, false, cfg.MQTT.UseSmartMeterTopic)
 	assert.Equal(t, true, cfg.MQTT.IncludeInverterID)
 	assert.Equal(t, true, cfg.MQTT.Retain)
+	assert.Equal(t, 3, cfg.MQTT.ConnectionRetryAttempts)
+	assert.Equal(t, 5, cfg.MQTT.ConnectionRetryBaseDelay)
+	assert.Equal(t, 15, cfg.MQTT.ConnectionTimeout)
 
 	// PVOutput config
 	assert.Equal(t, true, cfg.PVOutput.Enabled)

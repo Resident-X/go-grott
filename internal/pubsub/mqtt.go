@@ -5,11 +5,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/resident-x/go-grott/internal/config"
 	"github.com/resident-x/go-grott/internal/domain"
+	"github.com/rs/zerolog/log"
 )
 
 // NoopPublisher is a no-operation implementation of the MessagePublisher interface.
@@ -41,6 +43,8 @@ type MQTTPublisher struct {
 	client        mqtt.Client
 	connected     bool
 	clientFactory func(*config.Config) mqtt.Client
+	mu            sync.RWMutex // Protects connected flag
+	reconnectDone chan struct{} // Signals reconnection loop to stop
 }
 
 // NewMQTTPublisher creates a new MQTT publisher.
@@ -49,15 +53,17 @@ func NewMQTTPublisher(cfg *config.Config) *MQTTPublisher {
 		config:        cfg,
 		connected:     false,
 		clientFactory: createMQTTClient,
+		reconnectDone: make(chan struct{}),
 	}
 }
 
 // NewMQTTPublisherWithClient creates a new MQTT publisher with a custom client (for testing).
 func NewMQTTPublisherWithClient(cfg *config.Config, client mqtt.Client) *MQTTPublisher {
 	return &MQTTPublisher{
-		config:    cfg,
-		client:    client,
-		connected: false,
+		config:        cfg,
+		client:        client,
+		connected:     false,
+		reconnectDone: make(chan struct{}),
 	}
 }
 
@@ -94,7 +100,7 @@ func (p *MQTTPublisher) Connect(ctx context.Context) error {
 	}
 
 	// Connect with context for timeout
-	connectCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	connectCtx, cancel := context.WithTimeout(ctx, time.Duration(p.config.MQTT.ConnectionTimeout)*time.Second)
 	defer cancel()
 
 	connToken := p.client.Connect()
@@ -102,20 +108,42 @@ func (p *MQTTPublisher) Connect(ctx context.Context) error {
 	// Wait for connection or context timeout
 	select {
 	case <-connectCtx.Done():
-		return fmt.Errorf("failed to connect to MQTT broker: timeout after 10 seconds")
+		p.setConnected(false)
+		return fmt.Errorf("failed to connect to MQTT broker: timeout after %d seconds", p.config.MQTT.ConnectionTimeout)
 	case <-connToken.Done():
 		if connToken.Error() != nil {
+			p.setConnected(false)
 			return fmt.Errorf("failed to connect to MQTT broker: %w", connToken.Error())
 		}
 	}
 
-	p.connected = true
+	p.setConnected(true)
 	return nil
+}
+
+// IsConnected returns the current connection status.
+func (p *MQTTPublisher) IsConnected() bool {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.connected && p.client != nil && p.client.IsConnected()
+}
+
+// setConnected sets the connection status in a thread-safe manner.
+func (p *MQTTPublisher) setConnected(status bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.connected = status
 }
 
 // Publish sends data to the specified topic.
 func (p *MQTTPublisher) Publish(ctx context.Context, topic string, data interface{}) error {
-	if !p.config.MQTT.Enabled || !p.connected {
+	if !p.config.MQTT.Enabled {
+		return nil
+	}
+
+	// Check if connected before attempting publish
+	// If not connected, silently skip (reconnection loop will restore connection)
+	if !p.IsConnected() {
 		return nil
 	}
 
@@ -134,9 +162,13 @@ func (p *MQTTPublisher) Publish(ctx context.Context, topic string, data interfac
 	// Wait for publication or context timeout
 	select {
 	case <-publishCtx.Done():
+		// Mark as disconnected on timeout so reconnection loop can restore
+		p.setConnected(false)
 		return fmt.Errorf("publish timeout after 5 seconds")
 	case <-token.Done():
 		if token.Error() != nil {
+			// Mark as disconnected on error so reconnection loop can restore
+			p.setConnected(false)
 			return fmt.Errorf("failed to publish message: %w", token.Error())
 		}
 	}
@@ -146,7 +178,7 @@ func (p *MQTTPublisher) Publish(ctx context.Context, topic string, data interfac
 
 // PublishInverterData publishes inverter data to the configured MQTT topic.
 func (p *MQTTPublisher) PublishInverterData(ctx context.Context, data *domain.InverterData) error {
-	if !p.config.MQTT.Enabled || !p.connected {
+	if !p.config.MQTT.Enabled {
 		return nil
 	}
 
@@ -161,11 +193,60 @@ func (p *MQTTPublisher) PublishInverterData(ctx context.Context, data *domain.In
 	return p.Publish(ctx, baseTopic, data)
 }
 
-// Close terminates the connection to the MQTT broker.
+// StartReconnectionLoop starts a background goroutine that continuously monitors
+// and attempts to restore MQTT connection if it's lost. This ensures the system
+// can heal automatically from any MQTT broker outages, no matter how long.
+func (p *MQTTPublisher) StartReconnectionLoop(ctx context.Context) {
+	if !p.config.MQTT.Enabled {
+		return
+	}
+
+	go func() {
+		// Check every 10 seconds
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+
+		logger := log.With().Str("component", "mqtt-reconnect").Logger()
+		logger.Info().Msg("MQTT reconnection loop started")
+
+		for {
+			select {
+			case <-ctx.Done():
+				logger.Info().Msg("MQTT reconnection loop stopped (context cancelled)")
+				return
+			case <-p.reconnectDone:
+				logger.Info().Msg("MQTT reconnection loop stopped (close requested)")
+				return
+			case <-ticker.C:
+				// Check if we're not connected
+				if !p.IsConnected() {
+					logger.Info().
+						Str("broker", fmt.Sprintf("%s:%d", p.config.MQTT.Host, p.config.MQTT.Port)).
+						Msg("MQTT disconnected, attempting reconnection")
+
+					// Attempt reconnection
+					if err := p.Connect(ctx); err != nil {
+						logger.Warn().
+							Err(err).
+							Msg("MQTT reconnection attempt failed, will retry")
+					} else {
+						logger.Info().Msg("MQTT reconnection successful")
+					}
+				}
+			}
+		}
+	}()
+}
+
+// Close terminates the connection to the MQTT broker and stops the reconnection loop.
 func (p *MQTTPublisher) Close() error {
-	if p.client != nil && p.connected {
+	// Signal reconnection loop to stop
+	close(p.reconnectDone)
+
+	// Disconnect from MQTT broker
+	if p.client != nil && p.IsConnected() {
 		p.client.Disconnect(250) // Disconnect with 250ms timeout
-		p.connected = false
+		p.setConnected(false)
 	}
 	return nil
 }

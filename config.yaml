@@ -31,6 +31,11 @@ mqtt:
   include_inverter_id: false # Whether to include inverter serial in topic path (e.g., energy/growatt/ABC123456)
   retain: false # Whether MQTT messages should be retained on the broker
 
+  # Connection retry settings (helps with race conditions on system boot)
+  connection_retry_attempts: 5 # Maximum number of connection attempts at startup (0 = no retry, default: 5)
+  connection_retry_base_delay_seconds: 2 # Base delay for exponential backoff in seconds (default: 2)
+  connection_timeout_seconds: 10 # Timeout for each connection attempt in seconds (default: 10)
+
 # PVOutput settings
 pvoutput:
   enabled: false # Enable/disable publishing to PVOutput.org

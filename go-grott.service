@@ -1,0 +1,42 @@
+[Unit]
+Description=Go-Grott Growatt Inverter Monitor
+Documentation=https://github.com/resident-x/go-grott
+After=network-online.target
+Wants=network-online.target
+# Uncomment the following line if MQTT broker runs on the same machine
+# Requires=mosquitto.service
+# After=mosquitto.service
+
+[Service]
+Type=simple
+User=grott
+Group=grott
+
+# Adjust these paths as needed for your installation
+WorkingDirectory=/opt/go-grott
+ExecStart=/usr/local/bin/go-grott -config /etc/go-grott/config.yaml
+
+# Restart configuration
+Restart=on-failure
+RestartSec=5
+StartLimitBurst=3
+StartLimitIntervalSec=60
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/go-grott
+
+# Resource limits
+LimitNOFILE=8192
+MemoryLimit=256M
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=go-grott
+
+[Install]
+WantedBy=multi-user.target
