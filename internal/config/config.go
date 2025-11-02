@@ -52,15 +52,15 @@ type Config struct {
 
 		// Home Assistant Auto-Discovery settings
 		HomeAssistantAutoDiscovery struct {
-			Enabled             bool   `mapstructure:"enabled"`
-			DiscoveryPrefix     string `mapstructure:"discovery_prefix"`
-			DeviceName          string `mapstructure:"device_name"`
-			DeviceManufacturer  string `mapstructure:"device_manufacturer"`
-			DeviceModel         string `mapstructure:"device_model"`
-			RetainDiscovery     bool   `mapstructure:"retain_discovery"`
-			ValueTemplateSuffix string `mapstructure:"value_template_suffix"`
-			ListenToBirthMessage bool  `mapstructure:"listen_to_birth_message"`
-			RediscoveryInterval int   `mapstructure:"rediscovery_interval_hours"`
+			Enabled              bool   `mapstructure:"enabled"`
+			DiscoveryPrefix      string `mapstructure:"discovery_prefix"`
+			DeviceName           string `mapstructure:"device_name"`
+			DeviceManufacturer   string `mapstructure:"device_manufacturer"`
+			DeviceModel          string `mapstructure:"device_model"`
+			RetainDiscovery      bool   `mapstructure:"retain_discovery"`
+			ValueTemplateSuffix  string `mapstructure:"value_template_suffix"`
+			ListenToBirthMessage bool   `mapstructure:"listen_to_birth_message"`
+			RediscoveryInterval  int    `mapstructure:"rediscovery_interval_hours"`
 		} `mapstructure:"homeassistant_autodiscovery"`
 	} `mapstructure:"mqtt"`
 
@@ -116,8 +116,8 @@ func DefaultConfig() *Config {
 
 	// Default Startup Data Filter settings
 	cfg.MQTT.StartupDataFilter.Enabled = true
-	cfg.MQTT.StartupDataFilter.GracePeriodSeconds = 10    // Drop first 10 seconds of data
-	cfg.MQTT.StartupDataFilter.DataGapThresholdHours = 1  // Consider 1+ hour gap as restart
+	cfg.MQTT.StartupDataFilter.GracePeriodSeconds = 10   // Drop first 10 seconds of data
+	cfg.MQTT.StartupDataFilter.DataGapThresholdHours = 1 // Consider 1+ hour gap as restart
 
 	// Default Home Assistant Auto-Discovery settings
 	cfg.MQTT.HomeAssistantAutoDiscovery.Enabled = false

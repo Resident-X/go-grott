@@ -50,12 +50,12 @@ type MQTTPublisher struct {
 	discoveredSensors map[string]bool // Track which sensors have been discovered
 	lastDiscoveryTime time.Time       // Track when we last sent discovery messages
 	birthSubscribed   bool            // Track if we've subscribed to birth messages
-	
+
 	// Startup data filtering fields
-	startupTime         time.Time // When the publisher was created
-	lastDataTime        time.Time // When we last received data
-	inGracePeriod       bool      // Whether we're currently in a grace period
-	gracePeriodStart    time.Time // When the current grace period started
+	startupTime      time.Time // When the publisher was created
+	lastDataTime     time.Time // When we last received data
+	inGracePeriod    bool      // Whether we're currently in a grace period
+	gracePeriodStart time.Time // When the current grace period started
 }
 
 // NewMQTTPublisher creates a new MQTT publisher.
@@ -170,11 +170,11 @@ func (p *MQTTPublisher) setupConnectionHandlers() {
 	onConnect := func(client mqtt.Client) {
 		p.logger.Info().Msg("MQTT connection established")
 		p.connected = true
-		
+
 		// Clear discovered sensors on reconnect to trigger re-discovery
 		p.discoveredSensors = make(map[string]bool)
 		p.lastDiscoveryTime = time.Time{}
-		
+
 		p.logger.Debug().Msg("Cleared discovery cache on reconnection")
 	}
 
@@ -214,7 +214,7 @@ func (p *MQTTPublisher) subscribeToBirthMessage() {
 	}
 
 	birthTopic := fmt.Sprintf("%s/status", p.config.MQTT.HomeAssistantAutoDiscovery.DiscoveryPrefix)
-	
+
 	token := p.client.Subscribe(birthTopic, 0, p.handleBirthMessage)
 	if token.Wait() && token.Error() != nil {
 		p.logger.Warn().Err(token.Error()).Str("topic", birthTopic).Msg("Failed to subscribe to birth message")
@@ -228,7 +228,7 @@ func (p *MQTTPublisher) subscribeToBirthMessage() {
 // handleBirthMessage handles Home Assistant birth messages.
 func (p *MQTTPublisher) handleBirthMessage(client mqtt.Client, msg mqtt.Message) {
 	payload := string(msg.Payload())
-	
+
 	p.logger.Debug().
 		Str("topic", msg.Topic()).
 		Str("payload", payload).
@@ -305,11 +305,11 @@ func (p *MQTTPublisher) shouldFilterStartupData() bool {
 	}
 
 	now := time.Now()
-	
+
 	// Update last data time
 	timeSinceLastData := now.Sub(p.lastDataTime)
 	p.lastDataTime = now
-	
+
 	// Check if we should start a new grace period due to data gap
 	dataGapThreshold := time.Duration(p.config.MQTT.StartupDataFilter.DataGapThresholdHours) * time.Hour
 	if timeSinceLastData > dataGapThreshold {
@@ -320,7 +320,7 @@ func (p *MQTTPublisher) shouldFilterStartupData() bool {
 		p.inGracePeriod = true
 		p.gracePeriodStart = now
 	}
-	
+
 	// Check if we're still in grace period
 	if p.inGracePeriod {
 		gracePeriodDuration := time.Duration(p.config.MQTT.StartupDataFilter.GracePeriodSeconds) * time.Second
@@ -331,7 +331,7 @@ func (p *MQTTPublisher) shouldFilterStartupData() bool {
 			p.inGracePeriod = false
 		}
 	}
-	
+
 	// Return true if we should filter (still in grace period)
 	if p.inGracePeriod {
 		p.logger.Debug().
@@ -339,7 +339,7 @@ func (p *MQTTPublisher) shouldFilterStartupData() bool {
 			Msg("Filtering startup data - still in grace period")
 		return true
 	}
-	
+
 	return false
 }
 
@@ -348,7 +348,7 @@ func (p *MQTTPublisher) publishInverterDataWithDiscovery(ctx context.Context, to
 	// Require PVSerial to be present; skip message if missing
 	if data.PVSerial == "" {
 		p.logger.Debug().Msg("Skipping publish: PVSerial is empty")
-		return nil 
+		return nil
 	}
 
 	// Check startup data filtering
@@ -464,7 +464,7 @@ func (p *MQTTPublisher) setupHomeAssistantDiscovery(deviceID string) error {
 	if idx := strings.LastIndex(deviceID, "_"); idx != -1 {
 		pvSerial = deviceID[:idx]
 	}
-	
+
 	if p.config.MQTT.IncludeInverterID && pvSerial != "" {
 		baseTopic = fmt.Sprintf("%s/%s", baseTopic, pvSerial)
 	}
@@ -482,7 +482,7 @@ func (p *MQTTPublisher) publishHomeAssistantDiscovery(ctx context.Context, data 
 
 	// Check if we should rediscover sensors (periodic or after reconnection)
 	shouldRediscover := p.shouldRediscover()
-	
+
 	// Generate discovery messages for all sensors
 	discoveryMessages := p.haDiscovery.GenerateDiscoveryMessages(data)
 
@@ -503,7 +503,7 @@ func (p *MQTTPublisher) publishHomeAssistantDiscovery(ctx context.Context, data 
 			p.discoveredSensors[topic] = true
 		}
 	}
-	
+
 	// Update last discovery time if we performed rediscovery
 	if shouldRediscover {
 		p.lastDiscoveryTime = time.Now()

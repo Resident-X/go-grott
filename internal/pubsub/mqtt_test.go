@@ -497,64 +497,64 @@ func TestMQTTPublisher_Close_WithClient(t *testing.T) {
 // TestMQTTPublisher_StartupDataFiltering tests the startup data filtering functionality
 func TestMQTTPublisher_StartupDataFiltering(t *testing.T) {
 	tests := []struct {
-		name                    string
-		filterEnabled           bool
-		gracePeriodSeconds      int
-		dataGapThresholdHours   int
-		timeSinceStartup        time.Duration
-		timeSinceLastData       time.Duration
-		expectedFiltered        bool
-		description             string
+		name                  string
+		filterEnabled         bool
+		gracePeriodSeconds    int
+		dataGapThresholdHours int
+		timeSinceStartup      time.Duration
+		timeSinceLastData     time.Duration
+		expectedFiltered      bool
+		description           string
 	}{
 		{
-			name:                    "filtering disabled",
-			filterEnabled:           false,
-			gracePeriodSeconds:      10,
-			dataGapThresholdHours:   1,
-			timeSinceStartup:        5 * time.Second,
-			timeSinceLastData:       0,
-			expectedFiltered:        false,
-			description:             "should not filter when disabled",
+			name:                  "filtering disabled",
+			filterEnabled:         false,
+			gracePeriodSeconds:    10,
+			dataGapThresholdHours: 1,
+			timeSinceStartup:      5 * time.Second,
+			timeSinceLastData:     0,
+			expectedFiltered:      false,
+			description:           "should not filter when disabled",
 		},
 		{
-			name:                    "within grace period after startup",
-			filterEnabled:           true,
-			gracePeriodSeconds:      10,
-			dataGapThresholdHours:   1,
-			timeSinceStartup:        5 * time.Second,
-			timeSinceLastData:       0,
-			expectedFiltered:        true,
-			description:             "should filter data within grace period",
+			name:                  "within grace period after startup",
+			filterEnabled:         true,
+			gracePeriodSeconds:    10,
+			dataGapThresholdHours: 1,
+			timeSinceStartup:      5 * time.Second,
+			timeSinceLastData:     0,
+			expectedFiltered:      true,
+			description:           "should filter data within grace period",
 		},
 		{
-			name:                    "after grace period",
-			filterEnabled:           true,
-			gracePeriodSeconds:      10,
-			dataGapThresholdHours:   1,
-			timeSinceStartup:        15 * time.Second,
-			timeSinceLastData:       0,
-			expectedFiltered:        false,
-			description:             "should not filter data after grace period ends",
+			name:                  "after grace period",
+			filterEnabled:         true,
+			gracePeriodSeconds:    10,
+			dataGapThresholdHours: 1,
+			timeSinceStartup:      15 * time.Second,
+			timeSinceLastData:     0,
+			expectedFiltered:      false,
+			description:           "should not filter data after grace period ends",
 		},
 		{
-			name:                    "data gap triggers new grace period",
-			filterEnabled:           true,
-			gracePeriodSeconds:      10,
-			dataGapThresholdHours:   1,
-			timeSinceStartup:        30 * time.Second,
-			timeSinceLastData:       2 * time.Hour,
-			expectedFiltered:        true,
-			description:             "should start new grace period after data gap",
+			name:                  "data gap triggers new grace period",
+			filterEnabled:         true,
+			gracePeriodSeconds:    10,
+			dataGapThresholdHours: 1,
+			timeSinceStartup:      30 * time.Second,
+			timeSinceLastData:     2 * time.Hour,
+			expectedFiltered:      true,
+			description:           "should start new grace period after data gap",
 		},
 		{
-			name:                    "small data gap no filtering",
-			filterEnabled:           true,
-			gracePeriodSeconds:      10,
-			dataGapThresholdHours:   1,
-			timeSinceStartup:        30 * time.Second,
-			timeSinceLastData:       30 * time.Minute,
-			expectedFiltered:        false,
-			description:             "should not filter for small data gaps",
+			name:                  "small data gap no filtering",
+			filterEnabled:         true,
+			gracePeriodSeconds:    10,
+			dataGapThresholdHours: 1,
+			timeSinceStartup:      30 * time.Second,
+			timeSinceLastData:     30 * time.Minute,
+			expectedFiltered:      false,
+			description:           "should not filter for small data gaps",
 		},
 	}
 
@@ -572,7 +572,7 @@ func TestMQTTPublisher_StartupDataFiltering(t *testing.T) {
 
 			// Create publisher
 			publisher := NewMQTTPublisherWithClient(cfg, mockClient)
-			
+
 			// Simulate time passing since startup
 			now := time.Now()
 			publisher.startupTime = now.Add(-tt.timeSinceStartup)
@@ -582,7 +582,7 @@ func TestMQTTPublisher_StartupDataFiltering(t *testing.T) {
 
 			// Test the filtering logic
 			shouldFilter := publisher.shouldFilterStartupData()
-			
+
 			assert.Equal(t, tt.expectedFiltered, shouldFilter, tt.description)
 		})
 	}
@@ -609,8 +609,8 @@ func TestMQTTPublisher_StartupDataFilteringIntegration(t *testing.T) {
 
 	// Create test inverter data
 	testData := &domain.InverterData{
-		PVSerial:    "TEST123456",
-		DeviceType:  "inverter",
+		PVSerial:   "TEST123456",
+		DeviceType: "inverter",
 		ExtendedData: map[string]interface{}{
 			"pvpowerout":   1500.0,
 			"etogridtoday": 32775.0, // This is the problematic rollover value
@@ -623,7 +623,7 @@ func TestMQTTPublisher_StartupDataFilteringIntegration(t *testing.T) {
 	t.Run("blocks publishing during grace period", func(t *testing.T) {
 		// Reset mock expectations
 		mockClient.ExpectedCalls = nil
-		
+
 		// Publisher is in grace period (just started)
 		now := time.Now()
 		publisher.startupTime = now
@@ -634,7 +634,7 @@ func TestMQTTPublisher_StartupDataFilteringIntegration(t *testing.T) {
 		// Should not call Publish on the MQTT client
 		err := publisher.publishInverterDataWithDiscovery(ctx, "test/topic", testData)
 		assert.NoError(t, err)
-		
+
 		// Verify no MQTT publish calls were made
 		mockClient.AssertNotCalled(t, "Publish")
 	})
@@ -658,13 +658,13 @@ func TestMQTTPublisher_StartupDataFilteringIntegration(t *testing.T) {
 		close(doneChan) // Close immediately to simulate completed publish
 		mockToken.On("Done").Return((<-chan struct{})(doneChan))
 		mockToken.On("Error").Return(nil)
-		
+
 		mockClient.On("Publish", mock.AnythingOfType("string"), byte(0), false, mock.Anything).Return(mockToken)
 
 		// Should publish normally
 		err := publisher.publishInverterDataWithDiscovery(ctx, "test/topic", testData)
 		assert.NoError(t, err)
-		
+
 		// Verify MQTT publish was called
 		mockClient.AssertCalled(t, "Publish", mock.AnythingOfType("string"), byte(0), false, mock.Anything)
 	})
@@ -715,7 +715,7 @@ func TestMQTTPublisher_StartupDataFilteringDataGap(t *testing.T) {
 
 	// Wait for initial grace period to end
 	time.Sleep(1100 * time.Millisecond)
-	
+
 	// Verify we're not filtering
 	assert.False(t, publisher.shouldFilterStartupData(), "should not filter after initial grace period")
 

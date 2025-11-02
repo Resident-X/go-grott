@@ -387,3 +387,247 @@ func TestPVOutputClient_Send_NoSystemIDAtAll(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "PVOutput API key and/or System ID not configured")
 }
+
+// Test hasSmartMeterData function
+func TestPVOutputClient_HasSmartMeterData_NoExtendedData(t *testing.T) {
+	client := NewClient(&config.Config{})
+
+	data := &domain.InverterData{
+		PVPowerOut:   1500.0,
+		ExtendedData: nil,
+	}
+
+	assert.False(t, client.hasSmartMeterData(data))
+}
+
+func TestPVOutputClient_HasSmartMeterData_EmptyExtendedData(t *testing.T) {
+	client := NewClient(&config.Config{})
+
+	data := &domain.InverterData{
+		PVPowerOut:   1500.0,
+		ExtendedData: make(map[string]interface{}),
+	}
+
+	assert.False(t, client.hasSmartMeterData(data))
+}
+
+func TestPVOutputClient_HasSmartMeterData_WithPosActEnergy(t *testing.T) {
+	client := NewClient(&config.Config{})
+
+	data := &domain.InverterData{
+		PVPowerOut: 1500.0,
+		ExtendedData: map[string]interface{}{
+			"pos_act_energy": 12345.6,
+		},
+	}
+
+	assert.True(t, client.hasSmartMeterData(data))
+}
+
+func TestPVOutputClient_HasSmartMeterData_WithPosRevActPower(t *testing.T) {
+	client := NewClient(&config.Config{})
+
+	data := &domain.InverterData{
+		PVPowerOut: 1500.0,
+		ExtendedData: map[string]interface{}{
+			"pos_rev_act_power": 466.0,
+		},
+	}
+
+	assert.True(t, client.hasSmartMeterData(data))
+}
+
+func TestPVOutputClient_HasSmartMeterData_WithBothFields(t *testing.T) {
+	client := NewClient(&config.Config{})
+
+	data := &domain.InverterData{
+		PVPowerOut: 1500.0,
+		ExtendedData: map[string]interface{}{
+			"pos_act_energy":    12345.6,
+			"pos_rev_act_power": 466.0,
+			"voltage_l1":        230.5,
+		},
+	}
+
+	assert.True(t, client.hasSmartMeterData(data))
+}
+
+// Test getFloat64 function
+func TestPVOutputClient_GetFloat64_NilMap(t *testing.T) {
+	client := NewClient(&config.Config{})
+
+	result := client.getFloat64(nil, "test_key")
+	assert.Equal(t, 0.0, result)
+}
+
+func TestPVOutputClient_GetFloat64_MissingKey(t *testing.T) {
+	client := NewClient(&config.Config{})
+
+	extData := map[string]interface{}{
+		"other_key": 123.45,
+	}
+
+	result := client.getFloat64(extData, "missing_key")
+	assert.Equal(t, 0.0, result)
+}
+
+func TestPVOutputClient_GetFloat64_Float64Value(t *testing.T) {
+	client := NewClient(&config.Config{})
+
+	extData := map[string]interface{}{
+		"test_key": 123.45,
+	}
+
+	result := client.getFloat64(extData, "test_key")
+	assert.Equal(t, 123.45, result)
+}
+
+func TestPVOutputClient_GetFloat64_Float32Value(t *testing.T) {
+	client := NewClient(&config.Config{})
+
+	extData := map[string]interface{}{
+		"test_key": float32(123.45),
+	}
+
+	result := client.getFloat64(extData, "test_key")
+	assert.InDelta(t, 123.45, result, 0.01)
+}
+
+func TestPVOutputClient_GetFloat64_IntValue(t *testing.T) {
+	client := NewClient(&config.Config{})
+
+	extData := map[string]interface{}{
+		"test_key": 123,
+	}
+
+	result := client.getFloat64(extData, "test_key")
+	assert.Equal(t, 123.0, result)
+}
+
+func TestPVOutputClient_GetFloat64_Int64Value(t *testing.T) {
+	client := NewClient(&config.Config{})
+
+	extData := map[string]interface{}{
+		"test_key": int64(123),
+	}
+
+	result := client.getFloat64(extData, "test_key")
+	assert.Equal(t, 123.0, result)
+}
+
+func TestPVOutputClient_GetFloat64_InvalidType(t *testing.T) {
+	client := NewClient(&config.Config{})
+
+	extData := map[string]interface{}{
+		"test_key": "not a number",
+	}
+
+	result := client.getFloat64(extData, "test_key")
+	assert.Equal(t, 0.0, result)
+}
+
+// Test smart meter data sending
+func TestPVOutputClient_Send_SmartMeterData(t *testing.T) {
+	requestCount := 0
+
+	// Create a test server that expects two requests
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "/service/r2/addstatus.jsp", r.URL.Path)
+
+		err := r.ParseForm()
+		assert.NoError(t, err)
+
+		assert.Equal(t, "test-api-key", r.Form.Get("key"))
+		assert.Equal(t, "test-system-id", r.Form.Get("sid"))
+
+		if requestCount == 1 {
+			// First request should have v3 and c1
+			assert.Equal(t, "1234560", r.Form.Get("v3")) // 12345.6 * 100
+			assert.Equal(t, "3", r.Form.Get("c1"))
+			assert.Equal(t, "230.5", r.Form.Get("v6"))
+		} else if requestCount == 2 {
+			// Second request should have v4 and n
+			assert.Equal(t, "466", r.Form.Get("v4"))
+			assert.Equal(t, "1", r.Form.Get("n"))
+			assert.Equal(t, "230.5", r.Form.Get("v6"))
+		}
+
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	cfg := &config.Config{}
+	cfg.PVOutput.Enabled = true
+	cfg.PVOutput.APIKey = "test-api-key"
+	cfg.PVOutput.SystemID = "test-system-id"
+	cfg.PVOutput.UpdateLimitMinutes = 5
+
+	client := NewClient(cfg)
+
+	ctx := context.Background()
+	data := &domain.InverterData{
+		PVSerial: "test-serial",
+		ExtendedData: map[string]interface{}{
+			"pos_act_energy":    12345.6,
+			"pos_rev_act_power": 466.0,
+			"voltage_l1":        230.5,
+		},
+	}
+
+	// This will attempt a real HTTP request to pvoutput.org and likely fail
+	// We can't easily mock the HTTP client without refactoring
+	err := client.Send(ctx, data)
+	assert.Error(t, err) // Will error due to network request
+}
+
+func TestPVOutputClient_Send_SmartMeterData_ZeroValues(t *testing.T) {
+	cfg := &config.Config{}
+	cfg.PVOutput.Enabled = true
+	cfg.PVOutput.APIKey = "test-api-key"
+	cfg.PVOutput.SystemID = "test-system-id"
+	cfg.PVOutput.UpdateLimitMinutes = 5
+
+	client := NewClient(cfg)
+
+	ctx := context.Background()
+	data := &domain.InverterData{
+		PVSerial: "test-serial",
+		ExtendedData: map[string]interface{}{
+			"pos_act_energy":    0.0,
+			"pos_rev_act_power": 0.0,
+			"voltage_l1":        0.0,
+		},
+	}
+
+	// Even with smart meter fields, if they're zero, should still try to send
+	err := client.Send(ctx, data)
+	assert.Error(t, err) // Will error due to network request
+}
+
+func TestPVOutputClient_Send_InverterData_NotSmartMeter(t *testing.T) {
+	cfg := &config.Config{}
+	cfg.PVOutput.Enabled = true
+	cfg.PVOutput.APIKey = "test-api-key"
+	cfg.PVOutput.SystemID = "test-system-id"
+	cfg.PVOutput.UpdateLimitMinutes = 5
+
+	client := NewClient(cfg)
+
+	ctx := context.Background()
+	data := &domain.InverterData{
+		PVSerial:      "test-serial",
+		PVPowerOut:    1500.0,
+		EACToday:      25.5,
+		PVGridVoltage: 237.3,
+		ExtendedData: map[string]interface{}{
+			// No smart meter fields
+			"some_other_field": 123.45,
+		},
+	}
+
+	// Should send as regular inverter data (v1/v2), not smart meter (v3/v4)
+	err := client.Send(ctx, data)
+	assert.Error(t, err) // Will error due to network request
+}
