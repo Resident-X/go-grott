@@ -1,7 +1,8 @@
 # go-grott: Growatt Inverter Monitor
 
 [![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat&logo=go)](https://golang.org)
-[![Build Status](https://img.shields.io/badge/Build-Passing-green)](https://github.com/resident-x/go-grott)
+[![Build Status](https://img.shields.io/badge/Build-Passing-green)](https://github.com/Resident-X/go-grott)
+[![Latest Release](https://img.shields.io/github/v/release/Resident-X/go-grott)](https://github.com/Resident-X/go-grott/releases/latest)
 [![License](https://img.shields.io/badge/License-Unlicense-blue.svg)](LICENSE)
 [![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
 
@@ -24,10 +25,10 @@ Release binaries are built with [SLSA Level 3](https://slsa.dev) compliance - cr
 **Download:**
 ```bash
 # Linux AMD64
-wget https://github.com/resident-x/go-grott/releases/latest/download/go-grott-linux-amd64
-wget https://github.com/resident-x/go-grott/releases/latest/download/go-grott-linux-amd64.intoto.jsonl
+curl -LO https://github.com/Resident-X/go-grott/releases/latest/download/go-grott-server-linux-amd64
+curl -LO https://github.com/Resident-X/go-grott/releases/latest/download/go-grott-server-linux-amd64.intoto.jsonl
 
-# Other platforms available: linux-arm64, darwin-amd64, darwin-arm64, windows-amd64.exe
+# Other platforms available: linux-arm64, darwin-amd64, darwin-arm64, windows-amd64
 ```
 
 **Verify (recommended):**
@@ -37,17 +38,17 @@ go install github.com/slsa-framework/slsa-verifier/v2/cli/slsa-verifier@latest
 
 # Verify binary authenticity
 slsa-verifier verify-artifact \
-  --provenance-path go-grott-linux-amd64.intoto.jsonl \
-  --source-uri github.com/resident-x/go-grott \
-  go-grott-linux-amd64
+  --provenance-path go-grott-server-linux-amd64.intoto.jsonl \
+  --source-uri github.com/Resident-X/go-grott \
+  go-grott-server-linux-amd64
 
-# Expected output: "Verified SLSA provenance"
+# Expected output: "Verifying artifact go-grott-server-linux-amd64: PASSED"
 ```
 
 **Run:**
 ```bash
-chmod +x go-grott-linux-amd64
-./go-grott-linux-amd64 -config config.yaml
+chmod +x go-grott-server-linux-amd64
+./go-grott-server-linux-amd64 -config config.yaml
 ```
 
 ### Alternative: Build from Source
@@ -55,7 +56,7 @@ chmod +x go-grott-linux-amd64
 **Using Task (recommended for development):**
 ```bash
 go install github.com/go-task/task/v3/cmd/task@latest
-git clone https://github.com/resident-x/go-grott.git
+git clone https://github.com/Resident-X/go-grott.git
 cd go-grott
 task build
 ./go-grott
@@ -63,7 +64,7 @@ task build
 
 **Using go install:**
 ```bash
-go install github.com/resident-x/go-grott@latest
+go install github.com/Resident-X/go-grott@latest
 ```
 
 ## Quick Start
