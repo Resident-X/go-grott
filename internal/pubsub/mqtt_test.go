@@ -804,3 +804,227 @@ func TestMQTTPublisher_StartupDataFilteringConfiguration(t *testing.T) {
 		})
 	}
 }
+
+// TestMQTTPublisher_ShouldRediscover tests the periodic rediscovery logic
+func TestMQTTPublisher_ShouldRediscover(t *testing.T) {
+	t.Run("RediscoveryDisabled", func(t *testing.T) {
+		cfg := &config.Config{}
+		cfg.MQTT.HomeAssistantAutoDiscovery.RediscoveryInterval = 0 // Disabled
+
+		publisher := NewMQTTPublisher(cfg)
+
+		// Should return false when rediscovery is disabled
+		assert.False(t, publisher.shouldRediscover())
+	})
+
+	t.Run("FirstDiscovery", func(t *testing.T) {
+		cfg := &config.Config{}
+		cfg.MQTT.HomeAssistantAutoDiscovery.RediscoveryInterval = 24 // 24 hours
+
+		publisher := NewMQTTPublisher(cfg)
+
+		// Should return true on first discovery (lastDiscoveryTime is zero)
+		assert.True(t, publisher.shouldRediscover())
+	})
+
+	t.Run("RecentDiscovery", func(t *testing.T) {
+		cfg := &config.Config{}
+		cfg.MQTT.HomeAssistantAutoDiscovery.RediscoveryInterval = 24 // 24 hours
+
+		publisher := NewMQTTPublisher(cfg)
+
+		// Set recent discovery time
+		publisher.mu.Lock()
+		publisher.lastDiscoveryTime = time.Now().Add(-1 * time.Hour) // 1 hour ago
+		publisher.mu.Unlock()
+
+		// Should return false (not enough time has passed)
+		assert.False(t, publisher.shouldRediscover())
+	})
+
+	t.Run("PastRediscoveryInterval", func(t *testing.T) {
+		cfg := &config.Config{}
+		cfg.MQTT.HomeAssistantAutoDiscovery.RediscoveryInterval = 1 // 1 hour
+
+		publisher := NewMQTTPublisher(cfg)
+
+		// Set old discovery time
+		publisher.mu.Lock()
+		publisher.lastDiscoveryTime = time.Now().Add(-2 * time.Hour) // 2 hours ago
+		publisher.mu.Unlock()
+
+		// Should return true (interval has passed)
+		assert.True(t, publisher.shouldRediscover())
+	})
+}
+
+// mockMessage is a simple test implementation of MQTT Message interface
+type mockMessage struct {
+	topic   string
+	payload []byte
+}
+
+func (m *mockMessage) Duplicate() bool   { return false }
+func (m *mockMessage) Qos() byte         { return 0 }
+func (m *mockMessage) Retained() bool    { return false }
+func (m *mockMessage) Topic() string     { return m.topic }
+func (m *mockMessage) MessageID() uint16 { return 0 }
+func (m *mockMessage) Payload() []byte   { return m.payload }
+func (m *mockMessage) Ack()              {}
+
+// TestMQTTPublisher_HandleBirthMessage tests Home Assistant birth message handling
+func TestMQTTPublisher_HandleBirthMessage(t *testing.T) {
+	t.Run("OnlineMessage", func(t *testing.T) {
+		cfg := &config.Config{}
+		publisher := NewMQTTPublisher(cfg)
+
+		// Set some discovered sensors
+		publisher.mu.Lock()
+		publisher.discoveredSensors["test/sensor1"] = true
+		publisher.discoveredSensors["test/sensor2"] = true
+		publisher.lastDiscoveryTime = time.Now().Add(-1 * time.Hour)
+		publisher.mu.Unlock()
+
+		// Create a mock MQTT message
+		mockClient := mocks.NewMockClient(t)
+		mockMsg := &mockMessage{
+			topic:   "homeassistant/status",
+			payload: []byte("online"),
+		}
+
+		// Handle the birth message
+		publisher.handleBirthMessage(mockClient, mockMsg)
+
+		// Verify discovery cache was cleared
+		publisher.mu.RLock()
+		assert.Empty(t, publisher.discoveredSensors, "discovered sensors should be cleared")
+		assert.True(t, publisher.lastDiscoveryTime.IsZero(), "last discovery time should be reset")
+		publisher.mu.RUnlock()
+	})
+
+	t.Run("OfflineMessage", func(t *testing.T) {
+		cfg := &config.Config{}
+		publisher := NewMQTTPublisher(cfg)
+
+		// Set some discovered sensors
+		publisher.mu.Lock()
+		publisher.discoveredSensors["test/sensor1"] = true
+		discoveryTime := time.Now().Add(-1 * time.Hour)
+		publisher.lastDiscoveryTime = discoveryTime
+		publisher.mu.Unlock()
+
+		// Create a mock MQTT message
+		mockClient := mocks.NewMockClient(t)
+		mockMsg := &mockMessage{
+			topic:   "homeassistant/status",
+			payload: []byte("offline"),
+		}
+
+		// Handle the birth message
+		publisher.handleBirthMessage(mockClient, mockMsg)
+
+		// Verify discovery cache was NOT cleared for offline message
+		publisher.mu.RLock()
+		assert.Len(t, publisher.discoveredSensors, 1, "discovered sensors should not be cleared")
+		assert.Equal(t, discoveryTime.Unix(), publisher.lastDiscoveryTime.Unix(), "last discovery time should not change")
+		publisher.mu.RUnlock()
+	})
+}
+
+// TestMQTTPublisher_SubscribeToBirthMessage tests birth message subscription
+func TestMQTTPublisher_SubscribeToBirthMessage(t *testing.T) {
+	t.Run("SuccessfulSubscription", func(t *testing.T) {
+		cfg := &config.Config{}
+		cfg.MQTT.HomeAssistantAutoDiscovery.DiscoveryPrefix = "homeassistant"
+
+		mockClient := mocks.NewMockClient(t)
+		mockToken := mocks.NewMockToken(t)
+
+		// Setup mock expectations
+		mockToken.On("Wait").Return(true)
+		mockToken.On("Error").Return(nil)
+		mockClient.On("Subscribe", "homeassistant/status", byte(0), mock.Anything).Return(mockToken)
+
+		publisher := NewMQTTPublisherWithClient(cfg, mockClient)
+		publisher.mu.Lock()
+		publisher.connected = true
+		publisher.mu.Unlock()
+
+		// Call subscribe
+		publisher.subscribeToBirthMessage()
+
+		// Verify subscription was set
+		publisher.mu.RLock()
+		assert.True(t, publisher.birthSubscribed)
+		publisher.mu.RUnlock()
+
+		mockClient.AssertExpectations(t)
+		mockToken.AssertExpectations(t)
+	})
+
+	t.Run("AlreadySubscribed", func(t *testing.T) {
+		cfg := &config.Config{}
+		cfg.MQTT.HomeAssistantAutoDiscovery.DiscoveryPrefix = "homeassistant"
+
+		mockClient := mocks.NewMockClient(t)
+
+		publisher := NewMQTTPublisherWithClient(cfg, mockClient)
+		publisher.mu.Lock()
+		publisher.connected = true
+		publisher.birthSubscribed = true
+		publisher.mu.Unlock()
+
+		// Call subscribe - should do nothing
+		publisher.subscribeToBirthMessage()
+
+		// Should not call Subscribe on client
+		mockClient.AssertNotCalled(t, "Subscribe")
+	})
+
+	t.Run("NotConnected", func(t *testing.T) {
+		cfg := &config.Config{}
+		cfg.MQTT.HomeAssistantAutoDiscovery.DiscoveryPrefix = "homeassistant"
+
+		mockClient := mocks.NewMockClient(t)
+
+		publisher := NewMQTTPublisherWithClient(cfg, mockClient)
+		publisher.mu.Lock()
+		publisher.connected = false
+		publisher.mu.Unlock()
+
+		// Call subscribe - should do nothing when not connected
+		publisher.subscribeToBirthMessage()
+
+		// Should not call Subscribe on client
+		mockClient.AssertNotCalled(t, "Subscribe")
+	})
+
+	t.Run("SubscriptionError", func(t *testing.T) {
+		cfg := &config.Config{}
+		cfg.MQTT.HomeAssistantAutoDiscovery.DiscoveryPrefix = "homeassistant"
+
+		mockClient := mocks.NewMockClient(t)
+		mockToken := mocks.NewMockToken(t)
+
+		// Setup mock expectations - subscription fails
+		mockToken.On("Wait").Return(true)
+		mockToken.On("Error").Return(assert.AnError)
+		mockClient.On("Subscribe", "homeassistant/status", byte(0), mock.Anything).Return(mockToken)
+
+		publisher := NewMQTTPublisherWithClient(cfg, mockClient)
+		publisher.mu.Lock()
+		publisher.connected = true
+		publisher.mu.Unlock()
+
+		// Call subscribe
+		publisher.subscribeToBirthMessage()
+
+		// Verify subscription was NOT set due to error
+		publisher.mu.RLock()
+		assert.False(t, publisher.birthSubscribed)
+		publisher.mu.RUnlock()
+
+		mockClient.AssertExpectations(t)
+		mockToken.AssertExpectations(t)
+	})
+}
