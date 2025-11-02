@@ -163,7 +163,7 @@ func initLogger(level string) {
 // logServiceConfiguration logs the current service configuration for debugging.
 func logServiceConfiguration(cfg *config.Config) {
 	log.Debug().Msg("=== Service Configuration ===")
-	
+
 	// General settings
 	log.Debug().
 		Str("log_level", cfg.LogLevel).

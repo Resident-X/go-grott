@@ -35,22 +35,22 @@ func loadHexDataFromFile(filename string) ([]string, error) {
 
 	var hexData []string
 	scanner := bufio.NewScanner(file)
-	
+
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line != "" && !strings.HasPrefix(line, "#") { // Skip empty lines and comments
 			hexData = append(hexData, line)
 		}
 	}
-	
+
 	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("error reading file: %w", err)
 	}
-	
+
 	if len(hexData) == 0 {
 		return nil, fmt.Errorf("no hex data found in file %s", filename)
 	}
-	
+
 	return hexData, nil
 }
 
@@ -112,7 +112,7 @@ func (sim *InverterSimulator) getNextHexData() string {
 	if len(sim.hexData) == 0 {
 		return ""
 	}
-	
+
 	hexData := sim.hexData[sim.dataIndex]
 	sim.dataIndex = (sim.dataIndex + 1) % len(sim.hexData) // Cycle through data
 	return hexData

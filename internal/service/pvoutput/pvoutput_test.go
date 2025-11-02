@@ -621,7 +621,7 @@ func TestPVOutputClient_Send_InverterData_NotSmartMeter(t *testing.T) {
 		PVPowerOut:    1500.0,
 		EACToday:      25.5,
 		PVGridVoltage: 237.3,
-		ExtendedData:  map[string]interface{}{
+		ExtendedData: map[string]interface{}{
 			// No smart meter fields
 			"some_other_field": 123.45,
 		},

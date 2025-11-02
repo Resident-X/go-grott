@@ -151,7 +151,7 @@ func TestAdvancedValidator_ValidatePacket(t *testing.T) {
 		data[len(data)-2] = 0x16
 
 		result := validator.ValidatePacket(data, "generic", make(map[string]interface{}))
-		assert.True(t, result.Valid) // Should be valid
+		assert.True(t, result.Valid)     // Should be valid
 		assert.Empty(t, result.Warnings) // No size warnings in Python compatibility mode
 	})
 }
