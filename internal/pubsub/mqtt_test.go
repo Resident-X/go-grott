@@ -79,10 +79,18 @@ func TestMQTTPublisher_Connect_InvalidBroker(t *testing.T) {
 	publisher := NewMQTTPublisher(cfg)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
+	defer publisher.Close() // Clean up background retry goroutine
 
+	// Connect should not return error even with invalid broker (non-blocking)
 	err := publisher.Connect(ctx)
-	assert.Error(t, err)
-	assert.False(t, publisher.connected)
+	assert.NoError(t, err)
+
+	// Connection should not be established yet
+	publisher.mu.RLock()
+	connected := publisher.connected
+	publisher.mu.RUnlock()
+
+	assert.False(t, connected, "should not be connected")
 }
 
 func TestMQTTPublisher_Connect_WithCredentials(t *testing.T) {
@@ -97,11 +105,18 @@ func TestMQTTPublisher_Connect_WithCredentials(t *testing.T) {
 	publisher := NewMQTTPublisher(cfg)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
+	defer publisher.Close() // Clean up background retry goroutine
 
-	// Should still error due to invalid broker, but credentials are set
+	// Connect should not return error even with invalid broker (non-blocking)
 	err := publisher.Connect(ctx)
-	assert.Error(t, err)
-	assert.False(t, publisher.connected)
+	assert.NoError(t, err)
+
+	// Connection should not be established yet
+	publisher.mu.RLock()
+	connected := publisher.connected
+	publisher.mu.RUnlock()
+
+	assert.False(t, connected, "should not be connected")
 }
 
 func TestMQTTPublisher_Publish_NotConnected(t *testing.T) {
@@ -275,11 +290,18 @@ func TestMQTTPublisher_Connect_Timeout(t *testing.T) {
 	publisher := NewMQTTPublisher(cfg)
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
+	defer publisher.Close() // Clean up background retry goroutine
 
+	// Connect should not return error even with timeout (non-blocking)
 	err := publisher.Connect(ctx)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "timeout")
-	assert.False(t, publisher.connected)
+	assert.NoError(t, err)
+
+	// Connection should not be established yet
+	publisher.mu.RLock()
+	connected := publisher.connected
+	publisher.mu.RUnlock()
+
+	assert.False(t, connected, "should not be connected after timeout")
 }
 
 func TestMQTTPublisher_Close_NotConnected(t *testing.T) {
@@ -349,11 +371,18 @@ func TestMQTTPublisher_Connect_Error(t *testing.T) {
 
 	publisher := NewMQTTPublisherWithClient(cfg, mockClient)
 	ctx := context.Background()
+	defer publisher.Close() // Clean up background retry goroutine
 
+	// Connect should not return error even with connection failure (non-blocking)
 	err := publisher.Connect(ctx)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to connect to MQTT broker")
-	assert.False(t, publisher.connected)
+	assert.NoError(t, err)
+
+	// Connection should not be established
+	publisher.mu.RLock()
+	connected := publisher.connected
+	publisher.mu.RUnlock()
+
+	assert.False(t, connected, "should not be connected after error")
 }
 
 func TestMQTTPublisher_Publish_Successful(t *testing.T) {

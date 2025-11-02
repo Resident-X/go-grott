@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -41,12 +42,15 @@ func (p *NoopPublisher) Close() error {
 
 // MQTTPublisher implements the MessagePublisher interface for MQTT.
 type MQTTPublisher struct {
-	config            *config.Config
-	client            mqtt.Client
+	config        *config.Config
+	client        mqtt.Client
+	logger        zerolog.Logger
+	clientFactory func(*config.Config) mqtt.Client // Factory function for creating MQTT clients (testable)
+	haDiscovery   *homeassistant.AutoDiscovery
+
+	// Fields below are protected by mu for concurrent access
+	mu                sync.RWMutex
 	connected         bool
-	logger            zerolog.Logger
-	clientFactory     func(*config.Config) mqtt.Client // Factory function for creating MQTT clients (testable)
-	haDiscovery       *homeassistant.AutoDiscovery
 	discoveredSensors map[string]bool // Track which sensors have been discovered
 	lastDiscoveryTime time.Time       // Track when we last sent discovery messages
 	birthSubscribed   bool            // Track if we've subscribed to birth messages
@@ -56,6 +60,10 @@ type MQTTPublisher struct {
 	lastDataTime     time.Time // When we last received data
 	inGracePeriod    bool      // Whether we're currently in a grace period
 	gracePeriodStart time.Time // When the current grace period started
+
+	// Background reconnection fields
+	stopReconnect chan struct{} // Channel to signal background reconnect to stop
+	reconnecting  bool          // Whether background reconnection is active
 }
 
 // NewMQTTPublisher creates a new MQTT publisher.
@@ -75,6 +83,9 @@ func NewMQTTPublisher(cfg *config.Config) *MQTTPublisher {
 		lastDataTime:     now,
 		inGracePeriod:    true,
 		gracePeriodStart: now,
+		// Initialize background reconnection
+		stopReconnect: make(chan struct{}),
+		reconnecting:  false,
 	}
 }
 
@@ -95,11 +106,16 @@ func NewMQTTPublisherWithClient(cfg *config.Config, client mqtt.Client) *MQTTPub
 		lastDataTime:     now,
 		inGracePeriod:    true,
 		gracePeriodStart: now,
+		// Initialize background reconnection
+		stopReconnect: make(chan struct{}),
+		reconnecting:  false,
 	}
 }
 
 // createMQTTClient is the default factory function for creating MQTT clients.
 func createMQTTClient(cfg *config.Config) mqtt.Client {
+	// Note: Connection handlers are NOT set here - they're set in Connect()
+	// to ensure the publisher instance is fully initialized before handlers are called
 	opts := mqtt.NewClientOptions().
 		AddBroker(fmt.Sprintf("tcp://%s:%d", cfg.MQTT.Host, cfg.MQTT.Port)).
 		SetClientID(fmt.Sprintf("go-grott-%d", time.Now().Unix())).
@@ -119,21 +135,25 @@ func createMQTTClient(cfg *config.Config) mqtt.Client {
 }
 
 // Connect establishes a connection to the MQTT broker.
+// If the initial connection fails, it starts a background retry process
+// and returns nil to allow the application to start without MQTT.
 func (p *MQTTPublisher) Connect(ctx context.Context) error {
 	// If MQTT is disabled, do nothing
 	if !p.config.MQTT.Enabled {
 		return nil
 	}
 
-	// Create client if not already set (for testing)
+	// Create client with connection handlers if not already set (for testing)
 	if p.client == nil {
-		p.client = p.clientFactory(p.config)
+		p.client = p.createClientWithHandlers()
 	}
 
-	// Set up connection handlers
-	p.setupConnectionHandlers()
+	// Try initial connection with timeout
+	p.logger.Info().
+		Str("host", p.config.MQTT.Host).
+		Int("port", p.config.MQTT.Port).
+		Msg("Attempting initial MQTT connection")
 
-	// Connect with context for timeout
 	connectCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
@@ -142,14 +162,30 @@ func (p *MQTTPublisher) Connect(ctx context.Context) error {
 	// Wait for connection or context timeout
 	select {
 	case <-connectCtx.Done():
-		return fmt.Errorf("failed to connect to MQTT broker: timeout after 10 seconds")
+		p.logger.Warn().
+			Str("host", p.config.MQTT.Host).
+			Int("port", p.config.MQTT.Port).
+			Msg("Initial MQTT connection failed (timeout), will retry in background")
+		go p.startBackgroundReconnect()
+		return nil // Non-blocking: return success to allow app to start
 	case <-connToken.Done():
 		if connToken.Error() != nil {
-			return fmt.Errorf("failed to connect to MQTT broker: %w", connToken.Error())
+			p.logger.Warn().
+				Err(connToken.Error()).
+				Str("host", p.config.MQTT.Host).
+				Int("port", p.config.MQTT.Port).
+				Msg("Initial MQTT connection failed, will retry in background")
+			go p.startBackgroundReconnect()
+			return nil // Non-blocking: return success to allow app to start
 		}
 	}
 
+	// Connection successful
+	p.mu.Lock()
 	p.connected = true
+	p.mu.Unlock()
+
+	p.logger.Info().Msg("Initial MQTT connection successful")
 
 	// Subscribe to birth message if enabled
 	if p.config.MQTT.HomeAssistantAutoDiscovery.Enabled && p.config.MQTT.HomeAssistantAutoDiscovery.ListenToBirthMessage {
@@ -159,35 +195,119 @@ func (p *MQTTPublisher) Connect(ctx context.Context) error {
 	return nil
 }
 
-// setupConnectionHandlers sets up MQTT connection event handlers.
-func (p *MQTTPublisher) setupConnectionHandlers() {
-	// Skip setup if we already have a client (e.g., in tests with mocks)
-	if p.client != nil {
-		return
+// startBackgroundReconnect attempts to reconnect to MQTT broker in the background
+// using exponential backoff. This allows the application to continue running
+// even if MQTT is unavailable at startup.
+func (p *MQTTPublisher) startBackgroundReconnect() {
+	p.mu.Lock()
+	if p.reconnecting {
+		p.mu.Unlock()
+		return // Already reconnecting, don't start another goroutine
 	}
+	p.reconnecting = true
+	p.mu.Unlock()
 
+	defer func() {
+		p.mu.Lock()
+		p.reconnecting = false
+		p.mu.Unlock()
+	}()
+
+	backoff := 1 * time.Second
+	maxBackoff := 60 * time.Second
+	attempt := 0
+
+	for {
+		// Check if we should stop (connection established or Close() called)
+		select {
+		case <-p.stopReconnect:
+			p.logger.Debug().Msg("Background MQTT reconnection stopped")
+			return
+		default:
+		}
+
+		// Check if already connected (via auto-reconnect)
+		p.mu.RLock()
+		isConnected := p.connected
+		p.mu.RUnlock()
+
+		if isConnected {
+			p.logger.Info().Msg("MQTT connection established via background reconnect")
+			return
+		}
+
+		// Wait before retry
+		attempt++
+		p.logger.Info().
+			Int("attempt", attempt).
+			Dur("backoff", backoff).
+			Str("host", p.config.MQTT.Host).
+			Int("port", p.config.MQTT.Port).
+			Msg("Retrying MQTT connection")
+
+		select {
+		case <-time.After(backoff):
+			// Attempt connection
+			if p.client == nil {
+				p.client = p.createClientWithHandlers()
+			}
+
+			connToken := p.client.Connect()
+			if connToken.Wait() && connToken.Error() == nil {
+				// Connection successful - onConnect handler will handle the rest
+				p.logger.Info().
+					Int("attempt", attempt).
+					Msg("MQTT connection established after retry")
+				return
+			}
+
+			// Connection failed, increase backoff
+			backoff *= 2
+			if backoff > maxBackoff {
+				backoff = maxBackoff
+			}
+		case <-p.stopReconnect:
+			p.logger.Debug().Msg("Background MQTT reconnection stopped during backoff")
+			return
+		}
+	}
+}
+
+// createClientWithHandlers creates an MQTT client with connection event handlers configured.
+func (p *MQTTPublisher) createClientWithHandlers() mqtt.Client {
 	// Connection established handler - called when connection is made/remade
 	onConnect := func(client mqtt.Client) {
 		p.logger.Info().Msg("MQTT connection established")
-		p.connected = true
 
+		p.mu.Lock()
+		p.connected = true
 		// Clear discovered sensors on reconnect to trigger re-discovery
 		p.discoveredSensors = make(map[string]bool)
 		p.lastDiscoveryTime = time.Time{}
+		// Reset subscription flag so we can re-subscribe
+		p.birthSubscribed = false
+		p.mu.Unlock()
 
 		p.logger.Debug().Msg("Cleared discovery cache on reconnection")
+
+		// Re-subscribe to birth messages if enabled
+		if p.config.MQTT.HomeAssistantAutoDiscovery.Enabled && p.config.MQTT.HomeAssistantAutoDiscovery.ListenToBirthMessage {
+			p.subscribeToBirthMessage()
+		}
 	}
 
 	// Connection lost handler - called when connection is lost
 	onConnectionLost := func(client mqtt.Client, err error) {
+		p.mu.Lock()
 		p.connected = false
 		p.birthSubscribed = false
-		p.logger.Warn().Err(err).Msg("MQTT connection lost")
+		p.mu.Unlock()
+
+		p.logger.Warn().Err(err).Msg("MQTT connection lost, will auto-reconnect")
 	}
 
-	// Set the handlers on the client options
-	// We need to recreate the client with handlers since we can't modify existing options
-	newOpts := mqtt.NewClientOptions().
+	// Create client options with handlers configured
+	opts := mqtt.NewClientOptions().
 		AddBroker(fmt.Sprintf("tcp://%s:%d", p.config.MQTT.Host, p.config.MQTT.Port)).
 		SetClientID(fmt.Sprintf("go-grott-%d", time.Now().Unix())).
 		SetAutoReconnect(true).
@@ -200,16 +320,21 @@ func (p *MQTTPublisher) setupConnectionHandlers() {
 
 	// Set credentials if provided
 	if p.config.MQTT.Username != "" {
-		newOpts.SetUsername(p.config.MQTT.Username)
-		newOpts.SetPassword(p.config.MQTT.Password)
+		opts.SetUsername(p.config.MQTT.Username)
+		opts.SetPassword(p.config.MQTT.Password)
 	}
 
-	p.client = mqtt.NewClient(newOpts)
+	return mqtt.NewClient(opts)
 }
 
 // subscribeToBirthMessage subscribes to Home Assistant birth messages.
 func (p *MQTTPublisher) subscribeToBirthMessage() {
-	if p.birthSubscribed || !p.connected {
+	p.mu.RLock()
+	alreadySubscribed := p.birthSubscribed
+	isConnected := p.connected
+	p.mu.RUnlock()
+
+	if alreadySubscribed || !isConnected {
 		return
 	}
 
@@ -221,7 +346,10 @@ func (p *MQTTPublisher) subscribeToBirthMessage() {
 		return
 	}
 
+	p.mu.Lock()
 	p.birthSubscribed = true
+	p.mu.Unlock()
+
 	p.logger.Info().Str("topic", birthTopic).Msg("Subscribed to Home Assistant birth messages")
 }
 
@@ -237,8 +365,10 @@ func (p *MQTTPublisher) handleBirthMessage(client mqtt.Client, msg mqtt.Message)
 	// If Home Assistant comes online, clear discovery cache to trigger re-discovery
 	if payload == "online" {
 		p.logger.Info().Msg("Home Assistant came online, triggering auto-discovery refresh")
+		p.mu.Lock()
 		p.discoveredSensors = make(map[string]bool)
 		p.lastDiscoveryTime = time.Time{}
+		p.mu.Unlock()
 	}
 }
 
@@ -248,17 +378,25 @@ func (p *MQTTPublisher) shouldRediscover() bool {
 		return false
 	}
 
-	if p.lastDiscoveryTime.IsZero() {
+	p.mu.RLock()
+	lastDiscovery := p.lastDiscoveryTime
+	p.mu.RUnlock()
+
+	if lastDiscovery.IsZero() {
 		return true
 	}
 
 	interval := time.Duration(p.config.MQTT.HomeAssistantAutoDiscovery.RediscoveryInterval) * time.Hour
-	return time.Since(p.lastDiscoveryTime) >= interval
+	return time.Since(lastDiscovery) >= interval
 }
 
 // Publish sends data to the specified topic.
 func (p *MQTTPublisher) Publish(ctx context.Context, topic string, data interface{}) error {
-	if !p.config.MQTT.Enabled || !p.connected {
+	p.mu.RLock()
+	isConnected := p.connected
+	p.mu.RUnlock()
+
+	if !p.config.MQTT.Enabled || !isConnected {
 		return nil
 	}
 
@@ -303,6 +441,9 @@ func (p *MQTTPublisher) shouldFilterStartupData() bool {
 	if !p.config.MQTT.StartupDataFilter.Enabled {
 		return false
 	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
 
 	now := time.Now()
 
@@ -488,8 +629,13 @@ func (p *MQTTPublisher) publishHomeAssistantDiscovery(ctx context.Context, data 
 
 	// Publish each discovery message
 	for topic, message := range discoveryMessages {
+		// Check if this sensor needs discovery
+		p.mu.RLock()
+		alreadyDiscovered := p.discoveredSensors[topic]
+		p.mu.RUnlock()
+
 		// Publish if we haven't discovered this sensor or if rediscovery is needed
-		if !p.discoveredSensors[topic] || shouldRediscover {
+		if !alreadyDiscovered || shouldRediscover {
 			messageJSON, err := json.Marshal(message)
 			if err != nil {
 				return fmt.Errorf("failed to marshal discovery message: %w", err)
@@ -500,13 +646,17 @@ func (p *MQTTPublisher) publishHomeAssistantDiscovery(ctx context.Context, data 
 				return fmt.Errorf("failed to publish discovery message to %s: %w", topic, token.Error())
 			}
 
+			p.mu.Lock()
 			p.discoveredSensors[topic] = true
+			p.mu.Unlock()
 		}
 	}
 
 	// Update last discovery time if we performed rediscovery
 	if shouldRediscover {
+		p.mu.Lock()
 		p.lastDiscoveryTime = time.Now()
+		p.mu.Unlock()
 	}
 
 	// Publish availability message
@@ -520,11 +670,26 @@ func (p *MQTTPublisher) publishHomeAssistantDiscovery(ctx context.Context, data 
 	return nil
 }
 
-// Close terminates the connection to the MQTT broker.
+// Close terminates the connection to the MQTT broker and stops background reconnection.
 func (p *MQTTPublisher) Close() error {
-	if p.client != nil && p.connected {
+	// Stop background reconnection if running
+	select {
+	case <-p.stopReconnect:
+		// Channel already closed
+	default:
+		close(p.stopReconnect)
+	}
+
+	p.mu.Lock()
+	isConnected := p.connected
+	p.mu.Unlock()
+
+	if p.client != nil && isConnected {
 		p.client.Disconnect(250) // Disconnect with 250ms timeout
+
+		p.mu.Lock()
 		p.connected = false
+		p.mu.Unlock()
 	}
 	return nil
 }
